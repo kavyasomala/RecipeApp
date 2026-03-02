@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -10,99 +10,111 @@ const Badge = ({ children, variant = 'default' }) => (
   <span className={`badge badge--${variant}`}>{children}</span>
 );
 
-// ─── Recipe Card ───────────────────────────────────────────────────────────
-const RecipeCard = ({ recipe, onClick }) => {
-  const { name, have, missing, matchScore, canMake, coverImage, tags, time } = recipe;
+// ─── Recipe Summary Card ───────────────────────────────────────────────────
+const RecipeCard = ({ recipe, match, onClick }) => {
+  const {
+    name,
+    coverImage,
+    cuisine,
+    calories,
+    protein,
+  } = recipe;
+
+  const matchScore = match?.matchScore ?? null;
+  const canMakeNow = Boolean(match?.canMake);
 
   return (
-    <article className={`card ${canMake ? 'card--ready' : ''}`} onClick={() => onClick(recipe)}>
-      {coverImage && (
-        <div className="card__image">
+    <article className="recipe-card" onClick={() => onClick(recipe)}>
+      <div className="recipe-card__image">
+        {coverImage ? (
           <img src={coverImage} alt={name} loading="lazy" />
-          {canMake && <div className="card__ready-badge">✓ Ready to make!</div>}
-        </div>
-      )}
-      {!coverImage && canMake && <div className="card__ready-strip">✓ Ready to make!</div>}
-
-      <div className="card__body">
-        <h3 className="card__title">{name}</h3>
-
-        <div className="card__meta">
-          {tags.slice(0, 2).map(t => <Badge key={t}>{t}</Badge>)}
-          {time && <Badge variant="time">⏱ {time}</Badge>}
-        </div>
-
-        <div className="card__progress">
-          <div className="progress-bar">
-            <div
-              className="progress-bar__fill"
-              style={{ width: `${pct(matchScore)}%`, '--score': matchScore }}
-            />
-          </div>
-          <span className="progress-label">
-            {have.length}/{have.length + missing.length} ingredients
-          </span>
-        </div>
-
-        {missing.length > 0 && (
-          <p className="card__missing">
-            <span className="card__missing-label">Missing: </span>
-            {missing.slice(0, 4).join(', ')}
-            {missing.length > 4 && ` +${missing.length - 4} more`}
-          </p>
+        ) : (
+          <div className="recipe-card__image-placeholder">No photo</div>
         )}
+
+        {matchScore !== null && (
+          <div className={`recipe-card__score ${canMakeNow ? 'recipe-card__score--ready' : ''}`}>
+            {pct(matchScore)}%
+          </div>
+        )}
+      </div>
+
+      <div className="recipe-card__body">
+        <div className="recipe-card__title-row">
+          <h3 className="recipe-card__title">{name}</h3>
+          {canMakeNow && <span className="recipe-card__can-make">Can make</span>}
+        </div>
+
+        <div className="recipe-card__meta">
+          {cuisine && <Badge>{cuisine}</Badge>}
+        </div>
+
+        <div className="recipe-card__nutrition">
+          {typeof calories === 'number' && <span className="recipe-card__pill">{Math.round(calories)} kcal</span>}
+          {typeof protein === 'number' && <span className="recipe-card__pill">{Math.round(protein)}g protein</span>}
+        </div>
       </div>
     </article>
   );
 };
 
-// ─── Recipe Detail Modal ────────────────────────────────────────────────────
-const RecipeModal = ({ recipe, onClose }) => {
-  if (!recipe) return null;
-  const { name, have, missing, matchScore, canMake, coverImage, tags, time, servings, notionUrl } = recipe;
+// ─── Notion content renderer ───────────────────────────────────────────────
+const NotionContent = ({ content }) => {
+  if (!content || content.length === 0) return null;
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <button className="modal__close" onClick={onClose}>✕</button>
-        {coverImage && <img className="modal__image" src={coverImage} alt={name} />}
-        <div className="modal__body">
-          <h2 className="modal__title">{name}</h2>
-          <div className="modal__meta">
-            {tags.map(t => <Badge key={t}>{t}</Badge>)}
-            {time && <Badge variant="time">⏱ {time}</Badge>}
-            {servings && <Badge variant="info">🍽 {servings} servings</Badge>}
-          </div>
+  const out = [];
+  for (let i = 0; i < content.length; i++) {
+    const node = content[i];
 
-          <div className={`modal__score ${canMake ? 'modal__score--ready' : ''}`}>
-            {canMake ? '✓ You have everything!' : `${pct(matchScore)}% match — ${missing.length} ingredient${missing.length !== 1 ? 's' : ''} missing`}
-          </div>
+    if (node.type === 'bulleted_list_item') {
+      const items = [];
+      while (i < content.length && content[i].type === 'bulleted_list_item') {
+        items.push(content[i]);
+        i++;
+      }
+      i--;
+      out.push(
+        <ul key={`ul-${i}`} className="notion-list">
+          {items.map((it, idx) => <li key={idx}>{it.text}</li>)}
+        </ul>
+      );
+      continue;
+    }
 
-          {have.length > 0 && (
-            <div className="modal__section">
-              <h4>✅ You have ({have.length})</h4>
-              <ul className="ingredient-list ingredient-list--have">
-                {have.map(i => <li key={i}>{i}</li>)}
-              </ul>
-            </div>
-          )}
+    if (node.type === 'numbered_list_item') {
+      const items = [];
+      while (i < content.length && content[i].type === 'numbered_list_item') {
+        items.push(content[i]);
+        i++;
+      }
+      i--;
+      out.push(
+        <ol key={`ol-${i}`} className="notion-list">
+          {items.map((it, idx) => <li key={idx}>{it.text}</li>)}
+        </ol>
+      );
+      continue;
+    }
 
-          {missing.length > 0 && (
-            <div className="modal__section">
-              <h4>🛒 You need ({missing.length})</h4>
-              <ul className="ingredient-list ingredient-list--missing">
-                {missing.map(i => <li key={i}>{i}</li>)}
-              </ul>
-            </div>
-          )}
+    if (node.type === 'heading_1') out.push(<h1 key={i} className="notion-h1">{node.text}</h1>);
+    else if (node.type === 'heading_2') out.push(<h2 key={i} className="notion-h2">{node.text}</h2>);
+    else if (node.type === 'heading_3') out.push(<h3 key={i} className="notion-h3">{node.text}</h3>);
+    else if (node.type === 'paragraph') out.push(<p key={i} className="notion-p">{node.text}</p>);
+    else if (node.type === 'quote') out.push(<blockquote key={i} className="notion-quote">{node.text}</blockquote>);
+    else if (node.type === 'divider') out.push(<hr key={i} className="notion-hr" />);
+    else if (node.type === 'image') {
+      if (node.url) {
+        out.push(
+          <figure key={i} className="notion-figure">
+            <img src={node.url} alt={node.caption || 'Recipe image'} />
+            {node.caption && <figcaption>{node.caption}</figcaption>}
+          </figure>
+        );
+      }
+    }
+  }
 
-          <a className="modal__notion-link" href={notionUrl} target="_blank" rel="noreferrer">
-            Open full recipe in Notion →
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="notion-content">{out}</div>;
 };
 
 // ─── Ingredient Picker ──────────────────────────────────────────────────────
@@ -184,18 +196,76 @@ const IngredientPicker = ({ allIngredients, selected, onChange }) => {
   );
 };
 
+// ─── Recipe Detail Page ────────────────────────────────────────────────────
+const RecipePage = ({ recipe, content, onBack, loading }) => {
+  if (loading) {
+    return (
+      <main className="view">
+        <div className="placeholder">
+          <h2>Loading recipe…</h2>
+        </div>
+      </main>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <main className="view">
+        <div className="placeholder">
+          <h2>Recipe not found</h2>
+          <button className="btn btn--ghost" onClick={onBack}>← Back</button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="view recipe-page">
+      <button className="btn btn--ghost back-btn" onClick={onBack}>← Back</button>
+
+      <div className="recipe-page__header">
+        <div className="recipe-page__image">
+          {recipe.coverImage ? (
+            <img src={recipe.coverImage} alt={recipe.name} />
+          ) : (
+            <div className="recipe-page__image-placeholder">No photo</div>
+          )}
+        </div>
+
+        <div className="recipe-page__summary">
+          <h2 className="recipe-page__title">{recipe.name}</h2>
+          <div className="recipe-page__meta">
+            {recipe.cuisine && <Badge>{recipe.cuisine}</Badge>}
+            {typeof recipe.calories === 'number' && <Badge variant="info">{Math.round(recipe.calories)} kcal</Badge>}
+            {typeof recipe.protein === 'number' && <Badge variant="info">{Math.round(recipe.protein)}g protein</Badge>}
+            {recipe.time && <Badge variant="time">⏱ {recipe.time}</Badge>}
+            {recipe.servings && <Badge variant="info">🍽 {recipe.servings}</Badge>}
+          </div>
+
+          <a className="recipe-page__notion-link" href={recipe.notionUrl} target="_blank" rel="noreferrer">
+            Open in Notion →
+          </a>
+        </div>
+      </div>
+
+      <NotionContent content={content} />
+    </main>
+  );
+};
+
 // ─── Main App ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView] = useState('fridge'); // 'fridge' | 'results'
+  const [view, setView] = useState('home'); // 'home' | 'recipes' | 'fridge' | 'grocery' | 'add' | 'recipe'
+  const [lastView, setLastView] = useState('home');
   const [allIngredients, setAllIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [fridgeIngredients, setFridgeIngredients] = useState([]);
-  const [matched, setMatched] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [recipeContent, setRecipeContent] = useState([]);
+  const [recipeLoading, setRecipeLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [matching, setMatching] = useState(false);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'all' | 'ready' | 'close'
+  const [librarySearch, setLibrarySearch] = useState('');
 
   // Load ingredients + recipes on mount
   useEffect(() => {
@@ -222,33 +292,71 @@ export default function App() {
     load();
   }, []);
 
-  const findRecipes = useCallback(async () => {
-    if (fridgeIngredients.length === 0) return;
-    setMatching(true);
+  const libraryRecipes = useMemo(() => {
+    const q = librarySearch.toLowerCase().trim();
+    if (!q) return recipes;
+    return recipes.filter(r => {
+      const nameMatch = r.name.toLowerCase().includes(q);
+      const cuisineMatch = (r.cuisine || '').toLowerCase().includes(q);
+      const tagMatch = (r.tags || []).some(t => t.toLowerCase().includes(q));
+      return nameMatch || cuisineMatch || tagMatch;
+    });
+  }, [recipes, librarySearch]);
+
+  const matches = useMemo(() => {
+    const fridge = new Set(fridgeIngredients.map(i => i.toLowerCase().trim()));
+    if (fridge.size === 0) return [];
+
+    const m = recipes.map(recipe => {
+      const recipeIngredients = recipe.ingredients || [];
+      const have = recipeIngredients.filter(i => fridge.has(i));
+      const missing = recipeIngredients.filter(i => !fridge.has(i));
+      const matchScore = recipeIngredients.length === 0 ? 0 : have.length / recipeIngredients.length;
+
+      return {
+        id: recipe.id,
+        have,
+        missing,
+        matchScore,
+        canMake: missing.length === 0 && recipeIngredients.length > 0,
+      };
+    });
+
+    m.sort((a, b) => {
+      if (a.canMake && !b.canMake) return -1;
+      if (!a.canMake && b.canMake) return 1;
+      return b.matchScore - a.matchScore;
+    });
+
+    return m;
+  }, [fridgeIngredients, recipes]);
+
+  const matchById = useMemo(() => {
+    const map = new Map();
+    for (const m of matches) map.set(m.id, m);
+    return map;
+  }, [matches]);
+
+  const openRecipe = async (recipe) => {
+    setLastView(view);
+    setView('recipe');
+    setRecipeLoading(true);
     try {
-      const res = await fetch(`${API}/api/match`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fridgeIngredients, recipes }),
-      });
-      const { matched: m } = await res.json();
-      setMatched(m);
-      setView('results');
+      const res = await fetch(`${API}/api/recipes/${recipe.id}`);
+      if (!res.ok) throw new Error('Failed to load recipe details');
+      const data = await res.json();
+      setSelectedRecipe(data.recipe);
+      setRecipeContent(data.content || []);
     } catch (e) {
       setError(e.message);
     } finally {
-      setMatching(false);
+      setRecipeLoading(false);
     }
-  }, [fridgeIngredients, recipes]);
+  };
 
-  const filteredRecipes = useMemo(() => {
-    if (filter === 'ready') return matched.filter(r => r.canMake);
-    if (filter === 'close') return matched.filter(r => !r.canMake && r.matchScore >= 0.5);
-    return matched;
-  }, [matched, filter]);
-
-  const readyCount = matched.filter(r => r.canMake).length;
-  const closeCount = matched.filter(r => !r.canMake && r.matchScore >= 0.5).length;
+  const backFromRecipe = () => {
+    setView(lastView);
+  };
 
   if (loading) return (
     <div className="loading-screen">
@@ -271,86 +379,221 @@ export default function App() {
     <div className="app">
       {/* Header */}
       <header className="app-header">
-        <div className="app-header__inner">
-          <button
-            className={`tab ${view === 'fridge' ? 'tab--active' : ''}`}
-            onClick={() => setView('fridge')}
-          >
-            🥦 My Fridge
-          </button>
-          <div className="app-header__logo">🍳</div>
-          <button
-            className={`tab ${view === 'results' ? 'tab--active' : ''}`}
-            onClick={() => matched.length > 0 && setView('results')}
-            disabled={matched.length === 0}
-          >
-            📖 Recipes
-          </button>
+        <div className="app-header__bar">
+          <div className="app-header__brand">
+            <span className="app-header__logo">🍳</span>
+            <div className="app-header__title-group">
+              <span className="app-header__title">Recipe Library</span>
+              <span className="app-header__subtitle">Your personal cookbook, powered by Notion</span>
+            </div>
+          </div>
+          <nav className="nav-tabs">
+            <button
+              className={`nav-tab ${view === 'home' ? 'nav-tab--active' : ''}`}
+              onClick={() => setView('home')}
+            >
+              Home
+            </button>
+            <button
+              className={`nav-tab ${view === 'recipes' ? 'nav-tab--active' : ''}`}
+              onClick={() => setView('recipes')}
+              disabled={recipes.length === 0}
+            >
+              All Recipes
+            </button>
+            <button
+              className={`nav-tab ${view === 'fridge' ? 'nav-tab--active' : ''}`}
+              onClick={() => setView('fridge')}
+            >
+              Fridge Matcher
+            </button>
+            <button
+              className={`nav-tab ${view === 'grocery' ? 'nav-tab--active' : ''}`}
+              onClick={() => setView('grocery')}
+            >
+              Grocery List
+            </button>
+            <button
+              className={`nav-tab ${view === 'add' ? 'nav-tab--active' : ''}`}
+              onClick={() => setView('add')}
+            >
+              Add Recipe
+            </button>
+          </nav>
         </div>
       </header>
 
-      {/* Fridge View */}
+      {/* Recipe Detail Page */}
+      {view === 'recipe' && (
+        <RecipePage
+          recipe={selectedRecipe}
+          content={recipeContent}
+          loading={recipeLoading}
+          onBack={backFromRecipe}
+        />
+      )}
+
+      {/* Fridge Matcher – sidebar ingredients + live matches */}
       {view === 'fridge' && (
+        <main className="view matcher-layout">
+          <section className="matcher-sidebar panel">
+            <IngredientPicker
+              allIngredients={allIngredients}
+              selected={fridgeIngredients}
+              onChange={setFridgeIngredients}
+            />
+          </section>
+          <section className="matcher-main">
+            <div className="library-header">
+              <h2>Matches</h2>
+              <p className="library-subtitle">
+                {fridgeIngredients.length === 0
+                  ? 'Select ingredients to see matches'
+                  : `${matches.filter(m => m.matchScore > 0 || m.canMake).length} recipes matched`}
+              </p>
+            </div>
+
+            <div className="recipe-grid">
+              {(fridgeIngredients.length === 0
+                ? recipes
+                : recipes.filter(r => {
+                    const m = matchById.get(r.id);
+                    return m && (m.matchScore > 0 || m.canMake);
+                  })
+              )
+                .sort((a, b) => {
+                  const ma = matchById.get(a.id);
+                  const mb = matchById.get(b.id);
+                  if (!ma && !mb) return a.name.localeCompare(b.name);
+                  if (ma && !mb) return -1;
+                  if (!ma && mb) return 1;
+                  if (ma.canMake && !mb.canMake) return -1;
+                  if (!ma.canMake && mb.canMake) return 1;
+                  return (mb.matchScore ?? 0) - (ma.matchScore ?? 0);
+                })
+                .map(r => (
+                  <RecipeCard
+                    key={r.id}
+                    recipe={r}
+                    match={matchById.get(r.id)}
+                    onClick={openRecipe}
+                  />
+                ))}
+            </div>
+
+            {fridgeIngredients.length > 0 &&
+              matches.filter(m => m.matchScore > 0 || m.canMake).length === 0 && (
+                <div className="results-empty">
+                  <p>No matches yet. Try selecting more ingredients.</p>
+                </div>
+              )}
+          </section>
+        </main>
+      )}
+
+      {/* Home – placeholders + selected recipe cards */}
+      {view === 'home' && (
         <main className="view">
-          <IngredientPicker
-            allIngredients={allIngredients}
-            selected={fridgeIngredients}
-            onChange={setFridgeIngredients}
-          />
-          <div className="cta-bar">
-            <button
-              className="btn btn--primary btn--large"
-              onClick={findRecipes}
-              disabled={fridgeIngredients.length === 0 || matching}
-            >
-              {matching ? 'Finding recipes...' : `Find Recipes →`}
-            </button>
+          <div className="home-top">
+            <div className="panel home-panel">
+              <h2 className="home-panel__title">Suggested Recipes</h2>
+              <p className="home-panel__hint">Placeholder (we’ll fill this in later)</p>
+            </div>
+            <div className="panel home-panel">
+              <h2 className="home-panel__title">Recipe Stats</h2>
+              <p className="home-panel__hint">Placeholder (we’ll fill this in later)</p>
+            </div>
+          </div>
+
+          <div className="library-header">
+            <h2>Selected Recipes</h2>
+            <p className="library-subtitle">Click a card to open the full recipe.</p>
+          </div>
+
+          <div className="recipe-grid">
+            {recipes.slice(0, 12).map(r => (
+              <RecipeCard
+                key={r.id}
+                recipe={r}
+                match={matchById.get(r.id)}
+                onClick={openRecipe}
+              />
+            ))}
           </div>
         </main>
       )}
 
-      {/* Results View */}
-      {view === 'results' && (
+      {/* All Recipes – library list */}
+      {view === 'recipes' && (
         <main className="view">
-          <div className="results-header">
-            <h2>
-              {readyCount > 0
-                ? `🎉 ${readyCount} recipe${readyCount !== 1 ? 's' : ''} ready to make!`
-                : 'Your matches'}
-            </h2>
-            <p className="results-subtitle">
-              {matched.length} recipes checked · {fridgeIngredients.length} ingredients in fridge
+          <div className="library-header">
+            <h2>All Recipes</h2>
+            <p className="library-subtitle">
+              {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} in Notion
             </p>
           </div>
 
-          <div className="filter-row">
-            <button className={`filter-btn ${filter === 'all' ? 'filter-btn--active' : ''}`} onClick={() => setFilter('all')}>
-              All ({matched.length})
-            </button>
-            <button className={`filter-btn ${filter === 'ready' ? 'filter-btn--active' : ''}`} onClick={() => setFilter('ready')}>
-              ✓ Ready ({readyCount})
-            </button>
-            <button className={`filter-btn ${filter === 'close' ? 'filter-btn--active' : ''}`} onClick={() => setFilter('close')}>
-              Almost ({closeCount})
-            </button>
+          <div className="library-search-row">
+            <input
+              className="library-search"
+              type="search"
+              placeholder="Search by recipe or tag..."
+              value={librarySearch}
+              onChange={e => setLibrarySearch(e.target.value)}
+            />
+            {librarySearch && (
+              <button
+                className="btn btn--ghost library-search-clear"
+                onClick={() => setLibrarySearch('')}
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           <div className="recipe-grid">
-            {filteredRecipes.map(r => (
-              <RecipeCard key={r.id} recipe={r} onClick={setSelectedRecipe} />
+            {libraryRecipes.map(r => (
+              <RecipeCard
+                key={r.id}
+                recipe={r}
+                match={matchById.get(r.id)}
+                onClick={openRecipe}
+              />
             ))}
-            {filteredRecipes.length === 0 && (
+            {libraryRecipes.length === 0 && (
               <div className="results-empty">
-                <p>No recipes in this filter.</p>
-                <button className="btn btn--ghost" onClick={() => setFilter('all')}>Show all</button>
+                <p>No recipes match “{librarySearch}”.</p>
+                <button
+                  className="btn btn--ghost"
+                  onClick={() => setLibrarySearch('')}
+                >
+                  Show all
+                </button>
               </div>
             )}
           </div>
         </main>
       )}
 
-      {/* Recipe Modal */}
-      <RecipeModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+      {/* Grocery List (placeholder for now) */}
+      {view === 'grocery' && (
+        <main className="view">
+          <div className="placeholder">
+            <h2>Grocery List</h2>
+            <p>Coming soon – a place to send missing ingredients into a shopping list.</p>
+          </div>
+        </main>
+      )}
+
+      {/* Add Recipe (placeholder for now) */}
+      {view === 'add' && (
+        <main className="view">
+          <div className="placeholder">
+            <h2>Add Recipe</h2>
+            <p>For now, add recipes in Notion. Later this will become a form that writes to your database.</p>
+          </div>
+        </main>
+      )}
     </div>
   );
 }
