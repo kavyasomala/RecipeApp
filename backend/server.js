@@ -1,249 +1,333 @@
 const express = require('express');
 const cors = require('cors');
-const { Client } = require('@notionhq/client');
+const { Pool } = require('pg');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
-const DATABASE_ID = process.env.NOTION_DATABASE_ID;
+// ─── Postgres client ────────────────────────────────────────────────────────
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is not set in .env');
+  process.exit(1);
+}
 
-// ─── Notion parsing helpers ────────────────────────────────────────────────
-const plainText = (richText = []) => richText.map(t => t.plain_text).join('').trim();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const firstFileUrl = (files = []) => {
-  const f = files?.[0];
-  if (!f) return null;
-  if (f.type === 'external') return f.external?.url || null;
-  if (f.type === 'file') return f.file?.url || null;
-  return null;
-};
-
-const getTitle = (props) => {
-  const titleProp = Object.values(props).find(p => p.type === 'title');
-  return plainText(titleProp?.title) || 'Untitled';
-};
-
-const getMultiSelect = (prop) => (prop?.multi_select || []).map(v => v.name);
-
-const getSelectName = (prop) => prop?.select?.name || null;
-
-const getNumber = (prop) => {
-  if (!prop) return null;
-  if (typeof prop.number === 'number') return prop.number;
-  const rt = plainText(prop.rich_text);
-  const n = Number(rt);
-  return Number.isFinite(n) ? n : null;
-};
-
-const getPhotoUrl = (props, page) => {
-  const photoProp = props['Photo?'] || props['Photo'] || props['Image'] || props['Photo'];
-  if (photoProp?.type === 'files') {
-    const url = firstFileUrl(photoProp.files);
-    if (url) return url;
+async function query(sql, params) {
+  const client = await pool.connect();
+  try {
+    return await client.query(sql, params);
+  } finally {
+    client.release();
   }
-  if (photoProp?.type === 'url' && photoProp.url) return photoProp.url;
+}
 
-  return page.cover?.external?.url || page.cover?.file?.url || null;
+// ─── Grocery category mapping ───────────────────────────────────────────────
+const CATEGORY_MAP = {
+  // Produce
+  produce: ['onion', 'garlic', 'ginger', 'tomato', 'tomatoes', 'lemon', 'lime', 'spinach',
+    'carrot', 'carrots', 'celery', 'potato', 'potatoes', 'bell pepper', 'cucumber',
+    'zucchini', 'broccoli', 'cauliflower', 'mushroom', 'mushrooms', 'avocado',
+    'lettuce', 'kale', 'cabbage', 'spring onion', 'scallion', 'shallot', 'shallots',
+    'chilli', 'chili', 'jalapeño', 'capsicum', 'leek', 'asparagus', 'eggplant',
+    'aubergine', 'sweet potato', 'pumpkin', 'butternut squash', 'beetroot', 'radish',
+    'green beans', 'peas', 'corn', 'coriander', 'cilantro', 'parsley', 'basil',
+    'mint', 'thyme', 'rosemary', 'dill', 'chives', 'bay leaves', 'lemongrass',
+    'orange', 'lime leaves', 'thai basil'],
+
+  // Meat & Seafood
+  'meat & seafood': ['chicken', 'beef', 'pork', 'lamb', 'turkey', 'duck', 'bacon',
+    'sausage', 'mince', 'ground beef', 'ground pork', 'steak', 'salmon', 'tuna',
+    'shrimp', 'prawns', 'cod', 'tilapia', 'fish', 'crab', 'lobster', 'scallops',
+    'mussels', 'anchovies', 'ham', 'pancetta', 'prosciutto', 'chorizo', 'salami'],
+
+  // Dairy & Eggs
+  'dairy & eggs': ['egg', 'eggs', 'milk', 'butter', 'cream', 'heavy cream', 'double cream',
+    'sour cream', 'yogurt', 'greek yogurt', 'cheese', 'parmesan', 'cheddar', 'feta',
+    'mozzarella', 'ricotta', 'cream cheese', 'brie', 'gouda', 'halloumi',
+    'creme fraiche', 'ghee', 'buttermilk', 'condensed milk', 'coconut milk',
+    'coconut cream'],
+
+  // Pantry & Dry Goods
+  'pantry & dry goods': ['rice', 'pasta', 'noodles', 'flour', 'bread', 'breadcrumbs',
+    'panko', 'oats', 'quinoa', 'lentils', 'chickpeas', 'black beans', 'kidney beans',
+    'cannellini beans', 'lentil', 'split peas', 'couscous', 'polenta', 'cornmeal',
+    'tortilla', 'wrap', 'pita', 'stock', 'broth', 'chicken stock', 'beef stock',
+    'vegetable stock', 'oil', 'olive oil', 'sesame oil', 'vegetable oil', 'coconut oil',
+    'vinegar', 'balsamic vinegar', 'rice vinegar', 'apple cider vinegar',
+    'soy sauce', 'fish sauce', 'oyster sauce', 'hoisin sauce', 'worcestershire sauce',
+    'tomato paste', 'tomato sauce', 'passata', 'canned tomatoes', 'diced tomatoes',
+    'coconut milk', 'sugar', 'brown sugar', 'honey', 'maple syrup', 'cornstarch',
+    'cornflour', 'baking powder', 'baking soda', 'yeast', 'vanilla extract',
+    'chocolate', 'cocoa', 'peanut butter', 'tahini', 'miso', 'dried pasta',
+    'udon', 'rice noodles', 'glass noodles', 'wonton wrappers'],
+
+  // Spices & Condiments
+  'spices & condiments': ['salt', 'pepper', 'black pepper', 'cumin', 'coriander',
+    'turmeric', 'paprika', 'smoked paprika', 'chilli flakes', 'cayenne', 'cinnamon',
+    'nutmeg', 'cardamom', 'cloves', 'star anise', 'bay leaf', 'oregano', 'thyme',
+    'dried thyme', 'dried rosemary', 'dried basil', 'mixed herbs', 'curry powder',
+    'garam masala', 'five spice', 'mustard', 'dijon mustard', 'hot sauce', 'sriracha',
+    'ketchup', 'mayonnaise', 'ranch', 'caesar dressing', 'italian dressing',
+    'white pepper', 'msg', 'sesame seeds', 'chilli powder'],
+
+  // Frozen
+  frozen: ['frozen peas', 'frozen corn', 'frozen spinach', 'frozen edamame',
+    'frozen berries', 'ice cream', 'frozen prawns', 'frozen shrimp'],
 };
 
-const normalizeRecipeSummary = (page) => {
-  const props = page.properties || {};
-
-  const ingredientsPropName = process.env.INGREDIENTS_PROPERTY || 'Ingredients';
-  const ingredientsProp = props[ingredientsPropName];
-  const ingredients = (ingredientsProp?.multi_select || []).map(i => i.name.toLowerCase().trim());
-
-  const cuisine = getSelectName(props['Cuisine']) || (getMultiSelect(props['Cuisine'])?.[0] || null);
-  const tagsProp = props['Tags'] || props['Category'];
-  const tags = getMultiSelect(tagsProp);
-
-  const calories = getNumber(props['Calories'] || props['Calorie'] || props['kcal']);
-  const protein = getNumber(props['Protein'] || props['Protein (g)']);
-
-  const timeProp = props['Time'] || props['Cook Time'] || props['Prep Time'];
-  const time = getSelectName(timeProp) || plainText(timeProp?.rich_text) || null;
-
-  const servingsProp = props['Servings'] || props['Serves'];
-  const servings =
-    (servingsProp?.number !== undefined && servingsProp?.number !== null)
-      ? servingsProp.number
-      : (plainText(servingsProp?.rich_text) || null);
-
-  return {
-    id: page.id,
-    name: getTitle(props),
-    ingredients,
-    tags,
-    cuisine,
-    calories,
-    protein,
-    time,
-    servings,
-    coverImage: getPhotoUrl(props, page),
-    notionUrl: page.url,
-  };
-};
-
-const listAllBlocks = async (blockId) => {
-  const blocks = [];
-  let cursor = undefined;
-
-  while (true) {
-    const resp = await notion.blocks.children.list({
-      block_id: blockId,
-      start_cursor: cursor,
-      page_size: 100,
-    });
-    blocks.push(...resp.results);
-    if (!resp.has_more) break;
-    cursor = resp.next_cursor;
+function categorise(ingredientName) {
+  const lower = ingredientName.toLowerCase().trim();
+  for (const [cat, keywords] of Object.entries(CATEGORY_MAP)) {
+    if (keywords.some(k => lower.includes(k) || k.includes(lower))) return cat;
   }
+  return 'other';
+}
 
-  return blocks;
+const CATEGORY_META = {
+  'produce':            { emoji: '🥦', order: 1 },
+  'meat & seafood':     { emoji: '🥩', order: 2 },
+  'dairy & eggs':       { emoji: '🥚', order: 3 },
+  'pantry & dry goods': { emoji: '🫙', order: 4 },
+  'spices & condiments':{ emoji: '🧂', order: 5 },
+  'frozen':             { emoji: '🧊', order: 6 },
+  'other':              { emoji: '🛒', order: 7 },
 };
 
-const blockToNode = (block) => {
-  const t = block.type;
-  const data = block[t];
-
-  const textFrom = (rt) => plainText(rt || []);
-
-  if (t === 'paragraph') return { type: 'paragraph', text: textFrom(data.rich_text) };
-  if (t === 'heading_1') return { type: 'heading_1', text: textFrom(data.rich_text) };
-  if (t === 'heading_2') return { type: 'heading_2', text: textFrom(data.rich_text) };
-  if (t === 'heading_3') return { type: 'heading_3', text: textFrom(data.rich_text) };
-  if (t === 'bulleted_list_item') return { type: 'bulleted_list_item', text: textFrom(data.rich_text) };
-  if (t === 'numbered_list_item') return { type: 'numbered_list_item', text: textFrom(data.rich_text) };
-  if (t === 'quote') return { type: 'quote', text: textFrom(data.rich_text) };
-  if (t === 'divider') return { type: 'divider' };
-
-  if (t === 'image') {
-    const url = data.type === 'external' ? data.external?.url : data.file?.url;
-    return { type: 'image', url: url || null, caption: textFrom(data.caption) };
-  }
-
-  // Fallback: ignore unsupported blocks for now.
-  return null;
-};
-
-// ─── GET all recipes from Notion ───────────────────────────────────────────
+// ─── GET /api/recipes ───────────────────────────────────────────────────────
 app.get('/api/recipes', async (req, res) => {
   try {
-    const recipes = [];
-    let cursor = undefined;
-
-    // Paginate through all results
-    while (true) {
-      const response = await notion.databases.query({
-        database_id: DATABASE_ID,
-        start_cursor: cursor,
-        page_size: 100,
-      });
-
-      for (const page of response.results) {
-        recipes.push(normalizeRecipeSummary(page));
-      }
-
-      if (!response.has_more) break;
-      cursor = response.next_cursor;
-    }
-
-    res.json({ recipes });
+    const sql = `
+      SELECT
+        r.id, r.notion_id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
+        r.time, r.servings, r.cover_image_url, r.notion_url, r.status,
+        r.mealpreppable, r.make_soon, r.recipe_incomplete, r.link,
+        COALESCE(
+          (SELECT array_agg(i.name ORDER BY i.name)
+           FROM recipe_body_ingredients rbi
+           JOIN ingredients i ON i.id = rbi.ingredient_id
+           WHERE rbi.recipe_id = r.id), '{}'
+        ) AS ingredients,
+        COALESCE(
+          (SELECT array_agg(t.name ORDER BY t.name)
+           FROM recipe_tags rt
+           JOIN tags t ON t.id = rt.tag_id
+           WHERE rt.recipe_id = r.id), '{}'
+        ) AS tags
+      FROM recipes r
+      ORDER BY r.name;
+    `;
+    const { rows } = await query(sql);
+    res.json({ recipes: rows.map(r => ({ ...r, ingredients: r.ingredients || [], tags: r.tags || [] })) });
   } catch (err) {
-    console.error('Notion API error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('GET /api/recipes error:', err);
+    res.status(500).json({ error: 'Failed to load recipes' });
   }
 });
 
-// ─── GET a single recipe detail (summary + Notion body) ────────────────────
-app.get('/api/recipes/:id', async (req, res) => {
-  try {
-    const pageId = req.params.id;
-    const page = await notion.pages.retrieve({ page_id: pageId });
-    const recipe = normalizeRecipeSummary(page);
-
-    const blocks = await listAllBlocks(pageId);
-    const content = blocks.map(blockToNode).filter(Boolean).filter(n => {
-      if (!n.text) return true;
-      return n.text.trim().length > 0;
-    });
-
-    res.json({ recipe, content });
-  } catch (err) {
-    console.error('Notion recipe detail error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── GET all unique ingredients across the database ────────────────────────
-// Derived from actual recipe data rather than schema (more reliable)
+// ─── GET /api/ingredients ───────────────────────────────────────────────────
 app.get('/api/ingredients', async (req, res) => {
   try {
-    const ingredientSet = new Set();
-    let cursor = undefined;
-
-    while (true) {
-      const response = await notion.databases.query({
-        database_id: DATABASE_ID,
-        start_cursor: cursor,
-        page_size: 100,
-      });
-
-      for (const page of response.results) {
-        const ingredientsPropName = process.env.INGREDIENTS_PROPERTY || 'Ingredients';
-        const prop = page.properties[ingredientsPropName];
-        if (prop?.multi_select) {
-          prop.multi_select.forEach(i => ingredientSet.add(i.name));
-        }
-      }
-
-      if (!response.has_more) break;
-      cursor = response.next_cursor;
-    }
-
-    const ingredients = Array.from(ingredientSet).sort();
-    res.json({ ingredients });
+    const { rows } = await query('SELECT name FROM ingredients ORDER BY name ASC;');
+    res.json({ ingredients: rows.map(r => r.name) });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: err.message });
+    console.error('GET /api/ingredients error:', err);
+    res.status(500).json({ error: 'Failed to load ingredients' });
   }
 });
 
-// ─── MATCH recipes to fridge ingredients ──────────────────────────────────
-app.post('/api/match', async (req, res) => {
-  const { fridgeIngredients, recipes } = req.body;
-  // fridgeIngredients: string[] (lowercased)
-  // recipes: the array from /api/recipes
+// ─── GET /api/recipes/:id ───────────────────────────────────────────────────
+app.get('/api/recipes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Recipe row
+    const { rows: recipeRows } = await query(`
+      SELECT
+        r.id, r.notion_id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
+        r.time, r.servings, r.cover_image_url AS "coverImage", r.notion_url AS "notionUrl",
+        r.status, r.mealpreppable, r.make_soon, r.recipe_incomplete, r.link,
+        COALESCE(
+          (SELECT array_agg(i.name ORDER BY i.name)
+           FROM recipe_body_ingredients rbi
+           JOIN ingredients i ON i.id = rbi.ingredient_id
+           WHERE rbi.recipe_id = r.id), '{}'
+        ) AS ingredients,
+        COALESCE(
+          (SELECT array_agg(t.name ORDER BY t.name)
+           FROM recipe_tags rt
+           JOIN tags t ON t.id = rt.tag_id
+           WHERE rt.recipe_id = r.id), '{}'
+        ) AS tags
+      FROM recipes r
+      WHERE r.id = $1
+      LIMIT 1;
+    `, [id]);
 
-  const fridge = new Set(fridgeIngredients.map(i => i.toLowerCase().trim()));
+    if (!recipeRows.length) return res.status(404).json({ error: 'Recipe not found' });
+    const recipe = { ...recipeRows[0], ingredients: recipeRows[0].ingredients || [], tags: recipeRows[0].tags || [] };
 
-  const matched = recipes.map(recipe => {
-    const recipeIngredients = recipe.ingredients;
-    const have = recipeIngredients.filter(i => fridge.has(i));
-    const missing = recipeIngredients.filter(i => !fridge.has(i));
-    const matchScore = recipeIngredients.length === 0 ? 0 : have.length / recipeIngredients.length;
+    // Body ingredients
+    const { rows: ingRows } = await query(`
+      SELECT
+        rbi.id,
+        i.name,
+        rbi.amount,
+        rbi.unit,
+        rbi.prep_note,
+        rbi.optional,
+        rbi.group_label,
+        rbi.order_index
+      FROM recipe_body_ingredients rbi
+      JOIN ingredients i ON i.id = rbi.ingredient_id
+      WHERE rbi.recipe_id = $1
+      ORDER BY rbi.order_index ASC, i.name ASC;
+    `, [id]);
 
-    return {
-      ...recipe,
-      have,
-      missing,
-      matchScore,
-      canMake: missing.length === 0 && recipeIngredients.length > 0,
-    };
-  });
+    // Instructions
+    const { rows: instrRows } = await query(`
+      SELECT id, step_number, body_text
+      FROM instructions
+      WHERE recipe_id = $1
+      ORDER BY step_number ASC;
+    `, [id]);
 
-  // Sort: can make first, then by match score descending
-  matched.sort((a, b) => {
-    if (a.canMake && !b.canMake) return -1;
-    if (!a.canMake && b.canMake) return 1;
-    return b.matchScore - a.matchScore;
-  });
+    // Notes
+    const { rows: notesRows } = await query(`
+      SELECT id, order_index, body_text AS text
+      FROM notes
+      WHERE recipe_id = $1
+      ORDER BY order_index ASC;
+    `, [id]);
 
-  res.json({ matched });
+    res.json({
+      recipe,
+      bodyIngredients: ingRows,
+      instructions: instrRows.map(r => ({ id: r.id, step_number: r.step_number, body_text: r.body_text })),
+      notes: notesRows,
+    });
+  } catch (err) {
+    console.error('GET /api/recipes/:id error:', err);
+    res.status(500).json({ error: 'Failed to load recipe' });
+  }
 });
 
+// ─── POST /api/match ────────────────────────────────────────────────────────
+app.post('/api/match', async (req, res) => {
+  try {
+    const { fridgeIngredients, recipes } = req.body;
+    if (!Array.isArray(fridgeIngredients) || !Array.isArray(recipes))
+      return res.status(400).json({ error: 'Invalid payload' });
+
+    const fridge = new Set(fridgeIngredients.map(i => i.toLowerCase().trim()));
+    const matched = recipes.map(recipe => {
+      const ings = recipe.ingredients || [];
+      const have = ings.filter(i => fridge.has(i));
+      const missing = ings.filter(i => !fridge.has(i));
+      const matchScore = ings.length === 0 ? 0 : have.length / ings.length;
+      return { ...recipe, have, missing, matchScore, canMake: missing.length === 0 && ings.length > 0 };
+    });
+    matched.sort((a, b) => {
+      if (a.canMake && !b.canMake) return -1;
+      if (!a.canMake && b.canMake) return 1;
+      return b.matchScore - a.matchScore;
+    });
+    res.json({ matched });
+  } catch (err) {
+    console.error('POST /api/match error:', err);
+    res.status(500).json({ error: 'Failed to match recipes' });
+  }
+});
+
+// ─── POST /api/grocery-list ─────────────────────────────────────────────────
+// No Claude — purely DB-driven with hardcoded category mapping
+app.post('/api/grocery-list', async (req, res) => {
+  const { recipeIds } = req.body;
+  if (!Array.isArray(recipeIds) || recipeIds.length === 0)
+    return res.status(400).json({ error: 'recipeIds must be a non-empty array' });
+
+  try {
+    const { rows } = await query(`
+      SELECT
+        r.id   AS recipe_id,
+        r.name AS recipe_name,
+        i.name AS ingredient_name,
+        rbi.amount,
+        rbi.unit,
+        rbi.prep_note,
+        rbi.optional
+      FROM recipes r
+      JOIN recipe_body_ingredients rbi ON rbi.recipe_id = r.id
+      JOIN ingredients i ON i.id = rbi.ingredient_id
+      WHERE r.id = ANY($1::uuid[])
+      ORDER BY i.name ASC;
+    `, [recipeIds]);
+
+    if (!rows.length) return res.json({ categories: [], recipeNames: [] });
+
+    // Collect unique recipe names in selected order
+    const recipeNameMap = new Map();
+    for (const row of rows) recipeNameMap.set(row.recipe_id, row.recipe_name);
+    const recipeNames = Array.from(recipeNameMap.values());
+
+    // Merge duplicate ingredients, tracking which recipes use them
+    // Key: ingredient name (lowercased) — combine amounts naively, union recipes
+    const itemMap = new Map();
+    for (const row of rows) {
+      const key = row.ingredient_name.toLowerCase().trim();
+      if (!itemMap.has(key)) {
+        itemMap.set(key, {
+          name: row.ingredient_name,
+          amount: row.amount || '',
+          unit: row.unit || '',
+          prep_note: row.prep_note || '',
+          optional: Boolean(row.optional),
+          recipes: [],
+          category: categorise(row.ingredient_name),
+        });
+      }
+      const entry = itemMap.get(key);
+      if (!entry.recipes.includes(row.recipe_name)) entry.recipes.push(row.recipe_name);
+    }
+
+    // Group by category
+    const catMap = new Map();
+    for (const item of itemMap.values()) {
+      if (!catMap.has(item.category)) catMap.set(item.category, []);
+      catMap.get(item.category).push({
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        prep_note: item.prep_note,
+        optional: item.optional,
+        recipes: item.recipes,
+      });
+    }
+
+    // Sort categories by preferred order, sort items alphabetically within
+    const categories = Array.from(catMap.entries())
+      .sort((a, b) => (CATEGORY_META[a[0]]?.order ?? 99) - (CATEGORY_META[b[0]]?.order ?? 99))
+      .map(([cat, items]) => ({
+        name: cat.charAt(0).toUpperCase() + cat.slice(1),
+        emoji: CATEGORY_META[cat]?.emoji ?? '🛒',
+        items: items.sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+
+    res.json({ categories, recipeNames });
+  } catch (err) {
+    console.error('POST /api/grocery-list error:', err);
+    res.status(500).json({ error: 'Failed to build grocery list' });
+  }
+});
+
+// ─── Stubs ──────────────────────────────────────────────────────────────────
+app.post('/api/parse-ingredients', (_req, res) =>
+  res.status(501).json({ error: 'Not implemented.' }));
+
+app.post('/api/save-ingredients', (_req, res) =>
+  res.status(501).json({ error: 'Not implemented.' }));
+
+// ─── Start ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`🍳 Recipe API running on http://localhost:${PORT}`));

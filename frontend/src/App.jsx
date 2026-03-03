@@ -18,43 +18,30 @@ const Badge = ({ children, variant = 'default' }) => (
 
 // ─── Recipe Summary Card ───────────────────────────────────────────────────
 const RecipeCard = ({ recipe, match, onClick }) => {
-  const {
-    name,
-    coverImage,
-    cuisine,
-    calories,
-    protein,
-  } = recipe;
-
+  const { name, coverImage, cuisine, calories, protein } = recipe;
   const matchScore = match?.matchScore ?? null;
   const canMakeNow = Boolean(match?.canMake);
 
   return (
     <article className="recipe-card" onClick={() => onClick(recipe)}>
       <div className="recipe-card__image">
-        {coverImage ? (
-          <img src={coverImage} alt={name} loading="lazy" />
-        ) : (
-          <div className="recipe-card__image-placeholder">No photo</div>
-        )}
-
+        {coverImage
+          ? <img src={coverImage} alt={name} loading="lazy" />
+          : <div className="recipe-card__image-placeholder">No photo</div>}
         {matchScore !== null && (
           <div className={`recipe-card__score ${canMakeNow ? 'recipe-card__score--ready' : ''}`}>
             {pct(matchScore)}%
           </div>
         )}
       </div>
-
       <div className="recipe-card__body">
         <div className="recipe-card__title-row">
           <h3 className="recipe-card__title">{name}</h3>
           {canMakeNow && <span className="recipe-card__can-make">Can make</span>}
         </div>
-
         <div className="recipe-card__meta">
           {cuisine && <Badge>{cuisine}</Badge>}
         </div>
-
         <div className="recipe-card__nutrition">
           {typeof calories === 'number' && <span className="recipe-card__pill">{Math.round(calories)} kcal</span>}
           {typeof protein === 'number' && <span className="recipe-card__pill">{Math.round(protein)}g protein</span>}
@@ -64,73 +51,153 @@ const RecipeCard = ({ recipe, match, onClick }) => {
   );
 };
 
-// ─── Notion content renderer ───────────────────────────────────────────────
-const NotionContent = ({ content }) => {
-  if (!content || content.length === 0) return null;
+// ─── Recipe Page ────────────────────────────────────────────────────────────
+const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, loading }) => {
+  const [checkedIngredients, setCheckedIngredients] = useState(new Set());
+  const [doneSteps, setDoneSteps] = useState(new Set());
 
-  const out = [];
-  for (let i = 0; i < content.length; i++) {
-    const node = content[i];
-
-    if (node.type === 'bulleted_list_item') {
-      const items = [];
-      while (i < content.length && content[i].type === 'bulleted_list_item') {
-        items.push(content[i]);
-        i++;
-      }
-      i--;
-      out.push(
-        <ul key={`ul-${i}`} className="notion-list">
-          {items.map((it, idx) => <li key={idx}>{it.text}</li>)}
-        </ul>
-      );
-      continue;
+  // Must be before any early returns — Rules of Hooks
+  const ingredientGroups = useMemo(() => {
+    if (!bodyIngredients?.length) return [];
+    const groups = [];
+    const seen = new Map();
+    for (const ing of bodyIngredients) {
+      const label = ing.group_label || '';
+      if (!seen.has(label)) { seen.set(label, []); groups.push({ label, items: seen.get(label) }); }
+      seen.get(label).push(ing);
     }
+    return groups;
+  }, [bodyIngredients]);
 
-    if (node.type === 'numbered_list_item') {
-      const items = [];
-      while (i < content.length && content[i].type === 'numbered_list_item') {
-        items.push(content[i]);
-        i++;
-      }
-      i--;
-      out.push(
-        <ol key={`ol-${i}`} className="notion-list">
-          {items.map((it, idx) => <li key={idx}>{it.text}</li>)}
-        </ol>
-      );
-      continue;
-    }
+  const toggleIngredient = (key) => setCheckedIngredients(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
 
-    if (node.type === 'heading_1') out.push(<h1 key={i} className="notion-h1">{node.text}</h1>);
-    else if (node.type === 'heading_2') out.push(<h2 key={i} className="notion-h2">{node.text}</h2>);
-    else if (node.type === 'heading_3') out.push(<h3 key={i} className="notion-h3">{node.text}</h3>);
-    else if (node.type === 'paragraph') out.push(<p key={i} className="notion-p">{node.text}</p>);
-    else if (node.type === 'quote') out.push(<blockquote key={i} className="notion-quote">{node.text}</blockquote>);
-    else if (node.type === 'divider') out.push(<hr key={i} className="notion-hr" />);
-    else if (node.type === 'image') {
-      if (node.url) {
-        out.push(
-          <figure key={i} className="notion-figure">
-            <img src={node.url} alt={node.caption || 'Recipe image'} />
-            {node.caption && <figcaption>{node.caption}</figcaption>}
-          </figure>
-        );
-      }
-    }
-  }
+  const toggleStep = (num) => setDoneSteps(prev => {
+    const next = new Set(prev);
+    next.has(num) ? next.delete(num) : next.add(num);
+    return next;
+  });
 
-  return <div className="notion-content">{out}</div>;
+  if (loading) return (
+    <main className="view">
+      <div className="placeholder"><h2>Loading recipe…</h2></div>
+    </main>
+  );
+
+  if (!recipe) return (
+    <main className="view">
+      <div className="placeholder">
+        <h2>Recipe not found</h2>
+        <button className="btn btn--ghost" onClick={onBack}>← Back</button>
+      </div>
+    </main>
+  );
+
+  return (
+    <main className="view recipe-page">
+      <button className="btn btn--ghost back-btn" onClick={onBack}>← Back</button>
+
+      {/* Header */}
+      <div className="recipe-page__header">
+        <div className="recipe-page__image">
+          {recipe.coverImage
+            ? <img src={recipe.coverImage} alt={recipe.name} />
+            : <div className="recipe-page__image-placeholder">No photo</div>}
+        </div>
+        <div className="recipe-page__summary">
+          <h2 className="recipe-page__title">{recipe.name}</h2>
+          <div className="recipe-page__meta">
+            {recipe.cuisine && <Badge>{recipe.cuisine}</Badge>}
+            {typeof recipe.calories === 'number' && <Badge variant="info">{Math.round(recipe.calories)} kcal</Badge>}
+            {typeof recipe.protein === 'number' && <Badge variant="info">{Math.round(recipe.protein)}g protein</Badge>}
+            {recipe.time && <Badge variant="time">⏱ {recipe.time}</Badge>}
+            {recipe.servings && <Badge variant="info">🍽 {recipe.servings}</Badge>}
+          </div>
+        </div>
+      </div>
+
+      {/* Ingredients */}
+      {ingredientGroups.length > 0 && (
+        <section className="rp-section">
+          <h3 className="rp-section__title">Ingredients</h3>
+          {ingredientGroups.map(({ label, items }) => (
+            <div key={label} className="rp-ing-group">
+              {label && <h4 className="rp-ing-group__label">{label}</h4>}
+              <ul className="rp-ing-list">
+                {items.map((ing, idx) => {
+                  const key = `${label}-${idx}`;
+                  const checked = checkedIngredients.has(key);
+                  const amountStr = [ing.amount, ing.unit, ing.name].filter(Boolean).join(' ');
+                  return (
+                    <li
+                      key={key}
+                      className={`rp-ing-item ${checked ? 'rp-ing-item--checked' : ''}`}
+                      onClick={() => toggleIngredient(key)}
+                    >
+                      <div className={`rp-ing-item__checkbox ${checked ? 'rp-ing-item__checkbox--checked' : ''}`}>
+                        {checked && '✓'}
+                      </div>
+                      <div className="rp-ing-item__body">
+                        <span className="rp-ing-item__text">{amountStr}</span>
+                        {ing.optional && <span className="rp-ing-item__optional">Optional</span>}
+                        {ing.prep_note && <span className="rp-ing-item__prep">{ing.prep_note}</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Instructions */}
+      {instructions?.length > 0 && (
+        <section className="rp-section">
+          <h3 className="rp-section__title">Instructions</h3>
+          <ol className="rp-steps">
+            {[...instructions].sort((a, b) => a.step_number - b.step_number).map(step => {
+              const done = doneSteps.has(step.step_number);
+              return (
+                <li
+                  key={step.step_number}
+                  className={`rp-step ${done ? 'rp-step--done' : ''}`}
+                  onClick={() => toggleStep(step.step_number)}
+                >
+                  <div className="rp-step__num">{done ? '✓' : step.step_number}</div>
+                  <p className="rp-step__body">{step.body_text}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      {/* Notes */}
+      {notes?.length > 0 && (
+        <section className="rp-section">
+          <h3 className="rp-section__title">Notes &amp; Modifications</h3>
+          <ul className="rp-notes">
+            {notes.map((n, i) => (
+              <li key={i} className="rp-notes__item">{n.text ?? n}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </main>
+  );
 };
 
 // ─── Fridge Tab ─────────────────────────────────────────────────────────────
 const FridgeTab = ({ allIngredients, fridgeIngredients, setFridgeIngredients, pantryStaples, setPantryStaples }) => {
-  const [section, setSection] = useState('fridge'); // 'fridge' | 'pantry'
+  const [section, setSection] = useState('fridge');
   const [search, setSearch] = useState('');
 
   const grouped = useMemo(() => {
-    const source = allIngredients;
-    const filtered = source.filter(i => i.toLowerCase().includes(search.toLowerCase()));
+    const filtered = allIngredients.filter(i => i.toLowerCase().includes(search.toLowerCase()));
     return filtered.reduce((acc, ing) => {
       const letter = ing[0]?.toUpperCase() || '#';
       if (!acc[letter]) acc[letter] = [];
@@ -156,7 +223,6 @@ const FridgeTab = ({ allIngredients, fridgeIngredients, setFridgeIngredients, pa
           <p className="fridge-subtitle">Select what you have so we can suggest recipes</p>
         </div>
       </div>
-
       <div className="fridge-section-tabs">
         <button className={`fridge-tab ${section === 'fridge' ? 'fridge-tab--active' : ''}`} onClick={() => setSection('fridge')}>
           🧊 Fridge
@@ -167,27 +233,18 @@ const FridgeTab = ({ allIngredients, fridgeIngredients, setFridgeIngredients, pa
           {pantryStaples.length > 0 && <span className="fridge-tab__count">{pantryStaples.length}</span>}
         </button>
       </div>
-
       <p className="fridge-section-hint">
         {isFridge
           ? 'Perishables you currently have — update this regularly'
           : 'Things you always keep stocked (rice, soy sauce, olive oil…) — set once and forget'}
       </p>
-
       <div className="picker__search-row">
-        <input
-          className="picker__search"
-          type="search"
-          placeholder={`Search ingredients...`}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <input className="picker__search" type="search" placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
         <div className="picker__actions">
           <button className="btn btn--ghost" onClick={() => setSelected([])}>Clear</button>
           <button className="btn btn--ghost" onClick={() => setSelected(allIngredients.map(i => i.toLowerCase()))}>All</button>
         </div>
       </div>
-
       <div className="picker__grid-wrapper picker__grid-wrapper--full">
         {Object.entries(grouped).sort().map(([letter, items]) => (
           <div key={letter} className="picker__group">
@@ -214,13 +271,12 @@ const FridgeTab = ({ allIngredients, fridgeIngredients, setFridgeIngredients, pa
 // ─── Settings Tab ────────────────────────────────────────────────────────────
 const DIETARY_OPTIONS = ['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Halal', 'Nut-Free'];
 
-const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters, lastSynced, onSync, recipes, onIngredientsSaved }) => {
+const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters, lastSynced, onSync }) => {
   const toggleDiet = (d) => setDietaryFilters(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   return (
     <main className="view">
       <h2 className="settings-title">Settings</h2>
-
       <div className="settings-section">
         <h3 className="settings-section__title">⚖️ Units</h3>
         <p className="settings-section__hint">Choose your preferred measurement system</p>
@@ -233,7 +289,6 @@ const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters, lastS
           </button>
         </div>
       </div>
-
       <div className="settings-section">
         <h3 className="settings-section__title">🥗 Dietary Filters</h3>
         <p className="settings-section__hint">Active filters hide non-matching recipes across the whole app</p>
@@ -246,27 +301,16 @@ const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters, lastS
           ))}
         </div>
         {dietaryFilters.length > 0 && (
-          <p className="settings-active-filters">
-            Active: {dietaryFilters.join(', ')} — recipes without these tags will be hidden
-          </p>
+          <p className="settings-active-filters">Active: {dietaryFilters.join(', ')} — recipes without these tags will be hidden</p>
         )}
       </div>
-
       <div className="settings-section">
         <h3 className="settings-section__title">🔄 Notion Sync</h3>
         <p className="settings-section__hint">
           {lastSynced ? `Last synced: ${new Date(lastSynced).toLocaleString()}` : 'Not yet synced this session'}
         </p>
-        <button className="btn btn--primary" style={{ marginTop: 10 }} onClick={onSync}>
-          Sync Now
-        </button>
+        <button className="btn btn--primary" style={{ marginTop: 10 }} onClick={onSync}>Sync Now</button>
       </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section__title">🤖 AI Ingredient Parser</h3>
-        <IngredientParser recipes={recipes || []} onSaved={onIngredientsSaved} />
-      </div>
-
       <div className="settings-section">
         <h3 className="settings-section__title">ℹ️ About</h3>
         <p className="settings-section__hint">Recipe App v0.1 · Powered by Notion</p>
@@ -274,85 +318,6 @@ const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters, lastS
     </main>
   );
 };
-
-// ─── Ingredient Picker (legacy, used in fridge matcher sidebar) ─────────────
-const IngredientPicker = ({ allIngredients, selected, onChange }) => {
-  const [search, setSearch] = useState('');
-
-  const grouped = useMemo(() => {
-    const filtered = allIngredients.filter(i =>
-      i.toLowerCase().includes(search.toLowerCase())
-    );
-    return filtered.reduce((acc, ing) => {
-      const letter = ing[0]?.toUpperCase() || '#';
-      if (!acc[letter]) acc[letter] = [];
-      acc[letter].push(ing);
-      return acc;
-    }, {});
-  }, [allIngredients, search]);
-
-  const toggle = (ing) => {
-    const lower = ing.toLowerCase();
-    onChange(prev =>
-      prev.includes(lower) ? prev.filter(i => i !== lower) : [...prev, lower]
-    );
-  };
-
-  const clearAll = () => onChange([]);
-  const selectAll = () => onChange(allIngredients.map(i => i.toLowerCase()));
-
-  return (
-    <div className="picker">
-      <div className="picker__header">
-        <h2>What's in your fridge?</h2>
-        <p className="picker__subtitle">
-          {selected.length} ingredient{selected.length !== 1 ? 's' : ''} selected
-        </p>
-      </div>
-
-      <div className="picker__search-row">
-        <input
-          className="picker__search"
-          type="search"
-          placeholder="Search ingredients..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <div className="picker__actions">
-          <button className="btn btn--ghost" onClick={clearAll}>Clear</button>
-          <button className="btn btn--ghost" onClick={selectAll}>All</button>
-        </div>
-      </div>
-
-      <div className="picker__grid-wrapper">
-        {Object.entries(grouped).sort().map(([letter, items]) => (
-          <div key={letter} className="picker__group">
-            <div className="picker__group-label">{letter}</div>
-            <div className="picker__chips">
-              {items.map(ing => {
-                const isSelected = selected.includes(ing.toLowerCase());
-                return (
-                  <button
-                    key={ing}
-                    className={`chip ${isSelected ? 'chip--selected' : ''}`}
-                    onClick={() => toggle(ing)}
-                  >
-                    {isSelected && <span className="chip__check">✓</span>}
-                    {ing}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {Object.keys(grouped).length === 0 && (
-          <p className="picker__empty">No ingredients match "{search}"</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
 
 // ─── Grocery List Tab ────────────────────────────────────────────────────────
 const GroceryListTab = ({ recipes, matchById }) => {
@@ -363,9 +328,9 @@ const GroceryListTab = ({ recipes, matchById }) => {
   const [checked, setChecked] = useState(new Set());
   const [error, setError] = useState(null);
 
-  const toggleRecipe = (id) => setSelectedIds(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  );
+  const toggleRecipe = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const toggleChecked = (key) => setChecked(prev => {
     const next = new Set(prev);
@@ -373,28 +338,35 @@ const GroceryListTab = ({ recipes, matchById }) => {
     return next;
   });
 
-  const buildList = async () => {
-    if (!selectedIds.length) return;
-    setLoading(true);
-    setError(null);
-    setCategories([]);
-    setChecked(new Set());
-    try {
-      const res = await fetch(`${API}/api/grocery-list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipeIds: selectedIds }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to build list');
-      setCategories(data.categories || []);
-      setRecipeNames(data.recipeNames || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Auto-fetch when selection changes
+  useEffect(() => {
+    if (!selectedIds.length) { setCategories([]); setRecipeNames([]); return; }
+    let cancelled = false;
+    const fetch_ = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API}/api/grocery-list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipeIds: selectedIds }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to build list');
+        if (!cancelled) {
+          setCategories(data.categories || []);
+          setRecipeNames(data.recipeNames || []);
+          setChecked(new Set());
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetch_();
+    return () => { cancelled = true; };
+  }, [selectedIds]);
 
   const copyList = () => {
     const lines = [`Grocery List — ${recipeNames.join(', ')}\n`];
@@ -402,7 +374,8 @@ const GroceryListTab = ({ recipes, matchById }) => {
       lines.push(`\n${cat.emoji} ${cat.name}`);
       cat.items.forEach(item => {
         const tick = checked.has(`${cat.name}-${item.name}`) ? '✓' : '○';
-        lines.push(`  ${tick} ${item.amount} ${item.name}${item.note ? ` (${item.note})` : ''}`);
+        const amount = [item.amount, item.unit].filter(Boolean).join(' ');
+        lines.push(`  ${tick} ${amount} ${item.name}${item.prep_note ? ` (${item.prep_note})` : ''}`);
       });
     });
     navigator.clipboard.writeText(lines.join('\n'));
@@ -441,14 +414,7 @@ const GroceryListTab = ({ recipes, matchById }) => {
         </div>
       </div>
 
-      <button
-        className="btn btn--primary grocery-build-btn"
-        onClick={buildList}
-        disabled={selectedIds.length === 0 || loading}
-      >
-        {loading ? '🤖 Building list...' : `Build List for ${selectedIds.length} recipe${selectedIds.length !== 1 ? 's' : ''}`}
-      </button>
-
+      {loading && <p className="grocery-loading">⏳ Building list…</p>}
       {error && <p className="grocery-error">⚠️ {error}</p>}
 
       {categories.length > 0 && (
@@ -469,13 +435,16 @@ const GroceryListTab = ({ recipes, matchById }) => {
               {cat.items.map(item => {
                 const key = `${cat.name}-${item.name}`;
                 const isChecked = checked.has(key);
+                const amountStr = [item.amount, item.unit].filter(Boolean).join(' ');
                 return (
                   <div key={key} className={`grocery-item ${isChecked ? 'grocery-item--checked' : ''}`} onClick={() => toggleChecked(key)}>
                     <div className={`grocery-item__checkbox ${isChecked ? 'grocery-item__checkbox--checked' : ''}`}>{isChecked && '✓'}</div>
                     <div className="grocery-item__body">
-                      <span className="grocery-item__name">{item.name}</span>
-                      <span className="grocery-item__amount">{item.amount}</span>
-                      {item.note && <span className="grocery-item__note">{item.note}</span>}
+                      <span className="grocery-item__name">{amountStr} {item.name}</span>
+                      {item.prep_note && <span className="grocery-item__note">{item.prep_note}</span>}
+                      {item.recipes?.length > 1 && (
+                        <span className="grocery-item__recipes">used in {item.recipes.join(', ')}</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -488,182 +457,18 @@ const GroceryListTab = ({ recipes, matchById }) => {
   );
 };
 
-// ─── AI Ingredient Parser (lives inside Settings tab) ─────────────────────
-const IngredientParser = ({ recipes, onSaved }) => {
-  const [step, setStep] = useState('select');
-  const [selectedId, setSelectedId] = useState('');
-  const [parsing, setParsing] = useState(false);
-  const [parsed, setParsed] = useState([]);
-  const [recipeName, setRecipeName] = useState('');
-  const [editList, setEditList] = useState('');
-  const [error, setError] = useState(null);
-  const [savedCount, setSavedCount] = useState(0);
-
-  const unparsed = recipes.filter(r => !r.ingredients || r.ingredients.length === 0);
-
-  const parse = async () => {
-    if (!selectedId) return;
-    setParsing(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API}/api/parse-ingredients`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipeId: selectedId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (data.message) throw new Error(data.message);
-      setParsed(data.ingredients);
-      setRecipeName(data.recipeName);
-      setEditList(data.ingredients.join('\n'));
-      setStep('preview');
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setParsing(false);
-    }
-  };
-
-  const save = async () => {
-    const ingredients = editList.split('\n').map(s => s.trim()).filter(Boolean);
-    setStep('saving');
-    try {
-      const res = await fetch(`${API}/api/save-ingredients`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipeId: selectedId, ingredients }),
-      });
-      if (!res.ok) throw new Error('Failed to save');
-      setSavedCount(c => c + 1);
-      setStep('select');
-      setSelectedId('');
-      setEditList('');
-      onSaved();
-    } catch (e) {
-      setError(e.message);
-      setStep('preview');
-    }
-  };
-
-  return (
-    <div className="parser">
-      <div className="parser__intro">
-        <p className="parser__desc">Claude reads the recipe body and extracts ingredients automatically. You review before anything saves to Notion.</p>
-        {unparsed.length > 0 && <p className="parser__count">{unparsed.length} recipe{unparsed.length !== 1 ? 's' : ''} have no ingredients tagged yet</p>}
-        {savedCount > 0 && <p className="parser__saved">✅ {savedCount} recipe{savedCount !== 1 ? 's' : ''} updated this session</p>}
-      </div>
-
-      {(step === 'select' || step === 'preview') && step === 'select' && (
-        <div className="parser__select">
-          <select className="parser__dropdown" value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-            <option value="">— Choose a recipe —</option>
-            {unparsed.length > 0 && (
-              <optgroup label="No ingredients yet">
-                {unparsed.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </optgroup>
-            )}
-            <optgroup label="All recipes">
-              {recipes.map(r => <option key={r.id} value={r.id}>{r.name}{r.ingredients?.length > 0 ? ` (${r.ingredients.length} tagged)` : ''}</option>)}
-            </optgroup>
-          </select>
-          <button className="btn btn--primary" onClick={parse} disabled={!selectedId || parsing} style={{ marginTop: 10 }}>
-            {parsing ? '🤖 Parsing...' : 'Parse Ingredients'}
-          </button>
-          {error && <p className="parser__error">⚠️ {error}</p>}
-        </div>
-      )}
-
-      {step === 'preview' && (
-        <div className="parser__preview">
-          <h4 className="parser__preview-title">Review: {recipeName}</h4>
-          <p className="parser__preview-hint">Claude found {parsed.length} ingredients. Edit if needed — one per line.</p>
-          <textarea className="parser__textarea" value={editList} onChange={e => setEditList(e.target.value)} rows={Math.max(6, parsed.length + 2)} />
-          <div className="parser__preview-actions">
-            <button className="btn btn--ghost" onClick={() => { setStep('select'); setError(null); }}>← Back</button>
-            <button className="btn btn--primary" onClick={save}>Save to Notion ✓</button>
-          </div>
-          {error && <p className="parser__error">⚠️ {error}</p>}
-        </div>
-      )}
-
-      {step === 'saving' && (
-        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-          <div className="loading-spinner" style={{ margin: '0 auto 12px' }} />
-          <p style={{ color: 'var(--warm-gray)' }}>Saving to Notion...</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Recipe Detail Page ────────────────────────────────────────────────────
-const RecipePage = ({ recipe, content, onBack, loading }) => {
-  if (loading) {
-    return (
-      <main className="view">
-        <div className="placeholder">
-          <h2>Loading recipe…</h2>
-        </div>
-      </main>
-    );
-  }
-
-  if (!recipe) {
-    return (
-      <main className="view">
-        <div className="placeholder">
-          <h2>Recipe not found</h2>
-          <button className="btn btn--ghost" onClick={onBack}>← Back</button>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="view recipe-page">
-      <button className="btn btn--ghost back-btn" onClick={onBack}>← Back</button>
-
-      <div className="recipe-page__header">
-        <div className="recipe-page__image">
-          {recipe.coverImage ? (
-            <img src={recipe.coverImage} alt={recipe.name} />
-          ) : (
-            <div className="recipe-page__image-placeholder">No photo</div>
-          )}
-        </div>
-
-        <div className="recipe-page__summary">
-          <h2 className="recipe-page__title">{recipe.name}</h2>
-          <div className="recipe-page__meta">
-            {recipe.cuisine && <Badge>{recipe.cuisine}</Badge>}
-            {typeof recipe.calories === 'number' && <Badge variant="info">{Math.round(recipe.calories)} kcal</Badge>}
-            {typeof recipe.protein === 'number' && <Badge variant="info">{Math.round(recipe.protein)}g protein</Badge>}
-            {recipe.time && <Badge variant="time">⏱ {recipe.time}</Badge>}
-            {recipe.servings && <Badge variant="info">🍽 {recipe.servings}</Badge>}
-          </div>
-
-          <a className="recipe-page__notion-link" href={recipe.notionUrl} target="_blank" rel="noreferrer">
-            Open in Notion →
-          </a>
-        </div>
-      </div>
-
-      <NotionContent content={content} />
-    </main>
-  );
-};
-
 // ─── Main App ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView] = useState('home'); // 'home' | 'recipes' | 'fridge' | 'grocery' | 'add' | 'settings' | 'recipe'
+  const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
   const [allIngredients, setAllIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [fridgeIngredients, setFridgeIngredients] = useState(() => LS.get('fridgeIngredients', []));
   const [pantryStaples, setPantryStaples] = useState(() => LS.get('pantryStaples', []));
   const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [recipeContent, setRecipeContent] = useState([]);
+  const [recipeBodyIngredients, setRecipeBodyIngredients] = useState([]);
+  const [recipeInstructions, setRecipeInstructions] = useState([]);
+  const [recipeNotes, setRecipeNotes] = useState([]);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -671,7 +476,6 @@ export default function App() {
   const [activeTag, setActiveTag] = useState(null);
   const [lastSynced, setLastSynced] = useState(null);
 
-  // Settings (persisted)
   const [units, setUnitsRaw] = useState(() => LS.get('units', 'metric'));
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
 
@@ -682,23 +486,18 @@ export default function App() {
     return next;
   });
 
-  // Persist fridge + pantry to localStorage
   useEffect(() => { LS.set('fridgeIngredients', fridgeIngredients); }, [fridgeIngredients]);
   useEffect(() => { LS.set('pantryStaples', pantryStaples); }, [pantryStaples]);
 
-  // Load ingredients + recipes on mount
   const loadData = useCallback(async () => {
     try {
       const [ingRes, recipeRes] = await Promise.all([
         fetch(`${API}/api/ingredients`),
         fetch(`${API}/api/recipes`),
       ]);
-
       if (!ingRes.ok || !recipeRes.ok) throw new Error('Failed to load from Notion');
-
       const { ingredients } = await ingRes.json();
       const { recipes: recipeData } = await recipeRes.json();
-
       setAllIngredients(ingredients.sort());
       setRecipes(recipeData);
       setLastSynced(Date.now());
@@ -711,13 +510,10 @@ export default function App() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // All ingredients = fridge + pantry combined for matching
   const allMyIngredients = useMemo(() => {
-    const combined = new Set([...fridgeIngredients, ...pantryStaples].map(i => i.toLowerCase().trim()));
-    return combined;
+    return new Set([...fridgeIngredients, ...pantryStaples].map(i => i.toLowerCase().trim()));
   }, [fridgeIngredients, pantryStaples]);
 
-  // All unique tags across recipes
   const allTags = useMemo(() => {
     const tagSet = new Set();
     recipes.forEach(r => (r.tags || []).forEach(t => tagSet.add(t)));
@@ -727,44 +523,29 @@ export default function App() {
   const libraryRecipes = useMemo(() => {
     let list = recipes;
     const q = librarySearch.toLowerCase().trim();
-    if (q) {
-      list = list.filter(r => {
-        const nameMatch = r.name.toLowerCase().includes(q);
-        const cuisineMatch = (r.cuisine || '').toLowerCase().includes(q);
-        const tagMatch = (r.tags || []).some(t => t.toLowerCase().includes(q));
-        return nameMatch || cuisineMatch || tagMatch;
-      });
-    }
-    if (activeTag) {
-      list = list.filter(r => (r.tags || []).includes(activeTag) || (r.cuisine || '') === activeTag);
-    }
+    if (q) list = list.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      (r.cuisine || '').toLowerCase().includes(q) ||
+      (r.tags || []).some(t => t.toLowerCase().includes(q))
+    );
+    if (activeTag) list = list.filter(r => (r.tags || []).includes(activeTag) || (r.cuisine || '') === activeTag);
     return list;
   }, [recipes, librarySearch, activeTag]);
 
   const matches = useMemo(() => {
     if (allMyIngredients.size === 0) return [];
-
     const m = recipes.map(recipe => {
       const recipeIngredients = recipe.ingredients || [];
       const have = recipeIngredients.filter(i => allMyIngredients.has(i));
       const missing = recipeIngredients.filter(i => !allMyIngredients.has(i));
       const matchScore = recipeIngredients.length === 0 ? 0 : have.length / recipeIngredients.length;
-
-      return {
-        id: recipe.id,
-        have,
-        missing,
-        matchScore,
-        canMake: missing.length === 0 && recipeIngredients.length > 0,
-      };
+      return { id: recipe.id, have, missing, matchScore, canMake: missing.length === 0 && recipeIngredients.length > 0 };
     });
-
     m.sort((a, b) => {
       if (a.canMake && !b.canMake) return -1;
       if (!a.canMake && b.canMake) return 1;
       return b.matchScore - a.matchScore;
     });
-
     return m;
   }, [allMyIngredients, recipes]);
 
@@ -778,21 +559,23 @@ export default function App() {
     setLastView(view);
     setView('recipe');
     setRecipeLoading(true);
+    setSelectedRecipe(null);
+    setRecipeBodyIngredients([]);
+    setRecipeInstructions([]);
+    setRecipeNotes([]);
     try {
       const res = await fetch(`${API}/api/recipes/${recipe.id}`);
       if (!res.ok) throw new Error('Failed to load recipe details');
       const data = await res.json();
       setSelectedRecipe(data.recipe);
-      setRecipeContent(data.content || []);
+      setRecipeBodyIngredients(data.bodyIngredients || []);
+      setRecipeInstructions(data.instructions || []);
+      setRecipeNotes(data.notes || []);
     } catch (e) {
       setError(e.message);
     } finally {
       setRecipeLoading(false);
     }
-  };
-
-  const backFromRecipe = () => {
-    setView(lastView);
   };
 
   if (loading) return (
@@ -814,7 +597,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="app-header">
         <div className="app-header__bar">
           <div className="app-header__brand">
@@ -846,17 +628,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* Recipe Detail Page */}
       {view === 'recipe' && (
         <RecipePage
           recipe={selectedRecipe}
-          content={recipeContent}
+          bodyIngredients={recipeBodyIngredients}
+          instructions={recipeInstructions}
+          notes={recipeNotes}
           loading={recipeLoading}
-          onBack={backFromRecipe}
+          onBack={() => setView(lastView)}
         />
       )}
 
-      {/* Fridge Tab */}
       {view === 'fridge' && (
         <FridgeTab
           allIngredients={allIngredients}
@@ -867,7 +649,6 @@ export default function App() {
         />
       )}
 
-      {/* Home */}
       {view === 'home' && (
         <main className="view">
           <div className="home-section">
@@ -895,13 +676,10 @@ export default function App() {
                   if (!r) return null;
                   return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe} />;
                 })}
-                {matches.length === 0 && (
-                  <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>
-                )}
+                {matches.length === 0 && <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>}
               </div>
             )}
           </div>
-
           <div className="home-section">
             <h2 className="home-section__title">Recipe Stats</h2>
             <div className="stats-grid">
@@ -933,46 +711,26 @@ export default function App() {
         </main>
       )}
 
-      {/* All Recipes */}
       {view === 'recipes' && (
         <main className="view">
           <div className="library-header">
             <h2>All Recipes</h2>
-            <p className="library-subtitle">
-              {libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}
-            </p>
+            <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
           </div>
           <div className="library-search-row">
-            <input
-              className="library-search"
-              type="search"
-              placeholder="Search by recipe or tag..."
-              value={librarySearch}
-              onChange={e => setLibrarySearch(e.target.value)}
-            />
-            {librarySearch && (
-              <button className="btn btn--ghost library-search-clear" onClick={() => setLibrarySearch('')}>Clear</button>
-            )}
+            <input className="library-search" type="search" placeholder="Search by recipe or tag..." value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} />
+            {librarySearch && <button className="btn btn--ghost library-search-clear" onClick={() => setLibrarySearch('')}>Clear</button>}
           </div>
           {allTags.length > 0 && (
             <div className="tag-filter-row">
-              <button
-                className={`tag-filter-chip ${activeTag === null ? 'tag-filter-chip--active' : ''}`}
-                onClick={() => setActiveTag(null)}
-              >All</button>
+              <button className={`tag-filter-chip ${activeTag === null ? 'tag-filter-chip--active' : ''}`} onClick={() => setActiveTag(null)}>All</button>
               {allTags.map(tag => (
-                <button
-                  key={tag}
-                  className={`tag-filter-chip ${activeTag === tag ? 'tag-filter-chip--active' : ''}`}
-                  onClick={() => setActiveTag(prev => prev === tag ? null : tag)}
-                >{tag}</button>
+                <button key={tag} className={`tag-filter-chip ${activeTag === tag ? 'tag-filter-chip--active' : ''}`} onClick={() => setActiveTag(prev => prev === tag ? null : tag)}>{tag}</button>
               ))}
             </div>
           )}
           <div className="recipe-grid">
-            {libraryRecipes.map(r => (
-              <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe} />
-            ))}
+            {libraryRecipes.map(r => <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe} />)}
             {libraryRecipes.length === 0 && (
               <div className="results-empty">
                 <p>No recipes match your search{activeTag ? ` or tag "${activeTag}"` : ''}.</p>
@@ -983,12 +741,8 @@ export default function App() {
         </main>
       )}
 
-      {/* Grocery List */}
-      {view === 'grocery' && (
-        <GroceryListTab recipes={recipes} matchById={matchById} />
-      )}
+      {view === 'grocery' && <GroceryListTab recipes={recipes} matchById={matchById} />}
 
-      {/* Add Recipe */}
       {view === 'add' && (
         <main className="view">
           <div className="placeholder">
@@ -998,7 +752,6 @@ export default function App() {
         </main>
       )}
 
-      {/* Settings */}
       {view === 'settings' && (
         <SettingsTab
           units={units}
@@ -1007,8 +760,6 @@ export default function App() {
           setDietaryFilters={setDietaryFilters}
           lastSynced={lastSynced}
           onSync={loadData}
-          recipes={recipes}
-          onIngredientsSaved={loadData}
         />
       )}
     </div>
