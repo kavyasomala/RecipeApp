@@ -692,6 +692,246 @@ body {
 .grocery-item__note { font-size: 11px; color: var(--terracotta); font-style: italic; }
 .grocery-item__recipes { font-size: 11px; color: var(--sage); font-style: italic; width: 100%; }
 
+/* ─── Recipe Page topbar ─────────────────────────────────────────────────── */
+.recipe-page__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+/* ─── Recipe Editor ──────────────────────────────────────────────────────── */
+.editor-page {
+  max-width: 860px;
+}
+
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.editor-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.editor-error {
+  color: var(--terracotta);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.editor-success {
+  color: var(--sage);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.editor-section {
+  margin-bottom: 36px;
+}
+
+.editor-section__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--border);
+}
+
+/* Details grid */
+.editor-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warm-gray);
+}
+
+.editor-field--wide {
+  grid-column: span 3;
+}
+
+.editor-input {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--charcoal);
+  background: var(--warm-white);
+  outline: none;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+.editor-input:focus {
+  border-color: var(--terracotta-light);
+  background: var(--warm-white);
+}
+
+.editor-input--sm {
+  width: 80px;
+}
+
+.editor-textarea {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--charcoal);
+  background: var(--warm-white);
+  outline: none;
+  resize: vertical;
+  flex: 1;
+  transition: border-color var(--transition);
+}
+
+.editor-textarea:focus {
+  border-color: var(--terracotta-light);
+}
+
+/* Ingredient column headers */
+.editor-ing-header {
+  display: grid;
+  grid-template-columns: 60px 60px 1fr 100px 1fr 36px 28px 28px;
+  gap: 6px;
+  padding: 0 0 6px 32px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warm-gray);
+}
+
+/* Sortable rows */
+.sortable-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sortable-handle {
+  cursor: grab;
+  font-size: 18px;
+  color: var(--border);
+  padding: 8px 2px;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.sortable-handle:hover {
+  color: var(--warm-gray);
+}
+
+.sortable-handle:active {
+  cursor: grabbing;
+}
+
+.editor-ing-row {
+  display: grid;
+  grid-template-columns: 60px 60px 1fr 100px 1fr 36px 28px;
+  gap: 6px;
+  flex: 1;
+  align-items: center;
+}
+
+.editor-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+}
+
+.editor-step-num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--terracotta);
+  min-width: 28px;
+  padding-top: 6px;
+}
+
+.editor-note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.editor-optional-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  color: var(--warm-gray);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.editor-optional-btn--on {
+  background: var(--sage);
+  border-color: var(--sage);
+  color: white;
+}
+
+.editor-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--light-gray);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.editor-remove-btn:hover {
+  background: #fdf0eb;
+  color: var(--terracotta);
+}
+
+.editor-add-btn {
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 7px 16px;
+}
+
+.editor-save-bar {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, var(--warm-white) 80%, transparent);
+  padding: 20px 0 8px;
+  margin-top: 16px;
+}
+
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -1,4 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+
+import { CSS } from '@dnd-kit/utilities';
+
 import './App.css';
 
 // ─── localStorage helpers ──────────────────────────────────────────────────
@@ -52,7 +72,7 @@ const RecipeCard = ({ recipe, match, onClick }) => {
 };
 
 // ─── Recipe Page ────────────────────────────────────────────────────────────
-const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, loading }) => {
+const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEdit, loading }) => {
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
 
@@ -98,7 +118,10 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, load
 
   return (
     <main className="view recipe-page">
-      <button className="btn btn--ghost back-btn" onClick={onBack}>← Back</button>
+      <div className="recipe-page__topbar">
+        <button className="btn btn--ghost back-btn" onClick={onBack}>← Back</button>
+        <button className="btn btn--ghost" onClick={onEdit}>✏️ Edit</button>
+      </div>
 
       {/* Header */}
       <div className="recipe-page__header">
@@ -187,6 +210,266 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, load
           </ul>
         </section>
       )}
+    </main>
+  );
+};
+
+// ─── Sortable Item (used in editor) ────────────────────────────────────────
+const SortableItem = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="sortable-item">
+      <div className="sortable-handle" {...attributes} {...listeners}>⠿</div>
+      {children}
+    </div>
+  );
+};
+
+// ─── Recipe Editor ──────────────────────────────────────────────────────────
+const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved }) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Details
+  const [details, setDetails] = useState({
+    name: recipe?.name || '',
+    cuisine: recipe?.cuisine || '',
+    time: recipe?.time || '',
+    servings: recipe?.servings || '',
+    calories: recipe?.calories ?? '',
+    protein: recipe?.protein ?? '',
+    cover_image_url: recipe?.coverImage || '',
+  });
+
+  // Ingredients — each needs a stable id for dnd-kit
+  const [ings, setIngs] = useState(() =>
+    (bodyIngredients || []).map((i, idx) => ({ ...i, _id: `ing-${idx}` }))
+  );
+
+  // Instructions
+  const [steps, setSteps] = useState(() =>
+    (instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` }))
+  );
+
+  // Notes
+  const [notesList, setNotesList] = useState(() =>
+    (notes || []).map((n, idx) => ({ ...n, _id: `note-${idx}` }))
+  );
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const setDetail = (k, v) => setDetails(prev => ({ ...prev, [k]: v }));
+
+  // ── Ingredient helpers ──
+  const addIng = () => setIngs(prev => [...prev, {
+    _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '',
+  }]);
+  const updateIng = (id, k, v) => setIngs(prev => prev.map(i => i._id === id ? { ...i, [k]: v } : i));
+  const removeIng = (id) => setIngs(prev => prev.filter(i => i._id !== id));
+  const onIngDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      setIngs(prev => {
+        const oldIdx = prev.findIndex(i => i._id === active.id);
+        const newIdx = prev.findIndex(i => i._id === over.id);
+        return arrayMove(prev, oldIdx, newIdx);
+      });
+    }
+  };
+
+  // ── Step helpers ──
+  const addStep = () => setSteps(prev => [...prev, {
+    _id: `step-new-${Date.now()}`, step_number: prev.length + 1, body_text: '',
+  }]);
+  const updateStep = (id, v) => setSteps(prev => prev.map(s => s._id === id ? { ...s, body_text: v } : s));
+  const removeStep = (id) => setSteps(prev => prev.filter(s => s._id !== id));
+  const onStepDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      setSteps(prev => {
+        const oldIdx = prev.findIndex(s => s._id === active.id);
+        const newIdx = prev.findIndex(s => s._id === over.id);
+        return arrayMove(prev, oldIdx, newIdx);
+      });
+    }
+  };
+
+  // ── Note helpers ──
+  const addNote = () => setNotesList(prev => [...prev, { _id: `note-new-${Date.now()}`, text: '' }]);
+  const updateNote = (id, v) => setNotesList(prev => prev.map(n => n._id === id ? { ...n, text: v } : n));
+  const removeNote = (id) => setNotesList(prev => prev.filter(n => n._id !== id));
+
+  // ── Save ──
+  const save = async () => {
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const payload = {
+        details,
+        ingredients: ings.map((i, idx) => ({ ...i, order_index: idx })),
+        instructions: steps.map((s, idx) => ({ ...s, step_number: idx + 1 })),
+        notes: notesList.map((n, idx) => ({ ...n, order_index: idx })),
+      };
+      const res = await fetch(`${API}/api/recipes/${recipe.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      setSaveSuccess(true);
+      if (onSaved) onSaved(data.recipe);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e) {
+      setSaveError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Collect unique group labels for datalist autocomplete
+  const groupLabels = [...new Set(ings.map(i => i.group_label).filter(Boolean))];
+
+  return (
+    <main className="view editor-page">
+      <div className="editor-topbar">
+        <button className="btn btn--ghost" onClick={onBack}>← Back</button>
+        <h2 className="editor-title">Edit Recipe</h2>
+        <button className="btn btn--primary" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+
+      {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+      {saveSuccess && <p className="editor-success">✓ Saved successfully</p>}
+
+      {/* ── Details ── */}
+      <section className="editor-section">
+        <h3 className="editor-section__title">Details</h3>
+        <div className="editor-fields">
+          <label className="editor-field editor-field--wide">
+            <span>Recipe Name</span>
+            <input className="editor-input" value={details.name} onChange={e => setDetail('name', e.target.value)} placeholder="e.g. Chicken Tikka Masala" />
+          </label>
+          <label className="editor-field">
+            <span>Cuisine</span>
+            <input className="editor-input" value={details.cuisine} onChange={e => setDetail('cuisine', e.target.value)} placeholder="e.g. Indian" />
+          </label>
+          <label className="editor-field">
+            <span>Time</span>
+            <input className="editor-input" value={details.time} onChange={e => setDetail('time', e.target.value)} placeholder="e.g. 45 mins" />
+          </label>
+          <label className="editor-field">
+            <span>Servings</span>
+            <input className="editor-input" value={details.servings} onChange={e => setDetail('servings', e.target.value)} placeholder="e.g. 4" />
+          </label>
+          <label className="editor-field">
+            <span>Calories</span>
+            <input className="editor-input" type="number" value={details.calories} onChange={e => setDetail('calories', e.target.value)} placeholder="kcal" />
+          </label>
+          <label className="editor-field">
+            <span>Protein (g)</span>
+            <input className="editor-input" type="number" value={details.protein} onChange={e => setDetail('protein', e.target.value)} placeholder="g" />
+          </label>
+          <label className="editor-field editor-field--wide">
+            <span>Cover Image URL</span>
+            <input className="editor-input" value={details.cover_image_url} onChange={e => setDetail('cover_image_url', e.target.value)} placeholder="https://…" />
+          </label>
+        </div>
+      </section>
+
+      {/* ── Ingredients ── */}
+      <section className="editor-section">
+        <h3 className="editor-section__title">Ingredients</h3>
+        <datalist id="group-labels">
+          {groupLabels.map(l => <option key={l} value={l} />)}
+        </datalist>
+        <div className="editor-ing-header">
+          <span>Amount</span><span>Unit</span><span>Name</span><span>Group</span><span>Prep note</span><span>Opt?</span><span></span>
+        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onIngDragEnd}>
+          <SortableContext items={ings.map(i => i._id)} strategy={verticalListSortingStrategy}>
+            {ings.map(ing => (
+              <SortableItem key={ing._id} id={ing._id}>
+                <div className="editor-ing-row">
+                  <input className="editor-input editor-input--sm" value={ing.amount} onChange={e => updateIng(ing._id, 'amount', e.target.value)} placeholder="2" />
+                  <input className="editor-input editor-input--sm" value={ing.unit} onChange={e => updateIng(ing._id, 'unit', e.target.value)} placeholder="tbsp" />
+                  <input className="editor-input" value={ing.name} onChange={e => updateIng(ing._id, 'name', e.target.value)} placeholder="soy sauce" />
+                  <input className="editor-input editor-input--sm" value={ing.group_label || ''} onChange={e => updateIng(ing._id, 'group_label', e.target.value)} placeholder="e.g. Sauce" list="group-labels" />
+                  <input className="editor-input" value={ing.prep_note || ''} onChange={e => updateIng(ing._id, 'prep_note', e.target.value)} placeholder="finely chopped" />
+                  <button
+                    className={`editor-optional-btn ${ing.optional ? 'editor-optional-btn--on' : ''}`}
+                    onClick={() => updateIng(ing._id, 'optional', !ing.optional)}
+                    title="Mark as optional"
+                  >{ing.optional ? '✓' : '○'}</button>
+                  <button className="editor-remove-btn" onClick={() => removeIng(ing._id)}>✕</button>
+                </div>
+              </SortableItem>
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button className="btn btn--ghost editor-add-btn" onClick={addIng}>+ Add Ingredient</button>
+      </section>
+
+      {/* ── Instructions ── */}
+      <section className="editor-section">
+        <h3 className="editor-section__title">Instructions</h3>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStepDragEnd}>
+          <SortableContext items={steps.map(s => s._id)} strategy={verticalListSortingStrategy}>
+            {steps.map((step, idx) => (
+              <SortableItem key={step._id} id={step._id}>
+                <div className="editor-step-row">
+                  <span className="editor-step-num">{idx + 1}</span>
+                  <textarea
+                    className="editor-textarea"
+                    value={step.body_text}
+                    onChange={e => updateStep(step._id, e.target.value)}
+                    placeholder="Describe this step…"
+                    rows={2}
+                  />
+                  <button className="editor-remove-btn" onClick={() => removeStep(step._id)}>✕</button>
+                </div>
+              </SortableItem>
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button className="btn btn--ghost editor-add-btn" onClick={addStep}>+ Add Step</button>
+      </section>
+
+      {/* ── Notes ── */}
+      <section className="editor-section">
+        <h3 className="editor-section__title">Notes &amp; Modifications</h3>
+        {notesList.map(note => (
+          <div key={note._id} className="editor-note-row">
+            <input
+              className="editor-input"
+              value={note.text || ''}
+              onChange={e => updateNote(note._id, e.target.value)}
+              placeholder="e.g. Works great with tofu instead of chicken"
+            />
+            <button className="editor-remove-btn" onClick={() => removeNote(note._id)}>✕</button>
+          </div>
+        ))}
+        <button className="btn btn--ghost editor-add-btn" onClick={addNote}>+ Add Note</button>
+      </section>
+
+      {/* ── Bottom save bar ── */}
+      <div className="editor-save-bar">
+        {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+        {saveSuccess && <p className="editor-success">✓ Saved successfully</p>}
+        <button className="btn btn--primary btn--large" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
     </main>
   );
 };
@@ -469,6 +752,7 @@ export default function App() {
   const [recipeBodyIngredients, setRecipeBodyIngredients] = useState([]);
   const [recipeInstructions, setRecipeInstructions] = useState([]);
   const [recipeNotes, setRecipeNotes] = useState([]);
+  const [editingRecipe, setEditingRecipe] = useState(false);
   const [recipeLoading, setRecipeLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -628,7 +912,7 @@ export default function App() {
         </div>
       </header>
 
-      {view === 'recipe' && (
+      {view === 'recipe' && !editingRecipe && (
         <RecipePage
           recipe={selectedRecipe}
           bodyIngredients={recipeBodyIngredients}
@@ -636,6 +920,22 @@ export default function App() {
           notes={recipeNotes}
           loading={recipeLoading}
           onBack={() => setView(lastView)}
+          onEdit={() => setEditingRecipe(true)}
+        />
+      )}
+
+      {view === 'recipe' && editingRecipe && (
+        <RecipeEditor
+          recipe={selectedRecipe}
+          bodyIngredients={recipeBodyIngredients}
+          instructions={recipeInstructions}
+          notes={recipeNotes}
+          onBack={() => setEditingRecipe(false)}
+          onSaved={(updated) => {
+            setSelectedRecipe(updated);
+            setEditingRecipe(false);
+            loadData(); // refresh recipe list
+          }}
         />
       )}
 
