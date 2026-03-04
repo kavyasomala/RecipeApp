@@ -4,7 +4,9 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://recipeapp-1-mg78.onrender.com'
+}));
 app.use(express.json());
 
 // ─── Postgres client ────────────────────────────────────────────────────────

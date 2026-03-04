@@ -1575,11 +1575,12 @@ body {
 }
 .rp2__hero-overlay {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 40px 24px 20px;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
+  inset: 0;
+  padding: 16px 20px 18px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 40%, transparent 55%, rgba(0,0,0,0.65) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .rp2__hero-bottom {
   display: flex;
@@ -1814,3 +1815,250 @@ body {
   .recipe-page__header { grid-template-columns: 1fr; }
   .view { padding-inline: 16px; }
 }
+
+/* ─── Heart button on recipe cards ─────────────────────────────────────────── */
+.recipe-card__heart {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(4px);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: var(--warm-gray);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+}
+.recipe-card__heart:hover { transform: scale(1.15); }
+.recipe-card__heart--on { color: #e03e5c; background: rgba(255,255,255,0.95); }
+
+/* ─── Hero topbar (back / heart / edit in overlay) ──────────────────────────── */
+.rp2__hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: auto;
+  padding-bottom: 8px;
+}
+.rp2__hero-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rp2__hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.rp2__hero-btn:hover { background: rgba(0,0,0,0.65); }
+.rp2__hero-btn--primary { background: var(--terracotta); border-color: var(--terracotta-dark); }
+.rp2__hero-btn--primary:hover { background: var(--terracotta-dark); }
+.rp2__hero-heart { font-size: 18px; padding: 7px 10px; }
+.rp2__hero-heart--on { color: #ff6b8a; }
+
+
+/* ─── Editable sections ──────────────────────────────────────────────────────── */
+.editable-section {
+  position: relative;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+.editable-section:hover { background: rgba(196,98,58,0.04); }
+.editable-section__pencil {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--warm-white);
+  font-size: 13px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  transition: all 0.15s ease;
+  z-index: 10;
+}
+.editable-section:hover .editable-section__pencil { display: flex; }
+.editable-section__pencil:hover { background: var(--terracotta); border-color: var(--terracotta); color: white; transform: scale(1.1); }
+
+/* The hero wrap needs overflow visible for pencil to sit outside */
+.rp2__hero-wrap { overflow: visible; border-radius: 0; cursor: default; }
+.rp2__hero-wrap:hover { background: transparent; }
+.rp2__hero-wrap .editable-section__pencil { display: none !important; } /* hero has its own edit btn */
+
+/* ─── Notes as bulleted list ─────────────────────────────────────────────────── */
+.rp2__notes { padding: 20px 24px; max-width: 760px; }
+.rp2__notes-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+}
+.rp2__notes-item {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--charcoal);
+  padding: 8px 12px;
+  border-left: 3px solid var(--terracotta-light);
+  background: #fef8f5;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.rp2__notes-item::before {
+  content: '·';
+  color: var(--terracotta);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ─── Editor hero ────────────────────────────────────────────────────────────── */
+.ed-hero { position: relative; cursor: default; }
+.ed-hero__img-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  z-index: 20;
+}
+.ed-hero__img-btn:hover { background: rgba(0,0,0,0.7); }
+.ed-hero__img-popover {
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  width: 320px;
+  background: var(--warm-white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 30;
+}
+.ed-hero__img-popover-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warm-gray);
+  margin-bottom: 6px;
+}
+
+/* ─── Editor title input (matches rp2__title style) ─────────────────────────── */
+.ed-name-row { padding: 16px 24px 8px; cursor: default; }
+.ed-name-row:hover { background: transparent; }
+.ed-title-input {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--charcoal);
+  border: none;
+  border-bottom: 2px dashed var(--border);
+  background: transparent;
+  width: 100%;
+  outline: none;
+  padding: 4px 0;
+  transition: border-color 0.15s ease;
+}
+.ed-title-input:focus { border-bottom-color: var(--terracotta-light); }
+
+/* ─── Editor meta row ────────────────────────────────────────────────────────── */
+.ed-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 24px 20px;
+  border-bottom: 1.5px solid var(--border);
+  margin-bottom: 4px;
+}
+.ed-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+  flex: 1;
+}
+.ed-meta-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--warm-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ed-meta-input { font-size: 13px !important; padding: 6px 10px !important; }
+
+/* ─── Pager ──────────────────────────────────────────────────────────────────── */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 0 8px;
+  flex-wrap: wrap;
+}
+.pager__btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--warm-white);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--charcoal);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pager__btn:hover:not(:disabled) { border-color: var(--terracotta-light); background: #fdf0eb; }
+.pager__btn:disabled { opacity: 0.35; cursor: default; }
+.pager__pages { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.pager__num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--warm-white);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--charcoal);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pager__num:hover { border-color: var(--terracotta-light); background: #fdf0eb; }
+.pager__num--active { background: var(--terracotta); border-color: var(--terracotta); color: white; font-weight: 700; }
