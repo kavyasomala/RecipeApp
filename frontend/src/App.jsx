@@ -38,12 +38,6 @@ const LS = {
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-const CUISINES = [
-  'American', 'British', 'Caribbean', 'Chinese', 'French', 'Greek',
-  'Indian', 'Italian', 'Japanese', 'Korean', 'Lebanese', 'Mediterranean',
-  'Mexican', 'Middle Eastern', 'Moroccan', 'Persian', 'Spanish',
-  'Thai', 'Turkish', 'Vietnamese',
-];
 
 const COMMON_UNITS = [
   'tsp', 'tbsp', 'cup', 'cups', 'ml', 'l', 'g', 'kg', 'oz', 'lb',
@@ -51,6 +45,32 @@ const COMMON_UNITS = [
   'piece', 'pieces', 'can', 'jar', 'bag', 'sprig', 'sprigs',
   'rasher', 'fillet', 'fillets', 'sheet', 'sheets',
 ];
+
+// Quick-filter chips — match on tags OR cuisine column
+const QUICK_FILTERS = [
+  { key: null,        label: 'All'      },
+  { key: 'Basic',     label: 'Basic'    },
+  { key: 'Dessert',   label: 'Dessert'  },
+  { key: 'Drinks',    label: 'Drinks'   },
+  { key: 'Pasta',     label: 'Pasta'    },
+  { key: 'Soup',      label: 'Soup'     },
+  { key: 'Marinade',  label: 'Marinade' },
+  { key: 'Party',     label: 'Party'    },
+];
+// Tag-only keys that should NOT appear in the cuisine dropdown
+const QUICK_CHIP_KEYS = new Set(QUICK_FILTERS.filter(f => f.key).map(f => f.key));
+// Geographic cuisines for editor + dropdown
+const GEO_CUISINES = [
+  'American', 'British', 'Caribbean', 'Chinese', 'French', 'Greek',
+  'Indian', 'Italian', 'Japanese', 'Korean', 'Lebanese', 'Mediterranean',
+  'Mexican', 'Middle Eastern', 'Moroccan', 'Persian', 'Spanish',
+  'Thai', 'Turkish', 'Vietnamese',
+].sort();
+// All cuisines available in the editor (geographic + functional)
+const ALL_CUISINES = [
+  ...GEO_CUISINES,
+  'Basic', 'Dessert', 'Drinks', 'Marinade', 'Party', 'Pasta', 'Soup',
+].sort();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const pct = (score) => Math.round(score * 100);
@@ -60,8 +80,12 @@ const Badge = ({ children, variant = 'default' }) => (
 );
 
 // ─── Recipe Summary Card ───────────────────────────────────────────────────
+const toNum = (v) => { const n = Number(v); return (!isNaN(n) && v !== '' && v !== null && v !== undefined) ? n : null; };
+
 const RecipeCard = ({ recipe, match, onClick }) => {
-  const { name, coverImage, cuisine, calories, protein } = recipe;
+  const { name, coverImage, cuisine, time } = recipe;
+  const calories = toNum(recipe.calories);
+  const protein  = toNum(recipe.protein);
   const matchScore = match?.matchScore ?? null;
   const canMakeNow = Boolean(match?.canMake);
 
@@ -80,14 +104,23 @@ const RecipeCard = ({ recipe, match, onClick }) => {
       <div className="recipe-card__body">
         <div className="recipe-card__title-row">
           <h3 className="recipe-card__title">{name}</h3>
-          {canMakeNow && <span className="recipe-card__can-make">Can make</span>}
+          {canMakeNow && <span className="recipe-card__can-make">✓ Can make</span>}
         </div>
-        <div className="recipe-card__meta">
-          {cuisine && <Badge>{cuisine}</Badge>}
-        </div>
-        <div className="recipe-card__nutrition">
-          {typeof calories === 'number' && <span className="recipe-card__pill">{Math.round(calories)} kcal</span>}
-          {typeof protein === 'number' && <span className="recipe-card__pill">{Math.round(protein)}g protein</span>}
+        {cuisine && (
+          <div className="recipe-card__meta">
+            <Badge>{cuisine}</Badge>
+          </div>
+        )}
+        <div className="recipe-card__stats">
+          {time && (
+            <span className="recipe-card__stat"><span className="recipe-card__stat-icon">⏱</span>{time}</span>
+          )}
+          {calories !== null && (
+            <span className="recipe-card__stat"><span className="recipe-card__stat-icon">🔥</span>{Math.round(calories)} kcal</span>
+          )}
+          {protein !== null && (
+            <span className="recipe-card__stat"><span className="recipe-card__stat-icon">💪</span>{Math.round(protein)}g protein</span>
+          )}
         </div>
       </div>
     </article>
@@ -96,11 +129,9 @@ const RecipeCard = ({ recipe, match, onClick }) => {
 
 // ─── Recipe Page ────────────────────────────────────────────────────────────
 const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEdit, loading }) => {
-
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
 
-  // Must be before any early returns — Rules of Hooks
   const ingredientGroups = useMemo(() => {
     if (!bodyIngredients?.length) return [];
     const groups = [];
@@ -114,104 +145,138 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
   }, [bodyIngredients]);
 
   const toggleIngredient = (key) => setCheckedIngredients(prev => {
-    const next = new Set(prev);
-    next.has(key) ? next.delete(key) : next.add(key);
-    return next;
+    const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next;
   });
-
   const toggleStep = (num) => setDoneSteps(prev => {
-    const next = new Set(prev);
-    next.has(num) ? next.delete(num) : next.add(num);
-    return next;
+    const next = new Set(prev); next.has(num) ? next.delete(num) : next.add(num); return next;
   });
 
-  if (loading) return (
-    <main className="view"><div className="placeholder"><h2>Loading recipe…</h2></div></main>
-  );
-  if (!recipe) return (
-    <main className="view"><div className="placeholder"><h2>Recipe not found</h2><button className="btn btn--ghost" onClick={onBack}>← Back</button></div></main>
-  );
+  if (loading) return <main className="view"><div className="placeholder"><h2>Loading recipe…</h2></div></main>;
+  if (!recipe) return <main className="view"><div className="placeholder"><h2>Recipe not found</h2><button className="btn btn--ghost" onClick={onBack}>← Back</button></div></main>;
+
+  const calories = toNum(recipe.calories);
+  const protein  = toNum(recipe.protein);
+  const fiber    = toNum(recipe.fiber);
+
+  const doneCount = doneSteps.size;
+  const totalSteps = instructions?.length ?? 0;
 
   return (
-    <main className="view recipe-page">
-      <div className="recipe-page__topbar">
-        <button className="btn btn--ghost" onClick={onBack}>← Back</button>
-        <button className="btn btn--ghost" onClick={onEdit}>✏️ Edit</button>
+    <main className="view rp2">
+      {/* Top bar */}
+      <div className="rp2__topbar">
+        <button className="rp2__back" onClick={onBack}>← Back</button>
+        <button className="btn btn--ghost btn--sm" onClick={onEdit}>✏️ Edit</button>
       </div>
 
-      {/* Hero: photo left, details right */}
-      <div className="recipe-page__hero">
-        <div className="recipe-page__image">
-          {recipe.coverImage
-            ? <img src={recipe.coverImage} alt={recipe.name} />
-            : <div className="recipe-page__image-placeholder">No photo</div>}
-        </div>
-        <div className="recipe-page__summary">
-          <h2 className="recipe-page__title">{recipe.name}</h2>
-          <div className="recipe-page__meta">
-            {recipe.cuisine && <Badge>{recipe.cuisine}</Badge>}
-            {typeof recipe.calories === 'number' && <Badge variant="info">{Math.round(recipe.calories)} kcal</Badge>}
-            {typeof recipe.protein === 'number' && <Badge variant="info">{Math.round(recipe.protein)}g protein</Badge>}
-            {recipe.time && <Badge variant="time">⏱ {recipe.time}</Badge>}
-            {recipe.servings && <Badge variant="info">🍽 {recipe.servings}</Badge>}
-          </div>
-          {/* Ingredients inline in hero */}
-          {ingredientGroups.length > 0 && (
-            <div className="recipe-page__ing-preview">
-              <h4 className="recipe-page__ing-title">Ingredients</h4>
-              {ingredientGroups.map(({ label, items }) => (
-                <div key={label}>
-                  {label && <p className="recipe-page__ing-group-label">{label}</p>}
-                  <ul className="rp-ing-list">
-                    {items.map((ing, idx) => {
-                      const key = `${label}-${idx}`;
-                      const isChecked = checkedIngredients.has(key);
-                      const amountStr = [ing.amount, ing.unit, ing.name].filter(Boolean).join(' ');
-                      return (
-                        <li key={key} className={`rp-ing-item ${isChecked ? 'rp-ing-item--checked' : ''}`} onClick={() => toggleIngredient(key)}>
-                          <div className={`rp-ing-item__checkbox ${isChecked ? 'rp-ing-item__checkbox--checked' : ''}`}>{isChecked && '✓'}</div>
-                          <div className="rp-ing-item__body">
-                            <span className="rp-ing-item__text">{amountStr}</span>
-                            {ing.optional && <span className="rp-ing-item__optional">Optional</span>}
-                            {ing.prep_note && <span className="rp-ing-item__prep">{ing.prep_note}</span>}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
+      {/* Hero image — full width with overlay tags on both sides */}
+      <div className="rp2__hero">
+        {recipe.coverImage
+          ? <img className="rp2__hero-img" src={recipe.coverImage} alt={recipe.name} />
+          : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
+        <div className="rp2__hero-overlay">
+          <div className="rp2__hero-bottom">
+            {/* Bottom-left: cuisine + tag pills */}
+            <div className="rp2__hero-tags">
+              {recipe.cuisine && <span className="rp2__tag">{recipe.cuisine}</span>}
+              {recipe.tags?.map(t => <span key={t} className="rp2__tag rp2__tag--light">{t}</span>)}
             </div>
-          )}
+            {/* Bottom-right: stat pills */}
+            <div className="rp2__hero-pills">
+              {recipe.time && <span className="rp2__pill"><span className="rp2__pill-icon">⏱</span>{recipe.time}</span>}
+              {recipe.servings && <span className="rp2__pill"><span className="rp2__pill-icon">🍽</span>{recipe.servings} srv</span>}
+              {calories !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🔥</span>{Math.round(calories)} kcal</span>}
+              {protein !== null && <span className="rp2__pill"><span className="rp2__pill-icon">💪</span>{Math.round(protein)}g prot</span>}
+              {fiber !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🌿</span>{Math.round(fiber)}g fiber</span>}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Instructions full width */}
-      {instructions?.length > 0 && (
-        <section className="rp-section">
-          <h3 className="rp-section__title">Instructions</h3>
-          <ol className="rp-steps">
-            {[...instructions].sort((a, b) => a.step_number - b.step_number).map(step => {
-              const done = doneSteps.has(step.step_number);
-              return (
-                <li key={step.step_number} className={`rp-step ${done ? 'rp-step--done' : ''}`} onClick={() => toggleStep(step.step_number)}>
-                  <div className="rp-step__num">{done ? '✓' : step.step_number}</div>
-                  <p className="rp-step__body">{step.body_text}</p>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      )}
+      {/* Title row — no stats tiles */}
+      <div className="rp2__header">
+        <h1 className="rp2__title">{recipe.name}</h1>
+      </div>
 
-      {/* Notes cards */}
+      {/* Two-column body */}
+      <div className="rp2__body">
+        {/* Left: Ingredients */}
+        {ingredientGroups.length > 0 && (
+          <aside className="rp2__ingredients">
+            <h2 className="rp2__section-title">Ingredients</h2>
+            {ingredientGroups.map(({ label, items }) => (
+              <div key={label || '__default'} className="rp2__ing-group">
+                {label && <p className="rp2__ing-group-label">{label}</p>}
+                <ul className="rp2__ing-list">
+                  {items.map((ing, idx) => {
+                    const key = `${label}-${idx}`;
+                    const isChecked = checkedIngredients.has(key);
+                    const amountStr = [ing.amount, ing.unit].filter(Boolean).join(' ');
+                    return (
+                      <li
+                        key={key}
+                        className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`}
+                        onClick={() => toggleIngredient(key)}
+                      >
+                        <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>
+                          {isChecked && '✓'}
+                        </div>
+                        <div className="rp2__ing-text">
+                          {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
+                          <span className="rp2__ing-name">{ing.name}</span>
+                          {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
+                          {ing.optional && <span className="rp2__ing-optional">optional</span>}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </aside>
+        )}
+
+        {/* Right: Instructions */}
+        {instructions?.length > 0 && (
+          <section className="rp2__instructions">
+            <div className="rp2__instructions-header">
+              <h2 className="rp2__section-title">Instructions</h2>
+              {totalSteps > 0 && (
+                <span className="rp2__progress-label">{doneCount}/{totalSteps} steps</span>
+              )}
+            </div>
+            {totalSteps > 0 && (
+              <div className="rp2__progress-bar">
+                <div className="rp2__progress-fill" style={{ width: `${(doneCount / totalSteps) * 100}%` }} />
+              </div>
+            )}
+            <ol className="rp2__steps">
+              {[...instructions].sort((a, b) => a.step_number - b.step_number).map(step => {
+                const done = doneSteps.has(step.step_number);
+                return (
+                  <li
+                    key={step.step_number}
+                    className={`rp2__step ${done ? 'rp2__step--done' : ''}`}
+                    onClick={() => toggleStep(step.step_number)}
+                  >
+                    <div className="rp2__step-num">{done ? '✓' : step.step_number}</div>
+                    <p className="rp2__step-body">{step.body_text}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+      </div>
+
+      {/* Notes */}
       {notes?.length > 0 && (
-        <section className="rp-section">
-          <h3 className="rp-section__title">Notes &amp; Modifications</h3>
-          <div className="rp-notes-grid">
+        <section className="rp2__notes">
+          <h2 className="rp2__section-title">Notes &amp; Tips</h2>
+          <div className="rp2__notes-grid">
             {notes.map((n, i) => (
-              <div key={i} className="rp-note-card">
-                <span className="rp-note-card__icon">💡</span>
+              <div key={i} className="rp2__note-card">
+                <span className="rp2__note-icon">💡</span>
                 <p>{n.text ?? n.body_text ?? n}</p>
               </div>
             ))}
@@ -518,7 +583,7 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
             <span>Cuisine</span>
             <select className="editor-input editor-select" value={details.cuisine} onChange={e => setDetail('cuisine', e.target.value)}>
               <option value="">— select —</option>
-              {CUISINES.map(c => <option key={c} value={c}>{c}</option>)}
+              {[...new Set(ALL_CUISINES)].sort().map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </label>
           <label className="editor-field">
@@ -635,24 +700,37 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
   );
 };
 
-// ─── Cuisine Dropdown ────────────────────────────────────────────────────────
-const CuisineDropdown = ({ cuisines, value, onChange }) => {
+const CuisineDropdown = ({ cuisines, value, onChange, onCreateNew }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapRef = useRef(null);
 
-  const filtered = useMemo(() =>
-    cuisines.filter(c => c.toLowerCase().includes(search.toLowerCase())),
-    [cuisines, search]
-  );
+  // Cuisines shown in dropdown = all passed-in cuisines (already filtered by parent)
+  const filtered = useMemo(() => {
+    if (!search.trim()) return cuisines;
+    return cuisines.filter(c => c.toLowerCase().includes(search.toLowerCase()));
+  }, [cuisines, search]);
+
+  const trimmed = search.trim();
+  const exactMatch = cuisines.some(c => c.toLowerCase() === trimmed.toLowerCase());
+  const showCreate = trimmed.length > 0 && !exactMatch;
 
   useEffect(() => {
-    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setSearch(''); } };
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setSearch(''); }
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const select = (c) => { onChange(c === value ? '' : c); setOpen(false); setSearch(''); };
+  const create = () => {
+    if (!trimmed) return;
+    onCreateNew(trimmed);
+    onChange(trimmed);
+    setOpen(false);
+    setSearch('');
+  };
   const clear = (e) => { e.stopPropagation(); onChange(''); setSearch(''); };
 
   return (
@@ -664,8 +742,8 @@ const CuisineDropdown = ({ cuisines, value, onChange }) => {
         <span className="cuisine-dd__globe">🌍</span>
         <span className="cuisine-dd__label">{value || 'Cuisine'}</span>
         {value
-          ? <span className="cuisine-dd__x" onClick={clear}>✕</span>
-          : <span className="cuisine-dd__arrow">{open ? '▲' : '▼'}</span>
+          ? <span className="cuisine-dd__x" onMouseDown={clear}>✕</span>
+          : <span className={`cuisine-dd__arrow ${open ? 'cuisine-dd__arrow--open' : ''}`}>›</span>
         }
       </button>
 
@@ -676,21 +754,32 @@ const CuisineDropdown = ({ cuisines, value, onChange }) => {
             <input
               className="cuisine-dd__search"
               autoFocus
-              placeholder="Search cuisines…"
+              placeholder="Search or create…"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && showCreate) create(); if (e.key === 'Escape') { setOpen(false); setSearch(''); } }}
             />
-            {search && <button className="cuisine-dd__search-clear" onClick={() => setSearch('')}>✕</button>}
+            {search && <button className="cuisine-dd__search-clear" onMouseDown={() => setSearch('')}>✕</button>}
           </div>
+
           <div className="cuisine-dd__list">
-            {filtered.length === 0 && <p className="cuisine-dd__empty">No cuisines found</p>}
+            {showCreate && (
+              <button className="cuisine-dd__option cuisine-dd__option--create" onMouseDown={create}>
+                <span className="cuisine-dd__create-icon">＋</span>
+                Create &ldquo;{trimmed}&rdquo;
+                <span className="cuisine-dd__create-badge">New</span>
+              </button>
+            )}
+            {filtered.length === 0 && !showCreate && (
+              <p className="cuisine-dd__empty">No cuisines found</p>
+            )}
             {filtered.map(c => (
               <button
                 key={c}
                 className={`cuisine-dd__option ${value === c ? 'cuisine-dd__option--active' : ''}`}
-                onClick={() => select(c)}
+                onMouseDown={() => select(c)}
               >
-                {value === c && <span className="cuisine-dd__check">✓</span>}
+                <span className="cuisine-dd__check">{value === c ? '✓' : ''}</span>
                 {c}
               </button>
             ))}
@@ -701,93 +790,177 @@ const CuisineDropdown = ({ cuisines, value, onChange }) => {
   );
 };
 
-// Remove the old FRIDGE_KEYWORDS / PANTRY_KEYWORDS / classifyIngredient — no longer needed
-
 // ─── Fridge Tab ─────────────────────────────────────────────────────────────
-const FRIDGE_TYPES  = ['produce', 'meat', 'dairy', 'sauce'];
-const PANTRY_TYPES  = ['spice', 'alcohol', 'staple'];
+const ALL_TYPES = ['produce', 'meat', 'dairy', 'sauce', 'spice', 'alcohol', 'staple'];
+const TYPE_META = {
+  produce:  { label: 'Produce',       emoji: '🥦', group: 'fridge'  },
+  meat:     { label: 'Meat & Fish',   emoji: '🥩', group: 'fridge'  },
+  dairy:    { label: 'Dairy',         emoji: '🥛', group: 'fridge'  },
+  sauce:    { label: 'Sauces',        emoji: '🫙', group: 'fridge'  },
+  spice:    { label: 'Spices',        emoji: '🧂', group: 'pantry'  },
+  alcohol:  { label: 'Alcohol',       emoji: '🍷', group: 'pantry'  },
+  staple:   { label: 'Staples',       emoji: '🌾', group: 'pantry'  },
+};
 
 const FridgeTab = ({ allIngredients, fridgeIngredients, setFridgeIngredients, pantryStaples, setPantryStaples }) => {
-  const [section, setSection] = useState('fridge');
   const [search, setSearch] = useState('');
+  const [activeType, setActiveType] = useState(null); // null = all
+  // Local overrides: { [ingredientName]: newType }
+  const [typeOverrides, setTypeOverrides] = useState(() => LS.get('ingredientTypeOverrides', {}));
+  const [renamingIng, setRenamingIng] = useState(null); // name of ingredient whose type picker is open
 
-  const fridgeList  = useMemo(() => allIngredients.filter(i => FRIDGE_TYPES.includes(i.type)),  [allIngredients]);
-  const pantryList  = useMemo(() => allIngredients.filter(i => PANTRY_TYPES.includes(i.type)), [allIngredients]);
-  const sourceList  = section === 'fridge' ? fridgeList : pantryList;
+  useEffect(() => { LS.set('ingredientTypeOverrides', typeOverrides); }, [typeOverrides]);
 
+  const allSelected = useMemo(
+    () => new Set([...fridgeIngredients, ...pantryStaples]),
+    [fridgeIngredients, pantryStaples]
+  );
+
+  // Enrich ingredients with overridden type
+  const enriched = useMemo(() =>
+    allIngredients.map(i => ({ ...i, type: typeOverrides[i.name] ?? i.type })),
+    [allIngredients, typeOverrides]
+  );
+
+  const filtered = useMemo(() => {
+    let list = enriched;
+    if (search.trim()) list = list.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
+    if (activeType) list = list.filter(i => i.type === activeType);
+    return list;
+  }, [enriched, search, activeType]);
+
+  // Group by type for display
   const grouped = useMemo(() => {
-    const filtered = sourceList.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
-    return filtered.reduce((acc, ing) => {
-      const letter = ing.name[0]?.toUpperCase() || '#';
-      if (!acc[letter]) acc[letter] = [];
-      acc[letter].push(ing.name);
-      return acc;
-    }, {});
-  }, [sourceList, search]);
+    const map = {};
+    for (const ing of filtered) {
+      const t = ing.type || 'other';
+      if (!map[t]) map[t] = [];
+      map[t].push(ing);
+    }
+    return map;
+  }, [filtered]);
 
-  const isFridge   = section === 'fridge';
-  const selected   = isFridge ? fridgeIngredients : pantryStaples;
-  const setSelected = isFridge ? setFridgeIngredients : setPantryStaples;
-
-  const toggle = (name) => {
+  const toggle = (name, type) => {
     const lower = name.toLowerCase();
-    setSelected(prev => prev.includes(lower) ? prev.filter(i => i !== lower) : [...prev, lower]);
+    const isFridgeType = ['produce', 'meat', 'dairy', 'sauce'].includes(type);
+    if (isFridgeType) {
+      setFridgeIngredients(prev => prev.includes(lower) ? prev.filter(i => i !== lower) : [...prev, lower]);
+    } else {
+      setPantryStaples(prev => prev.includes(lower) ? prev.filter(i => i !== lower) : [...prev, lower]);
+    }
   };
+
+  const overrideType = (name, newType) => {
+    setTypeOverrides(prev => ({ ...prev, [name]: newType }));
+    setRenamingIng(null);
+    // If moving between fridge/pantry buckets, adjust selection lists
+    const lower = name.toLowerCase();
+    const newIsFridge = ['produce', 'meat', 'dairy', 'sauce'].includes(newType);
+    if (newIsFridge) {
+      // Remove from pantry if present
+      setPantryStaples(prev => prev.filter(i => i !== lower));
+    } else {
+      // Remove from fridge if present
+      setFridgeIngredients(prev => prev.filter(i => i !== lower));
+    }
+  };
+
+  const totalSelected = fridgeIngredients.length + pantryStaples.length;
 
   return (
     <main className="view">
       <div className="fridge-header">
         <div>
           <h2 className="fridge-title">My Kitchen</h2>
-          <p className="fridge-subtitle">Select what you have so we can suggest recipes</p>
-        </div>
-      </div>
-      <div className="fridge-section-tabs">
-        <button className={`fridge-tab ${section === 'fridge' ? 'fridge-tab--active' : ''}`} onClick={() => setSection('fridge')}>
-          🧊 Fridge
-          {fridgeIngredients.length > 0 && <span className="fridge-tab__count">{fridgeIngredients.length}</span>}
-        </button>
-        <button className={`fridge-tab ${section === 'pantry' ? 'fridge-tab--active' : ''}`} onClick={() => setSection('pantry')}>
-          🫙 Pantry &amp; Spices
-          {pantryStaples.length > 0 && <span className="fridge-tab__count">{pantryStaples.length}</span>}
-        </button>
-      </div>
-      <p className="fridge-section-hint">
-        {isFridge
-          ? 'Fresh produce, meat & dairy — update this regularly'
-          : 'Dry goods, sauces, spices & alcohol — set once and forget'}
-      </p>
-      <div className="picker__search-row">
-        <input className="picker__search" type="search" placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
-        <div className="picker__actions">
-          <button className="btn btn--ghost" onClick={() => setSelected([])}>Clear</button>
-          <button className="btn btn--ghost" onClick={() => setSelected(sourceList.map(i => i.name.toLowerCase()))}>All</button>
-        </div>
-      </div>
-      <div className="picker__grid-wrapper picker__grid-wrapper--full">
-        {Object.entries(grouped).sort().map(([letter, items]) => (
-          <div key={letter} className="picker__group">
-            <div className="picker__group-label">{letter}</div>
-            <div className="picker__chips">
-              {items.map(name => {
-                const isSelected = selected.includes(name.toLowerCase());
-                return (
-                  <button key={name} className={`chip ${isSelected ? 'chip--selected' : ''}`} onClick={() => toggle(name)}>
-                    {isSelected && <span className="chip__check">✓</span>}
-                    {name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {Object.keys(grouped).length === 0 && (
-          <p className="picker__empty">
-            {sourceList.length === 0
-              ? 'No ingredients classified for this section yet'
-              : `No ingredients match "${search}"`}
+          <p className="fridge-subtitle">
+            {totalSelected > 0 ? `${totalSelected} ingredient${totalSelected !== 1 ? 's' : ''} selected` : 'Select what you have to get recipe suggestions'}
           </p>
+        </div>
+        <button className="btn btn--ghost btn--sm" onClick={() => { setFridgeIngredients([]); setPantryStaples([]); }}>Clear all</button>
+      </div>
+
+      {/* Search + type filter row */}
+      <div className="fridge-filter-bar">
+        <div className="fridge-filter-bar__search-wrap">
+          <span className="fridge-filter-bar__icon">🔍</span>
+          <input
+            className="fridge-filter-bar__search"
+            type="search"
+            placeholder="Search all ingredients…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && <button className="fridge-filter-bar__clear" onClick={() => setSearch('')}>✕</button>}
+        </div>
+        <div className="fridge-type-chips">
+          <button className={`fridge-type-chip ${activeType === null ? 'fridge-type-chip--active' : ''}`} onClick={() => setActiveType(null)}>All</button>
+          {ALL_TYPES.map(t => {
+            const meta = TYPE_META[t];
+            return (
+              <button key={t} className={`fridge-type-chip ${activeType === t ? 'fridge-type-chip--active' : ''}`} onClick={() => setActiveType(prev => prev === t ? null : t)}>
+                {meta.emoji} {meta.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grouped ingredient list */}
+      <div className="fridge-ingredient-grid">
+        {Object.keys(grouped).length === 0 && (
+          <p className="picker__empty">{search ? `No ingredients match "${search}"` : 'No ingredients found'}</p>
         )}
+        {ALL_TYPES.filter(t => grouped[t]?.length).map(t => {
+          const meta = TYPE_META[t];
+          return (
+            <div key={t} className="fridge-group">
+              <div className="fridge-group__header">
+                <span className="fridge-group__emoji">{meta.emoji}</span>
+                <span className="fridge-group__label">{meta.label}</span>
+                <span className="fridge-group__count">{grouped[t].length}</span>
+              </div>
+              <div className="picker__chips">
+                {grouped[t].map(ing => {
+                  const isSelected = allSelected.has(ing.name.toLowerCase());
+                  return (
+                    <div key={ing.name} className="fridge-ing-wrap">
+                      <button
+                        className={`chip ${isSelected ? 'chip--selected' : ''}`}
+                        onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}
+                      >
+                        {isSelected && <span className="chip__check">✓</span>}
+                        {ing.name}
+                      </button>
+                      <button
+                        className={`fridge-type-badge ${renamingIng === ing.name ? 'fridge-type-badge--open' : ''}`}
+                        title="Change category"
+                        onClick={() => setRenamingIng(prev => prev === ing.name ? null : ing.name)}
+                      >
+                        {TYPE_META[typeOverrides[ing.name] ?? ing.type]?.emoji ?? '?'}
+                      </button>
+                      {renamingIng === ing.name && (
+                        <div className="fridge-type-picker">
+                          <p className="fridge-type-picker__label">Move <strong>{ing.name}</strong> to:</p>
+                          <div className="fridge-type-picker__options">
+                            {ALL_TYPES.map(nt => (
+                              <button
+                                key={nt}
+                                className={`fridge-type-picker__opt ${(typeOverrides[ing.name] ?? ing.type) === nt ? 'fridge-type-picker__opt--active' : ''}`}
+                                onClick={() => overrideType(ing.name, nt)}
+                              >
+                                {TYPE_META[nt].emoji} {TYPE_META[nt].label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </main>
   );
@@ -994,7 +1167,10 @@ function AppInner() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [activeTag, setActiveTag] = useState(null);
   const [activeCuisine, setActiveCuisine] = useState('');
+  const [customCuisines, setCustomCuisines] = useState(() => LS.get('customCuisines', []));
   const [lastSynced, setLastSynced] = useState(null);
+
+  useEffect(() => { LS.set('customCuisines', customCuisines); }, [customCuisines]);
 
   const [units, setUnitsRaw] = useState(() => LS.get('units', 'metric'));
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
@@ -1204,74 +1380,124 @@ function AppInner() {
       )}
 
       {view === 'home' && (
-        <main className="view">
-          <div className="home-section">
-            <div className="home-section__header">
-              <h2 className="home-section__title">What can I make?</h2>
-              <button className="btn btn--ghost btn--sm" onClick={() => setView('fridge')}>
-                {fridgeIngredients.length + pantryStaples.length > 0
-                  ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
-                  : 'Set my ingredients →'}
-              </button>
-            </div>
-            {allMyIngredients.size === 0 ? (
-              <div className="home-empty-cta" onClick={() => setView('fridge')}>
-                <span className="home-empty-cta__icon">🧊</span>
-                <div>
-                  <p className="home-empty-cta__title">Add your fridge &amp; pantry ingredients</p>
-                  <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
+        <main className="view home-view">
+          {/* Left column */}
+          <div className="home-main">
+            <div className="home-section">
+              <div className="home-section__header">
+                <h2 className="home-section__title">What can I make?</h2>
+                <button className="btn btn--ghost btn--sm" onClick={() => setView('fridge')}>
+                  {fridgeIngredients.length + pantryStaples.length > 0
+                    ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
+                    : 'Set my ingredients →'}
+                </button>
+              </div>
+              {allMyIngredients.size === 0 ? (
+                <div className="home-empty-cta" onClick={() => setView('fridge')}>
+                  <span className="home-empty-cta__icon">🧊</span>
+                  <div>
+                    <p className="home-empty-cta__title">Add your fridge &amp; pantry ingredients</p>
+                    <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
+                  </div>
+                  <span className="home-empty-cta__arrow">→</span>
                 </div>
-                <span className="home-empty-cta__arrow">→</span>
-              </div>
-            ) : (
-              <div className="recipe-grid">
-                {matches.slice(0, 4).map(m => {
-                  const r = recipes.find(x => x.id === m.id);
-                  if (!r) return null;
-                  return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe} />;
-                })}
-                {matches.length === 0 && <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>}
-              </div>
-            )}
-          </div>
-          <div className="home-section">
-            <h2 className="home-section__title">Recipe Stats</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <span className="stat-card__number">{recipes.length}</span>
-                <span className="stat-card__label">Total Recipes</span>
-              </div>
-              <div className="stat-card stat-card--green">
-                <span className="stat-card__number">{matches.filter(m => m.canMake).length}</span>
-                <span className="stat-card__label">Can Make Now</span>
-              </div>
-              <div className="stat-card stat-card--amber">
-                <span className="stat-card__number">{matches.filter(m => m.matchScore >= 0.5 && !m.canMake).length}</span>
-                <span className="stat-card__label">Almost There</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__number" style={{ fontSize: '18px' }}>
-                  {(() => {
-                    const counts = {};
-                    recipes.forEach(r => { if (r.cuisine) counts[r.cuisine] = (counts[r.cuisine] || 0) + 1; });
-                    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-                    return top ? top[0] : '—';
-                  })()}
-                </span>
-                <span className="stat-card__label">Top Cuisine</span>
-              </div>
+              ) : (
+                <div className="recipe-grid">
+                  {matches.slice(0, 4).map(m => {
+                    const r = recipes.find(x => x.id === m.id);
+                    if (!r) return null;
+                    return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe} />;
+                  })}
+                  {matches.length === 0 && <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Right column: Insights + Quick Actions */}
+          <aside className="home-sidebar">
+            {/* Recipe Insights */}
+            <div className="insights-card">
+              <h3 className="insights-title">Recipe Insights</h3>
+              <div className="insights-grid">
+                <div className="insight-item insight-item--blue">
+                  <span className="insight-item__number">{recipes.length}</span>
+                  <span className="insight-item__label">Total recipes</span>
+                  <span className="insight-item__icon">📚</span>
+                </div>
+                <div className="insight-item insight-item--green">
+                  <span className="insight-item__number">{matches.filter(m => m.canMake).length}</span>
+                  <span className="insight-item__label">Ready to cook</span>
+                  <span className="insight-item__icon">✅</span>
+                </div>
+                <div className="insight-item insight-item--amber">
+                  <span className="insight-item__number">{matches.filter(m => m.matchScore >= 0.7 && !m.canMake).length}</span>
+                  <span className="insight-item__label">Almost ready</span>
+                  <span className="insight-item__icon">🔥</span>
+                </div>
+                <div className="insight-item insight-item--purple">
+                  <span className="insight-item__number">
+                    {recipes.filter(r => {
+                      const t = (r.time || '').toLowerCase();
+                      const m = t.match(/(\d+)/);
+                      return m && parseInt(m[1]) <= 30;
+                    }).length}
+                  </span>
+                  <span className="insight-item__label">Under 30 min</span>
+                  <span className="insight-item__icon">⏱</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="quick-actions-card">
+              <h3 className="insights-title">Quick Actions</h3>
+              <div className="quick-actions-list">
+                <button className="quick-action" onClick={() => setView('recipes')}>
+                  <span className="quick-action__icon">📖</span>
+                  <div className="quick-action__text">
+                    <span className="quick-action__label">Browse all recipes</span>
+                    <span className="quick-action__sub">{recipes.length} in your library</span>
+                  </div>
+                  <span className="quick-action__arrow">→</span>
+                </button>
+                <button className="quick-action" onClick={() => setView('fridge')}>
+                  <span className="quick-action__icon">🧊</span>
+                  <div className="quick-action__text">
+                    <span className="quick-action__label">Update my fridge</span>
+                    <span className="quick-action__sub">{fridgeIngredients.length + pantryStaples.length} ingredients tracked</span>
+                  </div>
+                  <span className="quick-action__arrow">→</span>
+                </button>
+                <button className="quick-action" onClick={() => setView('grocery')}>
+                  <span className="quick-action__icon">🛒</span>
+                  <div className="quick-action__text">
+                    <span className="quick-action__label">Build grocery list</span>
+                    <span className="quick-action__sub">Plan your weekly shop</span>
+                  </div>
+                  <span className="quick-action__arrow">→</span>
+                </button>
+                {matches.filter(m => m.canMake).length > 0 && (
+                  <button className="quick-action quick-action--highlight" onClick={() => { setActiveTag(null); setActiveCuisine(''); setLibrarySearch(''); setView('recipes'); }}>
+                    <span className="quick-action__icon">🎯</span>
+                    <div className="quick-action__text">
+                      <span className="quick-action__label">Cook something now</span>
+                      <span className="quick-action__sub">{matches.filter(m => m.canMake).length} recipes you can make</span>
+                    </div>
+                    <span className="quick-action__arrow">→</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </aside>
         </main>
       )}
 
       {view === 'recipes' && (() => {
-        const QUICK_CHIP_KEYS = ['Basic', 'Dessert', 'Drink', 'Marinade', 'Party'];
-        const allCuisines = [...new Set(recipes.map(r => r.cuisine).filter(Boolean))].sort();
-        // Only show cuisines in dropdown that aren't already a quick-chip key
-        const dropdownCuisines = allCuisines.filter(
-          c => !QUICK_CHIP_KEYS.some(k => k.toLowerCase() === c.toLowerCase())
-        );
+        const allCuisinesFromData = [...new Set(recipes.map(r => r.cuisine).filter(Boolean))].sort();
+        // Dropdown: ONLY geographic cuisines + any custom user-created ones. NOT tag-style chips (Drinks/Pasta/Soup/etc)
+        const allCuisinesPool = [...new Set([...GEO_CUISINES, ...allCuisinesFromData, ...customCuisines])].sort();
+        const dropdownCuisines = allCuisinesPool.filter(c => !QUICK_CHIP_KEYS.has(c));
         return (
           <main className="view">
             <div className="library-header">
@@ -1279,10 +1505,9 @@ function AppInner() {
               <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
             </div>
 
-            {/* ── Single filter bar ── */}
-            <div className="filter-bar">
-              {/* Name search */}
-              <div className="filter-bar__search-wrap">
+            {/* ── Filter area: search left, chips+dropdown right ── */}
+            <div className="recipes-filter-area">
+              <div className="filter-bar__search-wrap filter-bar__search-wrap--standalone">
                 <span className="filter-bar__search-icon">🔍</span>
                 <input
                   className="filter-bar__search"
@@ -1296,42 +1521,30 @@ function AppInner() {
                 )}
               </div>
 
-              <div className="filter-bar__divider" />
+              <div className="recipes-filter-right">
+                <div className="filter-bar">
+                  {QUICK_FILTERS.map(({ key, label }) => (
+                    <button
+                      key={String(key)}
+                      className={`filter-bar__chip ${activeTag === key ? 'filter-bar__chip--active' : ''}`}
+                      onClick={() => { setActiveTag(prev => prev === key ? null : key); setActiveCuisine(''); }}
+                    >{label}</button>
+                  ))}
+                </div>
 
-              {/* Quick tag chips */}
-              <div className="filter-bar__chips">
-                {[
-                  { key: null,       label: 'All'      },
-                  { key: 'Basic',    label: 'Basic'    },
-                  { key: 'Dessert',  label: 'Dessert'  },
-                  { key: 'Drink',    label: 'Drinks'   },
-                  { key: 'Marinade', label: 'Marinade' },
-                  { key: 'Party',    label: 'Party'    },
-                ].map(({ key, label }) => (
-                  <button
-                    key={String(key)}
-                    className={`filter-bar__chip ${activeTag === key ? 'filter-bar__chip--active' : ''}`}
-                    onClick={() => { setActiveTag(prev => prev === key ? null : key); setActiveCuisine(''); }}
-                  >{label}</button>
-                ))}
+                <CuisineDropdown
+                  cuisines={dropdownCuisines}
+                  value={activeCuisine}
+                  onChange={c => { setActiveCuisine(c); setActiveTag(null); }}
+                  onCreateNew={c => setCustomCuisines(prev => prev.includes(c) ? prev : [...prev, c])}
+                />
+
+                {(librarySearch || activeTag || activeCuisine) && (
+                  <button className="filter-bar__reset" onClick={() => { setLibrarySearch(''); setActiveTag(null); setActiveCuisine(''); }}>
+                    ✕ Clear
+                  </button>
+                )}
               </div>
-
-              {dropdownCuisines.length > 0 && (
-                <>
-                  <div className="filter-bar__divider" />
-                  <CuisineDropdown
-                    cuisines={dropdownCuisines}
-                    value={activeCuisine}
-                    onChange={c => { setActiveCuisine(c); setActiveTag(null); }}
-                  />
-                </>
-              )}
-
-              {(librarySearch || activeTag || activeCuisine) && (
-                <button className="filter-bar__reset" onClick={() => { setLibrarySearch(''); setActiveTag(null); setActiveCuisine(''); }}>
-                  Clear all
-                </button>
-              )}
             </div>
 
             <div className="recipe-grid">
