@@ -1875,43 +1875,86 @@ body {
 .rp2__hero-heart { font-size: 18px; padding: 7px 10px; }
 .rp2__hero-heart--on { color: #ff6b8a; }
 
-
-/* ─── Editable sections ──────────────────────────────────────────────────────── */
-.editable-section {
-  position: relative;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease;
-  cursor: pointer;
+/* ─── Section pencil (inline, next to title) ─────────────────────────────────── */
+.rp2__section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.editable-section:hover { background: rgba(196,98,58,0.04); }
-.editable-section__pencil {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 30px;
-  height: 30px;
+.rp2__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.rp2__title-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-pencil-wrap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.section-pencil {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 1.5px solid var(--border);
-  background: var(--warm-white);
-  font-size: 13px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  font-size: 14px;
   cursor: pointer;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
+  color: var(--warm-gray);
+  opacity: 0.15;
   transition: all 0.15s ease;
-  z-index: 10;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
 }
-.editable-section:hover .editable-section__pencil { display: flex; }
-.editable-section__pencil:hover { background: var(--terracotta); border-color: var(--terracotta); color: white; transform: scale(1.1); }
+/* Show pencil clearly when hovering the parent title row */
+.rp2__section-title-row:hover .section-pencil,
+.rp2__title-row:hover .section-pencil,
+.rp2__title-edit-row .section-pencil {
+  opacity: 1;
+}
+.section-pencil:hover {
+  background: var(--parchment);
+  border-color: var(--border);
+  opacity: 1;
+}
+.section-pencil--confirm {
+  color: var(--sage);
+  opacity: 1;
+  border-color: var(--sage-light);
+  background: #f2faf4;
+  font-weight: 700;
+}
+.section-pencil--confirm:hover { background: var(--sage); color: white; }
+.section-pencil--cancel {
+  color: var(--warm-gray);
+  opacity: 1;
+}
+.section-pencil--cancel:hover { background: var(--parchment); color: var(--charcoal); opacity: 1; }
 
-/* The hero wrap needs overflow visible for pencil to sit outside */
-.rp2__hero-wrap { overflow: visible; border-radius: 0; cursor: default; }
-.rp2__hero-wrap:hover { background: transparent; }
-.rp2__hero-wrap .editable-section__pencil { display: none !important; } /* hero has its own edit btn */
+/* Hero wrap — no edit cursor */
+.rp2__hero-wrap { overflow: visible; border-radius: 0; }
+
+/* Inline editor rows */
+.rp2__inline-editor { display: flex; flex-direction: column; gap: 6px; }
+.rp2__ed-ing-row { display: flex; gap: 6px; align-items: center; }
+.rp2__ed-ing-row .editor-input--sm { flex: 0 0 60px; }
+.rp2__ed-ing-row .editor-input:last-of-type { flex: 1; }
+.rp2__ed-step-row { display: flex; gap: 8px; align-items: flex-start; }
+.rp2__ed-note-row { display: flex; gap: 6px; align-items: center; }
+.rp2__ed-note-row .editor-input { flex: 1; }
+
 
 /* ─── Notes as bulleted list ─────────────────────────────────────────────────── */
-.rp2__notes { padding: 20px 24px; max-width: 760px; }
+.rp2__notes { padding: 20px 24px; }
 .rp2__notes-list {
   list-style: none;
   display: flex;

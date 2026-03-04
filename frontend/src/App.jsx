@@ -135,29 +135,59 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart }) => {
 };
 
 // ─── Inline editable section wrapper ───────────────────────────────────────
-const EditableSection = ({ onEdit, className = '', children }) => (
-  <div className={`editable-section ${className}`} onClick={onEdit}>
-    {children}
-    <button className="editable-section__pencil" onClick={e => { e.stopPropagation(); onEdit(); }} title="Edit">✏️</button>
-  </div>
+// Pencil only appears (faintly always, fully on hover) next to section title.
+// Clicking the section body does NOT trigger edit — only the pencil does.
+const SectionPencil = ({ isEditing, onEdit, onSave, onCancel, saving }) => (
+  <span className="section-pencil-wrap">
+    {isEditing ? (
+      <>
+        <button className="section-pencil section-pencil--confirm" onClick={onSave} title={saving ? 'Saving…' : 'Save'} disabled={saving}>
+          {saving ? '…' : '✓'}
+        </button>
+        <button className="section-pencil section-pencil--cancel" onClick={onCancel} title="Cancel">✕</button>
+      </>
+    ) : (
+      <button className="section-pencil" onClick={e => { e.stopPropagation(); onEdit(); }} title="Edit section">✎</button>
+    )}
+  </span>
 );
 
 // ─── Recipe Page ────────────────────────────────────────────────────────────
-const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEdit, loading, isHearted, onToggleHeart }) => {
+// ─── Recipe Page ────────────────────────────────────────────────────────────
+const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved, loading, isHearted, onToggleHeart, allIngredients }) => {
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
 
+  // ── Per-section edit state ──
+  const [editingSection, setEditingSection] = useState(null); // 'title'|'ingredients'|'instructions'|'notes'|'image'
+  const [saving, setSaving] = useState(false);
+
+  // Local draft state (initialized from props, updated on save)
+  const [draftName, setDraftName] = useState(recipe?.name || '');
+  const [draftImage, setDraftImage] = useState(recipe?.coverImage || '');
+  const [draftImageInput, setDraftImageInput] = useState(recipe?.coverImage || '');
+  const [draftNotes, setDraftNotes] = useState(() => (notes || []).map((n, i) => ({ ...n, _id: `n-${i}` })));
+  const [draftIngs, setDraftIngs] = useState(() => (bodyIngredients || []).map((i, idx) => ({ ...i, _id: `ing-${idx}` })));
+  const [draftSteps, setDraftSteps] = useState(() => (instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` })));
+
+  // Reset drafts when props change (after save)
+  useEffect(() => { setDraftName(recipe?.name || ''); setDraftImage(recipe?.coverImage || ''); setDraftImageInput(recipe?.coverImage || ''); }, [recipe]);
+  useEffect(() => { setDraftNotes((notes || []).map((n, i) => ({ ...n, _id: `n-${i}` }))); }, [notes]);
+  useEffect(() => { setDraftIngs((bodyIngredients || []).map((i, idx) => ({ ...i, _id: `ing-${idx}` }))); }, [bodyIngredients]);
+  useEffect(() => { setDraftSteps((instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` }))); }, [instructions]);
+
   const ingredientGroups = useMemo(() => {
-    if (!bodyIngredients?.length) return [];
+    const src = editingSection === 'ingredients' ? draftIngs : (bodyIngredients || []);
+    if (!src.length) return [];
     const groups = [];
     const seen = new Map();
-    for (const ing of bodyIngredients) {
+    for (const ing of src) {
       const label = ing.group_label || '';
       if (!seen.has(label)) { seen.set(label, []); groups.push({ label, items: seen.get(label) }); }
       seen.get(label).push(ing);
     }
     return groups;
-  }, [bodyIngredients]);
+  }, [bodyIngredients, draftIngs, editingSection]);
 
   const toggleIngredient = (key) => setCheckedIngredients(prev => {
     const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next;
@@ -165,6 +195,57 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
   const toggleStep = (num) => setDoneSteps(prev => {
     const next = new Set(prev); next.has(num) ? next.delete(num) : next.add(num); return next;
   });
+
+  const startEdit = (section) => {
+    setEditingSection(section);
+    // Reset drafts to current saved values
+    if (section === 'title') setDraftName(recipe?.name || '');
+    if (section === 'image') { setDraftImage(recipe?.coverImage || ''); setDraftImageInput(recipe?.coverImage || ''); }
+    if (section === 'notes') setDraftNotes((notes || []).map((n, i) => ({ ...n, _id: `n-${i}` })));
+    if (section === 'ingredients') setDraftIngs((bodyIngredients || []).map((i, idx) => ({ ...i, _id: `ing-${idx}` })));
+    if (section === 'instructions') setDraftSteps((instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` })));
+  };
+  const cancelEdit = () => setEditingSection(null);
+
+  const saveSection = async (section) => {
+    setSaving(true);
+    try {
+      // Build full payload keeping other sections unchanged
+      const payload = {
+        details: {
+          name: section === 'title' ? draftName : recipe.name,
+          cuisine: recipe.cuisine || '',
+          time: recipe.time || '',
+          servings: recipe.servings || '',
+          calories: recipe.calories ?? '',
+          protein: recipe.protein ?? '',
+          cover_image_url: section === 'image' ? draftImageInput : (recipe.coverImage || ''),
+        },
+        ingredients: section === 'ingredients'
+          ? draftIngs.map((i, idx) => ({ ...i, order_index: idx }))
+          : (bodyIngredients || []).map((i, idx) => ({ ...i, order_index: idx })),
+        instructions: section === 'instructions'
+          ? draftSteps.map((s, idx) => ({ ...s, step_number: idx + 1 }))
+          : (instructions || []).map((s, idx) => ({ ...s, step_number: idx + 1 })),
+        notes: section === 'notes'
+          ? draftNotes.map((n, idx) => ({ ...n, order_index: idx }))
+          : (notes || []).map((n, idx) => ({ ...n, order_index: idx })),
+      };
+      const res = await fetch(`${API}/api/recipes/${recipe.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      if (onSaved) await onSaved(data.recipe);
+      setEditingSection(null);
+    } catch (e) {
+      alert('Save failed: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) return <main className="view"><div className="placeholder"><h2>Loading recipe…</h2></div></main>;
   if (!recipe) return <main className="view"><div className="placeholder"><h2>Recipe not found</h2><button className="btn btn--ghost" onClick={onBack}>← Back</button></div></main>;
@@ -176,16 +257,37 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
   const doneCount = doneSteps.size;
   const totalSteps = instructions?.length ?? 0;
 
+  const isEdit = (s) => editingSection === s;
+
   return (
     <main className="view rp2">
-      {/* Hero — back/edit/heart live in top-left/right of overlay */}
-      <EditableSection onEdit={onEdit} className="rp2__hero-wrap">
+      {/* Hero — image, back, heart. Pencil on image hover for photo edit */}
+      <div className="rp2__hero-wrap">
         <div className="rp2__hero">
-          {recipe.coverImage
-            ? <img className="rp2__hero-img" src={recipe.coverImage} alt={recipe.name} />
+          {(isEdit('image') ? draftImageInput : recipe.coverImage)
+            ? <img className="rp2__hero-img" src={isEdit('image') ? draftImageInput : recipe.coverImage} alt={recipe.name} />
             : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
+
+          {/* Image edit popover */}
+          {isEdit('image') && (
+            <div className="ed-hero__img-popover">
+              <p className="ed-hero__img-popover-label">Cover image URL</p>
+              <input
+                className="editor-input"
+                autoFocus
+                value={draftImageInput}
+                onChange={e => setDraftImageInput(e.target.value)}
+                placeholder="https://…"
+                onKeyDown={e => { if (e.key === 'Enter') saveSection('image'); if (e.key === 'Escape') cancelEdit(); }}
+              />
+              <div style={{display:'flex', gap:6, marginTop:6}}>
+                <button className="btn btn--primary btn--sm" onClick={() => saveSection('image')} disabled={saving}>{saving ? 'Saving…' : '✓ Save'}</button>
+                <button className="btn btn--ghost btn--sm" onClick={cancelEdit}>✕ Cancel</button>
+              </div>
+            </div>
+          )}
+
           <div className="rp2__hero-overlay">
-            {/* Top bar: back left, heart+edit right */}
             <div className="rp2__hero-topbar">
               <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); onBack(); }}>← Back</button>
               <div className="rp2__hero-topbar-right">
@@ -196,10 +298,13 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
                     title={isHearted ? 'Remove from Make Soon' : 'Save to Make Soon'}
                   >{isHearted ? '♥' : '♡'}</button>
                 )}
-                <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); onEdit(); }}>✏️ Edit</button>
+                {!isEdit('image') && (
+                  <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); startEdit('image'); }}>
+                    Change photo
+                  </button>
+                )}
               </div>
             </div>
-            {/* Bottom row */}
             <div className="rp2__hero-bottom">
               <div className="rp2__hero-tags">
                 {recipe.cuisine && <span className="rp2__tag">{recipe.cuisine}</span>}
@@ -215,20 +320,56 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
             </div>
           </div>
         </div>
-      </EditableSection>
+      </div>
 
-      {/* Title — click to edit */}
-      <EditableSection onEdit={onEdit} className="rp2__header">
-        <h1 className="rp2__title">{recipe.name}</h1>
-      </EditableSection>
+      {/* Title */}
+      <div className="rp2__header">
+        {isEdit('title') ? (
+          <div className="rp2__title-edit-row">
+            <input
+              className="ed-title-input"
+              autoFocus
+              value={draftName}
+              onChange={e => setDraftName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveSection('title'); if (e.key === 'Escape') cancelEdit(); }}
+            />
+            <button className="section-pencil section-pencil--confirm" onClick={() => saveSection('title')} disabled={saving}>{saving ? '…' : '✓'}</button>
+            <button className="section-pencil section-pencil--cancel" onClick={cancelEdit}>✕</button>
+          </div>
+        ) : (
+          <div className="rp2__title-row">
+            <h1 className="rp2__title">{recipe.name}</h1>
+            <button className="section-pencil" onClick={() => startEdit('title')} title="Edit title">✎</button>
+          </div>
+        )}
+      </div>
 
       {/* Two-column body */}
       <div className="rp2__body">
         {/* Left: Ingredients */}
-        {ingredientGroups.length > 0 && (
-          <EditableSection onEdit={onEdit} className="rp2__ingredients">
+        <div className="rp2__ingredients">
+          <div className="rp2__section-title-row">
             <h2 className="rp2__section-title">Ingredients</h2>
-            {ingredientGroups.map(({ label, items }) => (
+            <SectionPencil isEditing={isEdit('ingredients')} onEdit={() => startEdit('ingredients')} onSave={() => saveSection('ingredients')} onCancel={cancelEdit} saving={saving} />
+          </div>
+          {isEdit('ingredients') ? (
+            // Inline ingredient editor
+            <div className="rp2__inline-editor">
+              <datalist id="group-labels-rp">
+                {[...new Set(draftIngs.map(i => i.group_label).filter(Boolean))].map(l => <option key={l} value={l} />)}
+              </datalist>
+              {draftIngs.map((ing) => (
+                <div key={ing._id} className="rp2__ed-ing-row">
+                  <input className="editor-input editor-input--sm" value={ing.amount || ''} onChange={e => setDraftIngs(prev => prev.map(i => i._id === ing._id ? {...i, amount: e.target.value} : i))} placeholder="Qty" />
+                  <input className="editor-input editor-input--sm" value={ing.unit || ''} onChange={e => setDraftIngs(prev => prev.map(i => i._id === ing._id ? {...i, unit: e.target.value} : i))} placeholder="Unit" />
+                  <input className="editor-input" value={ing.name || ''} onChange={e => setDraftIngs(prev => prev.map(i => i._id === ing._id ? {...i, name: e.target.value} : i))} placeholder="Ingredient" />
+                  <button className="editor-remove-btn" onClick={() => setDraftIngs(prev => prev.filter(i => i._id !== ing._id))}>✕</button>
+                </div>
+              ))}
+              <button className="btn btn--ghost btn--sm" style={{marginTop:8}} onClick={() => setDraftIngs(prev => [...prev, { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '' }])}>+ Add</button>
+            </div>
+          ) : (
+            ingredientGroups.map(({ label, items }) => (
               <div key={label || '__default'} className="rp2__ing-group">
                 {label && <p className="rp2__ing-group-label">{label}</p>}
                 <ul className="rp2__ing-list">
@@ -237,14 +378,8 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
                     const isChecked = checkedIngredients.has(key);
                     const amountStr = [ing.amount, ing.unit].filter(Boolean).join(' ');
                     return (
-                      <li
-                        key={key}
-                        className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`}
-                        onClick={e => { e.stopPropagation(); toggleIngredient(key); }}
-                      >
-                        <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>
-                          {isChecked && '✓'}
-                        </div>
+                      <li key={key} className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`} onClick={() => toggleIngredient(key)}>
+                        <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && '✓'}</div>
                         <div className="rp2__ing-text">
                           {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
                           <span className="rp2__ing-name">{ing.name}</span>
@@ -256,51 +391,83 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
                   })}
                 </ul>
               </div>
-            ))}
-          </EditableSection>
-        )}
+            ))
+          )}
+        </div>
 
         {/* Right: Instructions */}
-        {instructions?.length > 0 && (
-          <EditableSection onEdit={onEdit} className="rp2__instructions">
-            <div className="rp2__instructions-header">
-              <h2 className="rp2__section-title">Instructions</h2>
-              {totalSteps > 0 && <span className="rp2__progress-label">{doneCount}/{totalSteps} steps</span>}
+        <div className="rp2__instructions">
+          <div className="rp2__section-title-row">
+            <div style={{display:'flex', alignItems:'center', gap:12, flex:1, marginBottom:4}}>
+              <h2 className="rp2__section-title" style={{marginBottom:0, borderBottom:'none', paddingBottom:0}}>Instructions</h2>
+              {!isEdit('instructions') && totalSteps > 0 && <span className="rp2__progress-label">{doneCount}/{totalSteps} steps</span>}
             </div>
-            {totalSteps > 0 && (
-              <div className="rp2__progress-bar">
-                <div className="rp2__progress-fill" style={{ width: `${(doneCount / totalSteps) * 100}%` }} />
-              </div>
-            )}
+            <SectionPencil isEditing={isEdit('instructions')} onEdit={() => startEdit('instructions')} onSave={() => saveSection('instructions')} onCancel={cancelEdit} saving={saving} />
+          </div>
+          <div style={{borderBottom:'1.5px solid var(--border)', marginBottom:14}} />
+          {!isEdit('instructions') && totalSteps > 0 && (
+            <div className="rp2__progress-bar" style={{marginBottom:16}}>
+              <div className="rp2__progress-fill" style={{ width: `${(doneCount / totalSteps) * 100}%` }} />
+            </div>
+          )}
+          {isEdit('instructions') ? (
+            <div className="rp2__inline-editor">
+              {draftSteps.map((step, idx) => (
+                <div key={step._id} className="rp2__ed-step-row">
+                  <span className="editor-step-num">{idx + 1}</span>
+                  <textarea
+                    className="editor-textarea"
+                    value={step.body_text || ''}
+                    onChange={e => setDraftSteps(prev => prev.map(s => s._id === step._id ? {...s, body_text: e.target.value} : s))}
+                    placeholder="Describe this step…"
+                    rows={2}
+                  />
+                  <button className="editor-remove-btn" onClick={() => setDraftSteps(prev => prev.filter(s => s._id !== step._id))}>✕</button>
+                </div>
+              ))}
+              <button className="btn btn--ghost btn--sm" style={{marginTop:8}} onClick={() => setDraftSteps(prev => [...prev, { _id: `step-new-${Date.now()}`, step_number: prev.length + 1, body_text: '' }])}>+ Add Step</button>
+            </div>
+          ) : (
             <ol className="rp2__steps">
-              {[...instructions].sort((a, b) => a.step_number - b.step_number).map(step => {
+              {[...( instructions || [])].sort((a, b) => a.step_number - b.step_number).map(step => {
                 const done = doneSteps.has(step.step_number);
                 return (
-                  <li
-                    key={step.step_number}
-                    className={`rp2__step ${done ? 'rp2__step--done' : ''}`}
-                    onClick={e => { e.stopPropagation(); toggleStep(step.step_number); }}
-                  >
+                  <li key={step.step_number} className={`rp2__step ${done ? 'rp2__step--done' : ''}`} onClick={() => toggleStep(step.step_number)}>
                     <div className="rp2__step-num">{done ? '✓' : step.step_number}</div>
                     <p className="rp2__step-body">{step.body_text}</p>
                   </li>
                 );
               })}
             </ol>
-          </EditableSection>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Notes — bulleted list */}
-      {notes?.length > 0 && (
-        <EditableSection onEdit={onEdit} className="rp2__notes">
-          <h2 className="rp2__section-title">Notes &amp; Tips</h2>
-          <ul className="rp2__notes-list">
-            {notes.map((n, i) => (
-              <li key={i} className="rp2__notes-item">{n.text ?? n.body_text ?? n}</li>
-            ))}
-          </ul>
-        </EditableSection>
+      {/* Notes — full width */}
+      {(notes?.length > 0 || isEdit('notes')) && (
+        <div className="rp2__notes">
+          <div className="rp2__section-title-row" style={{marginBottom: isEdit('notes') ? 12 : 0}}>
+            <h2 className="rp2__section-title" style={{flex:1}}>Notes &amp; Tips</h2>
+            <SectionPencil isEditing={isEdit('notes')} onEdit={() => startEdit('notes')} onSave={() => saveSection('notes')} onCancel={cancelEdit} saving={saving} />
+          </div>
+          {isEdit('notes') ? (
+            <div className="rp2__inline-editor">
+              {draftNotes.map((note) => (
+                <div key={note._id} className="rp2__ed-note-row">
+                  <input className="editor-input" value={note.text || ''} onChange={e => setDraftNotes(prev => prev.map(n => n._id === note._id ? {...n, text: e.target.value} : n))} placeholder="Add a note…" />
+                  <button className="editor-remove-btn" onClick={() => setDraftNotes(prev => prev.filter(n => n._id !== note._id))}>✕</button>
+                </div>
+              ))}
+              <button className="btn btn--ghost btn--sm" style={{marginTop:8}} onClick={() => setDraftNotes(prev => [...prev, { _id: `note-new-${Date.now()}`, text: '' }])}>+ Add Note</button>
+            </div>
+          ) : (
+            <ul className="rp2__notes-list">
+              {notes.map((n, i) => (
+                <li key={i} className="rp2__notes-item">{n.text ?? n.body_text ?? n}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </main>
   );
@@ -1408,7 +1575,19 @@ function AppInner() {
           notes={recipeNotes}
           loading={recipeLoading}
           onBack={() => setView(lastView)}
-          onEdit={() => setEditingRecipe(true)}
+          allIngredients={allIngredients.map(i => typeof i === 'string' ? i : i.name).filter(Boolean)}
+          onSaved={async (updated) => {
+            setSelectedRecipe(updated);
+            try {
+              const res = await fetch(`${API}/api/recipes/${updated.id}`);
+              const data = await res.json();
+              setSelectedRecipe(data.recipe);
+              setRecipeBodyIngredients(data.bodyIngredients || []);
+              setRecipeInstructions(data.instructions || []);
+              setRecipeNotes(data.notes || []);
+            } catch {}
+            loadData();
+          }}
           isHearted={selectedRecipe ? heartedIds.includes(selectedRecipe.id) : false}
           onToggleHeart={() => selectedRecipe && toggleHeart(selectedRecipe.id)}
         />
