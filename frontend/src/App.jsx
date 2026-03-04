@@ -9,6 +9,27 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import './App.css';
 
+// ─── Error Boundary ────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null, info: null }; }
+  componentDidCatch(error, info) { this.setState({ error, info }); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
+          <h2 style={{ color: '#c00' }}>💥 Runtime Error</h2>
+          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, border: '1px solid #f99', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {this.state.error.toString()}
+            {'\n\n'}
+            {this.state.info?.componentStack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── localStorage helpers ──────────────────────────────────────────────────
 const LS = {
   get: (key, fallback) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
@@ -614,6 +635,72 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
   );
 };
 
+// ─── Cuisine Dropdown ────────────────────────────────────────────────────────
+const CuisineDropdown = ({ cuisines, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const wrapRef = useRef(null);
+
+  const filtered = useMemo(() =>
+    cuisines.filter(c => c.toLowerCase().includes(search.toLowerCase())),
+    [cuisines, search]
+  );
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setSearch(''); } };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (c) => { onChange(c === value ? '' : c); setOpen(false); setSearch(''); };
+  const clear = (e) => { e.stopPropagation(); onChange(''); setSearch(''); };
+
+  return (
+    <div className="cuisine-dd" ref={wrapRef}>
+      <button
+        className={`cuisine-dd__trigger ${value ? 'cuisine-dd__trigger--active' : ''}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="cuisine-dd__globe">🌍</span>
+        <span className="cuisine-dd__label">{value || 'Cuisine'}</span>
+        {value
+          ? <span className="cuisine-dd__x" onClick={clear}>✕</span>
+          : <span className="cuisine-dd__arrow">{open ? '▲' : '▼'}</span>
+        }
+      </button>
+
+      {open && (
+        <div className="cuisine-dd__panel">
+          <div className="cuisine-dd__search-row">
+            <span className="cuisine-dd__search-icon">🔍</span>
+            <input
+              className="cuisine-dd__search"
+              autoFocus
+              placeholder="Search cuisines…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && <button className="cuisine-dd__search-clear" onClick={() => setSearch('')}>✕</button>}
+          </div>
+          <div className="cuisine-dd__list">
+            {filtered.length === 0 && <p className="cuisine-dd__empty">No cuisines found</p>}
+            {filtered.map(c => (
+              <button
+                key={c}
+                className={`cuisine-dd__option ${value === c ? 'cuisine-dd__option--active' : ''}`}
+                onClick={() => select(c)}
+              >
+                {value === c && <span className="cuisine-dd__check">✓</span>}
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Remove the old FRIDGE_KEYWORDS / PANTRY_KEYWORDS / classifyIngredient — no longer needed
 
 // ─── Fridge Tab ─────────────────────────────────────────────────────────────
@@ -889,7 +976,7 @@ const GroceryListTab = ({ recipes, matchById }) => {
 };
 
 // ─── Main App ───────────────────────────────────────────────────────────────
-export default function App() {
+function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
   const [allIngredients, setAllIngredients] = useState([]);
@@ -906,6 +993,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [librarySearch, setLibrarySearch] = useState('');
   const [activeTag, setActiveTag] = useState(null);
+  const [activeCuisine, setActiveCuisine] = useState('');
   const [lastSynced, setLastSynced] = useState(null);
 
   const [units, setUnitsRaw] = useState(() => LS.get('units', 'metric'));
@@ -951,18 +1039,6 @@ export default function App() {
     return Array.from(tagSet).sort();
   }, [recipes]);
 
-  const libraryRecipes = useMemo(() => {
-    let list = recipes;
-    const q = librarySearch.toLowerCase().trim();
-    if (q) list = list.filter(r =>
-      r.name.toLowerCase().includes(q) ||
-      (r.cuisine || '').toLowerCase().includes(q) ||
-      (r.tags || []).some(t => t.toLowerCase().includes(q))
-    );
-    if (activeTag) list = list.filter(r => (r.tags || []).includes(activeTag) || (r.cuisine || '') === activeTag);
-    return list;
-  }, [recipes, librarySearch, activeTag]);
-
   const matches = useMemo(() => {
     if (allMyIngredients.size === 0) return [];
     const m = recipes.map(recipe => {
@@ -985,6 +1061,27 @@ export default function App() {
     for (const m of matches) map.set(m.id, m);
     return map;
   }, [matches]);
+
+  const libraryRecipes = useMemo(() => {
+    let list = recipes;
+    const q = librarySearch.toLowerCase().trim();
+    if (q) list = list.filter(r => r.name.toLowerCase().includes(q));
+    if (activeCuisine) list = list.filter(r => (r.cuisine || '') === activeCuisine);
+    if (activeTag === '__canmake') {
+      list = list.filter(r => matchById.get(r.id)?.canMake);
+    } else if (activeTag === '__mealprep') {
+      list = list.filter(r => r.mealpreppable);
+    } else if (activeTag === '__makesoon') {
+      list = list.filter(r => r.make_soon);
+    } else if (activeTag) {
+      // Match against both tags AND cuisine column
+      list = list.filter(r =>
+        (r.tags || []).some(t => t.toLowerCase() === activeTag.toLowerCase()) ||
+        (r.cuisine || '').toLowerCase() === activeTag.toLowerCase()
+      );
+    }
+    return list;
+  }, [recipes, librarySearch, activeTag, activeCuisine, matchById]);
 
   const openRecipe = async (recipe) => {
     setLastView(view);
@@ -1077,7 +1174,7 @@ export default function App() {
           bodyIngredients={recipeBodyIngredients}
           instructions={recipeInstructions}
           notes={recipeNotes}
-          allIngredients={allIngredients}
+          allIngredients={allIngredients.map(i => typeof i === 'string' ? i : i.name).filter(Boolean)}
           onBack={() => setEditingRecipe(false)}
           onSaved={async (updated) => {
             setSelectedRecipe(updated);
@@ -1168,35 +1265,87 @@ export default function App() {
         </main>
       )}
 
-      {view === 'recipes' && (
-        <main className="view">
-          <div className="library-header">
-            <h2>All Recipes</h2>
-            <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
-          </div>
-          <div className="library-search-row">
-            <input className="library-search" type="search" placeholder="Search by recipe or tag..." value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} />
-            {librarySearch && <button className="btn btn--ghost library-search-clear" onClick={() => setLibrarySearch('')}>Clear</button>}
-          </div>
-          {allTags.length > 0 && (
-            <div className="tag-filter-row">
-              <button className={`tag-filter-chip ${activeTag === null ? 'tag-filter-chip--active' : ''}`} onClick={() => setActiveTag(null)}>All</button>
-              {allTags.map(tag => (
-                <button key={tag} className={`tag-filter-chip ${activeTag === tag ? 'tag-filter-chip--active' : ''}`} onClick={() => setActiveTag(prev => prev === tag ? null : tag)}>{tag}</button>
-              ))}
+      {view === 'recipes' && (() => {
+        const QUICK_CHIP_KEYS = ['Basic', 'Dessert', 'Drink', 'Marinade', 'Party'];
+        const allCuisines = [...new Set(recipes.map(r => r.cuisine).filter(Boolean))].sort();
+        // Only show cuisines in dropdown that aren't already a quick-chip key
+        const dropdownCuisines = allCuisines.filter(
+          c => !QUICK_CHIP_KEYS.some(k => k.toLowerCase() === c.toLowerCase())
+        );
+        return (
+          <main className="view">
+            <div className="library-header">
+              <h2>All Recipes</h2>
+              <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
             </div>
-          )}
-          <div className="recipe-grid">
-            {libraryRecipes.map(r => <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe} />)}
-            {libraryRecipes.length === 0 && (
-              <div className="results-empty">
-                <p>No recipes match your search{activeTag ? ` or tag "${activeTag}"` : ''}.</p>
-                <button className="btn btn--ghost" onClick={() => { setLibrarySearch(''); setActiveTag(null); }}>Show all</button>
+
+            {/* ── Single filter bar ── */}
+            <div className="filter-bar">
+              {/* Name search */}
+              <div className="filter-bar__search-wrap">
+                <span className="filter-bar__search-icon">🔍</span>
+                <input
+                  className="filter-bar__search"
+                  type="search"
+                  placeholder="Search recipes…"
+                  value={librarySearch}
+                  onChange={e => setLibrarySearch(e.target.value)}
+                />
+                {librarySearch && (
+                  <button className="filter-bar__clear-x" onClick={() => setLibrarySearch('')}>✕</button>
+                )}
               </div>
-            )}
-          </div>
-        </main>
-      )}
+
+              <div className="filter-bar__divider" />
+
+              {/* Quick tag chips */}
+              <div className="filter-bar__chips">
+                {[
+                  { key: null,       label: 'All'      },
+                  { key: 'Basic',    label: 'Basic'    },
+                  { key: 'Dessert',  label: 'Dessert'  },
+                  { key: 'Drink',    label: 'Drinks'   },
+                  { key: 'Marinade', label: 'Marinade' },
+                  { key: 'Party',    label: 'Party'    },
+                ].map(({ key, label }) => (
+                  <button
+                    key={String(key)}
+                    className={`filter-bar__chip ${activeTag === key ? 'filter-bar__chip--active' : ''}`}
+                    onClick={() => { setActiveTag(prev => prev === key ? null : key); setActiveCuisine(''); }}
+                  >{label}</button>
+                ))}
+              </div>
+
+              {dropdownCuisines.length > 0 && (
+                <>
+                  <div className="filter-bar__divider" />
+                  <CuisineDropdown
+                    cuisines={dropdownCuisines}
+                    value={activeCuisine}
+                    onChange={c => { setActiveCuisine(c); setActiveTag(null); }}
+                  />
+                </>
+              )}
+
+              {(librarySearch || activeTag || activeCuisine) && (
+                <button className="filter-bar__reset" onClick={() => { setLibrarySearch(''); setActiveTag(null); setActiveCuisine(''); }}>
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <div className="recipe-grid">
+              {libraryRecipes.map(r => <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe} />)}
+              {libraryRecipes.length === 0 && (
+                <div className="results-empty">
+                  <p>No recipes match your filters.</p>
+                  <button className="btn btn--ghost" onClick={() => { setLibrarySearch(''); setActiveTag(null); setActiveCuisine(''); }}>Show all</button>
+                </div>
+              )}
+            </div>
+          </main>
+        );
+      })()}
 
       {view === 'grocery' && <GroceryListTab recipes={recipes} matchById={matchById} />}
 
@@ -1219,4 +1368,8 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  return <ErrorBoundary><AppInner /></ErrorBoundary>;
 }
