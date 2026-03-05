@@ -96,6 +96,169 @@ const Badge = ({ children, variant = 'default' }) => (
   <span className={`badge badge--${variant}`}>{children}</span>
 );
 
+// ─── Ingredient Autocomplete Input ─────────────────────────────────────────
+const IngredientAutocomplete = ({ value, onChange, allIngredients }) => {
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const wrapperRef = useRef(null);
+
+  const suggestions = useMemo(() => {
+    const val = value ?? '';
+    if (!val.trim()) return [];
+    const q = val.toLowerCase();
+    return allIngredients
+      .map(ing => {
+        if (!ing || typeof ing !== 'string') return null;
+        const lower = ing.toLowerCase();
+        if (!lower.includes(q)) return null;
+        const score = lower.startsWith(q) ? 0 : lower.indexOf(q);
+        return { ing, score };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 8)
+      .map(x => x.ing);
+  }, [value, allIngredients]);
+
+  useEffect(() => { setHighlighted(0); }, [suggestions]);
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (ing) => { onChange(ing); setOpen(false); };
+
+  const onKeyDown = (e) => {
+    if (!open || !suggestions.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+    if (e.key === 'Enter' && suggestions[highlighted]) { e.preventDefault(); select(suggestions[highlighted]); }
+    if (e.key === 'Escape') setOpen(false);
+  };
+
+  return (
+    <div className="ing-ac-wrap" ref={wrapperRef}>
+      <input
+        className="editor-input"
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder="soy sauce"
+        autoComplete="off"
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="ing-ac-dropdown">
+          {suggestions.map((ing, i) => {
+            const q = (value ?? '').toLowerCase();
+            const idx = ing.toLowerCase().indexOf(q);
+            return (
+              <li
+                key={ing}
+                className={`ing-ac-option ${i === highlighted ? 'ing-ac-option--active' : ''}`}
+                onMouseDown={() => select(ing)}
+                onMouseEnter={() => setHighlighted(i)}
+              >
+                {idx >= 0 && q ? (
+                  <>{ing.slice(0, idx)}<strong>{ing.slice(idx, idx + q.length)}</strong>{ing.slice(idx + q.length)}</>
+                ) : ing}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+const UnitAutocomplete = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const wrapperRef = useRef(null);
+
+  const suggestions = useMemo(() => {
+    const val = value ?? '';
+    if (!val.trim()) return COMMON_UNITS.slice(0, 8);
+    const q = val.toLowerCase();
+    return COMMON_UNITS
+      .filter(u => u.toLowerCase().startsWith(q) || u.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [value]);
+
+  useEffect(() => { setHighlighted(0); }, [suggestions]);
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (u) => { onChange(u); setOpen(false); };
+
+  const onKeyDown = (e) => {
+    if (!open || !suggestions.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+    if (e.key === 'Enter' && suggestions[highlighted]) { e.preventDefault(); select(suggestions[highlighted]); }
+    if (e.key === 'Escape') setOpen(false);
+  };
+
+  return (
+    <div className="ing-ac-wrap" ref={wrapperRef}>
+      <input
+        className="editor-input editor-input--sm"
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder="tbsp"
+        autoComplete="off"
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="ing-ac-dropdown">
+          {suggestions.map((u, i) => {
+            const q = (value ?? '').toLowerCase();
+            const idx = u.toLowerCase().indexOf(q);
+            return (
+              <li
+                key={u}
+                className={`ing-ac-option ${i === highlighted ? 'ing-ac-option--active' : ''}`}
+                onMouseDown={() => select(u)}
+                onMouseEnter={() => setHighlighted(i)}
+              >
+                {idx >= 0 && q ? (
+                  <>{u.slice(0, idx)}<strong>{u.slice(idx, idx + q.length)}</strong>{u.slice(idx + q.length)}</>
+                ) : u}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+const SortableItem = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="sortable-item">
+      <div className="sortable-handle" {...attributes} {...listeners}>⠿</div>
+      {children}
+    </div>
+  );
+};
+
+
+// ─── Cuisine Dropdown ───────────────────────────────────────────────────────
+
 // ─── Recipe Summary Card ───────────────────────────────────────────────────
 const toNum = (v) => { const n = Number(v); return (!isNaN(n) && v !== '' && v !== null && v !== undefined) ? n : null; };
 
@@ -735,168 +898,6 @@ const RecipePage = ({ recipe: initialRecipe, bodyIngredients: initialIngs, instr
   );
 };
 
-// ─── Ingredient Autocomplete Input ─────────────────────────────────────────
-const IngredientAutocomplete = ({ value, onChange, allIngredients }) => {
-  const [open, setOpen] = useState(false);
-  const [highlighted, setHighlighted] = useState(0);
-  const wrapperRef = useRef(null);
-
-  const suggestions = useMemo(() => {
-    const val = value ?? '';
-    if (!val.trim()) return [];
-    const q = val.toLowerCase();
-    return allIngredients
-      .map(ing => {
-        if (!ing || typeof ing !== 'string') return null;
-        const lower = ing.toLowerCase();
-        if (!lower.includes(q)) return null;
-        const score = lower.startsWith(q) ? 0 : lower.indexOf(q);
-        return { ing, score };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.score - b.score)
-      .slice(0, 8)
-      .map(x => x.ing);
-  }, [value, allIngredients]);
-
-  useEffect(() => { setHighlighted(0); }, [suggestions]);
-
-  useEffect(() => {
-    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const select = (ing) => { onChange(ing); setOpen(false); };
-
-  const onKeyDown = (e) => {
-    if (!open || !suggestions.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
-    if (e.key === 'Enter' && suggestions[highlighted]) { e.preventDefault(); select(suggestions[highlighted]); }
-    if (e.key === 'Escape') setOpen(false);
-  };
-
-  return (
-    <div className="ing-ac-wrap" ref={wrapperRef}>
-      <input
-        className="editor-input"
-        value={value}
-        onChange={e => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={onKeyDown}
-        placeholder="soy sauce"
-        autoComplete="off"
-      />
-      {open && suggestions.length > 0 && (
-        <ul className="ing-ac-dropdown">
-          {suggestions.map((ing, i) => {
-            const q = (value ?? '').toLowerCase();
-            const idx = ing.toLowerCase().indexOf(q);
-            return (
-              <li
-                key={ing}
-                className={`ing-ac-option ${i === highlighted ? 'ing-ac-option--active' : ''}`}
-                onMouseDown={() => select(ing)}
-                onMouseEnter={() => setHighlighted(i)}
-              >
-                {idx >= 0 && q ? (
-                  <>{ing.slice(0, idx)}<strong>{ing.slice(idx, idx + q.length)}</strong>{ing.slice(idx + q.length)}</>
-                ) : ing}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-const UnitAutocomplete = ({ value, onChange }) => {
-  const [open, setOpen] = useState(false);
-  const [highlighted, setHighlighted] = useState(0);
-  const wrapperRef = useRef(null);
-
-  const suggestions = useMemo(() => {
-    const val = value ?? '';
-    if (!val.trim()) return COMMON_UNITS.slice(0, 8);
-    const q = val.toLowerCase();
-    return COMMON_UNITS
-      .filter(u => u.toLowerCase().startsWith(q) || u.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [value]);
-
-  useEffect(() => { setHighlighted(0); }, [suggestions]);
-
-  useEffect(() => {
-    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const select = (u) => { onChange(u); setOpen(false); };
-
-  const onKeyDown = (e) => {
-    if (!open || !suggestions.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
-    if (e.key === 'Enter' && suggestions[highlighted]) { e.preventDefault(); select(suggestions[highlighted]); }
-    if (e.key === 'Escape') setOpen(false);
-  };
-
-  return (
-    <div className="ing-ac-wrap" ref={wrapperRef}>
-      <input
-        className="editor-input editor-input--sm"
-        value={value}
-        onChange={e => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={onKeyDown}
-        placeholder="tbsp"
-        autoComplete="off"
-      />
-      {open && suggestions.length > 0 && (
-        <ul className="ing-ac-dropdown">
-          {suggestions.map((u, i) => {
-            const q = (value ?? '').toLowerCase();
-            const idx = u.toLowerCase().indexOf(q);
-            return (
-              <li
-                key={u}
-                className={`ing-ac-option ${i === highlighted ? 'ing-ac-option--active' : ''}`}
-                onMouseDown={() => select(u)}
-                onMouseEnter={() => setHighlighted(i)}
-              >
-                {idx >= 0 && q ? (
-                  <>{u.slice(0, idx)}<strong>{u.slice(idx, idx + q.length)}</strong>{u.slice(idx + q.length)}</>
-                ) : u}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-};
-
-const SortableItem = ({ id, children }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : undefined,
-  };
-  return (
-    <div ref={setNodeRef} style={style} className="sortable-item">
-      <div className="sortable-handle" {...attributes} {...listeners}>⠿</div>
-      {children}
-    </div>
-  );
-};
-
-
-// ─── Cuisine Dropdown ───────────────────────────────────────────────────────
 const CuisineDropdown = ({ cuisines, value, onChange, onCreateNew }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -1393,11 +1394,6 @@ function AppInner() {
     setView('recipes');
   };
 
-  const surpriseMe = () => {
-    if (recipes.length === 0) return;
-    const r = recipes[Math.floor(Math.random() * recipes.length)];
-    openRecipe(r);
-  };
   const hasActiveFilters = librarySearch || activeTag || activeProgress || activeCuisine;
 
   const libraryRecipes = useMemo(() => {
@@ -1472,6 +1468,12 @@ function AppInner() {
     } finally {
       setRecipeLoading(false);
     }
+  };
+
+  const surpriseMe = () => {
+    if (recipes.length === 0) return;
+    const r = recipes[Math.floor(Math.random() * recipes.length)];
+    openRecipe(r);
   };
 
   if (loading) return (
