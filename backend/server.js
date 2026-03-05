@@ -15,10 +15,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function query(sql, params) {
   const client = await pool.connect();
@@ -31,7 +28,6 @@ async function query(sql, params) {
 
 // ─── Grocery category mapping ───────────────────────────────────────────────
 const CATEGORY_MAP = {
-  // Produce
   produce: ['onion', 'garlic', 'ginger', 'tomato', 'tomatoes', 'lemon', 'lime', 'spinach',
     'carrot', 'carrots', 'celery', 'potato', 'potatoes', 'bell pepper', 'cucumber',
     'zucchini', 'broccoli', 'cauliflower', 'mushroom', 'mushrooms', 'avocado',
@@ -42,20 +38,17 @@ const CATEGORY_MAP = {
     'mint', 'thyme', 'rosemary', 'dill', 'chives', 'bay leaves', 'lemongrass',
     'orange', 'lime leaves', 'thai basil'],
 
-  // Meat & Seafood
   'meat & seafood': ['chicken', 'beef', 'pork', 'lamb', 'turkey', 'duck', 'bacon',
     'sausage', 'mince', 'ground beef', 'ground pork', 'steak', 'salmon', 'tuna',
     'shrimp', 'prawns', 'cod', 'tilapia', 'fish', 'crab', 'lobster', 'scallops',
     'mussels', 'anchovies', 'ham', 'pancetta', 'prosciutto', 'chorizo', 'salami'],
 
-  // Dairy & Eggs
   'dairy & eggs': ['egg', 'eggs', 'milk', 'butter', 'cream', 'heavy cream', 'double cream',
     'sour cream', 'yogurt', 'greek yogurt', 'cheese', 'parmesan', 'cheddar', 'feta',
     'mozzarella', 'ricotta', 'cream cheese', 'brie', 'gouda', 'halloumi',
     'creme fraiche', 'ghee', 'buttermilk', 'condensed milk', 'coconut milk',
     'coconut cream'],
 
-  // Pantry & Dry Goods
   'pantry & dry goods': ['rice', 'pasta', 'noodles', 'flour', 'bread', 'breadcrumbs',
     'panko', 'oats', 'quinoa', 'lentils', 'chickpeas', 'black beans', 'kidney beans',
     'cannellini beans', 'lentil', 'split peas', 'couscous', 'polenta', 'cornmeal',
@@ -69,7 +62,6 @@ const CATEGORY_MAP = {
     'chocolate', 'cocoa', 'peanut butter', 'tahini', 'miso', 'dried pasta',
     'udon', 'rice noodles', 'glass noodles', 'wonton wrappers'],
 
-  // Spices & Condiments
   'spices & condiments': ['salt', 'pepper', 'black pepper', 'cumin', 'coriander',
     'turmeric', 'paprika', 'smoked paprika', 'chilli flakes', 'cayenne', 'cinnamon',
     'nutmeg', 'cardamom', 'cloves', 'star anise', 'bay leaf', 'oregano', 'thyme',
@@ -78,7 +70,6 @@ const CATEGORY_MAP = {
     'ketchup', 'mayonnaise', 'ranch', 'caesar dressing', 'italian dressing',
     'white pepper', 'msg', 'sesame seeds', 'chilli powder'],
 
-  // Frozen
   frozen: ['frozen peas', 'frozen corn', 'frozen spinach', 'frozen edamame',
     'frozen berries', 'ice cream', 'frozen prawns', 'frozen shrimp'],
 };
@@ -108,7 +99,7 @@ app.get('/api/recipes', async (req, res) => {
       SELECT
         r.id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage", r.status,
-        r.mealpreppable, r.make_soon, r.recipe_incomplete, r.link,
+        r.mealpreppable, r.make_soon, r.link,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
            FROM recipe_body_ingredients rbi
@@ -147,12 +138,11 @@ app.get('/api/ingredients', async (req, res) => {
 app.get('/api/recipes/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    // Recipe row
     const { rows: recipeRows } = await query(`
       SELECT
         r.id, r.notion_id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage",
-        r.status, r.mealpreppable, r.make_soon, r.recipe_incomplete, r.link,
+        r.status, r.mealpreppable, r.make_soon, r.link,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
            FROM recipe_body_ingredients rbi
@@ -173,7 +163,6 @@ app.get('/api/recipes/:id', async (req, res) => {
     if (!recipeRows.length) return res.status(404).json({ error: 'Recipe not found' });
     const recipe = { ...recipeRows[0], ingredients: recipeRows[0].ingredients || [], tags: recipeRows[0].tags || [] };
 
-    // Body ingredients
     const { rows: ingRows } = await query(`
       SELECT
         rbi.id,
@@ -190,7 +179,6 @@ app.get('/api/recipes/:id', async (req, res) => {
       ORDER BY rbi.order_index ASC, i.name ASC;
     `, [id]);
 
-    // Instructions
     const { rows: instrRows } = await query(`
       SELECT id, step_number, body_text
       FROM instructions
@@ -198,7 +186,6 @@ app.get('/api/recipes/:id', async (req, res) => {
       ORDER BY step_number ASC;
     `, [id]);
 
-    // Notes
     const { rows: notesRows } = await query(`
       SELECT id, order_index, body_text AS text
       FROM notes
@@ -227,7 +214,6 @@ app.put('/api/recipes/:id', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Update recipes row
     await client.query(`
       UPDATE recipes SET
         name             = $1,
@@ -249,21 +235,12 @@ app.put('/api/recipes/:id', async (req, res) => {
       id,
     ]);
 
-    // ── Ingredients ──────────────────────────────────────────────────────────
     await client.query('DELETE FROM recipe_body_ingredients WHERE recipe_id = $1', [id]);
-
-    console.log(`Saving ${(ingredients || []).length} ingredients for recipe ${id}`);
 
     for (const ing of (ingredients || [])) {
       const ingName = ing.name?.trim().toLowerCase();
-      if (!ingName) {
-        console.log('Skipping ingredient with empty name:', ing);
-        continue;
-      }
+      if (!ingName) continue;
 
-      console.log('Inserting ingredient:', ingName, ing.amount, ing.unit);
-
-      // Upsert into ingredients table
       const { rows: ingRows } = await client.query(`
         INSERT INTO ingredients (name)
         VALUES ($1)
@@ -277,8 +254,7 @@ app.put('/api/recipes/:id', async (req, res) => {
           (recipe_id, ingredient_id, amount, unit, prep_note, optional, group_label, order_index)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        id,
-        ingId,
+        id, ingId,
         ing.amount    || null,
         ing.unit      || null,
         ing.prep_note || null,
@@ -288,9 +264,7 @@ app.put('/api/recipes/:id', async (req, res) => {
       ]);
     }
 
-    // ── Instructions ─────────────────────────────────────────────────────────
     await client.query('DELETE FROM instructions WHERE recipe_id = $1', [id]);
-
     for (const step of (instructions || [])) {
       if (!step.body_text?.trim()) continue;
       await client.query(`
@@ -299,9 +273,7 @@ app.put('/api/recipes/:id', async (req, res) => {
       `, [id, step.step_number, step.body_text.trim()]);
     }
 
-    // ── Notes ─────────────────────────────────────────────────────────────────
     await client.query('DELETE FROM notes WHERE recipe_id = $1', [id]);
-
     for (const note of (notes || [])) {
       const text = note.text?.trim() || note.body_text?.trim();
       if (!text) continue;
@@ -313,7 +285,6 @@ app.put('/api/recipes/:id', async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Return updated recipe
     const { rows } = await client.query(`
       SELECT r.*,
         r.cover_image_url AS "coverImage",
@@ -364,7 +335,6 @@ app.post('/api/match', async (req, res) => {
 });
 
 // ─── POST /api/grocery-list ─────────────────────────────────────────────────
-// No Claude — purely DB-driven with hardcoded category mapping
 app.post('/api/grocery-list', async (req, res) => {
   const { recipeIds } = req.body;
   if (!Array.isArray(recipeIds) || recipeIds.length === 0)
@@ -389,13 +359,10 @@ app.post('/api/grocery-list', async (req, res) => {
 
     if (!rows.length) return res.json({ categories: [], recipeNames: [] });
 
-    // Collect unique recipe names in selected order
     const recipeNameMap = new Map();
     for (const row of rows) recipeNameMap.set(row.recipe_id, row.recipe_name);
     const recipeNames = Array.from(recipeNameMap.values());
 
-    // Merge duplicate ingredients, tracking which recipes use them
-    // Key: ingredient name (lowercased) — combine amounts naively, union recipes
     const itemMap = new Map();
     for (const row of rows) {
       const key = row.ingredient_name.toLowerCase().trim();
@@ -414,21 +381,15 @@ app.post('/api/grocery-list', async (req, res) => {
       if (!entry.recipes.includes(row.recipe_name)) entry.recipes.push(row.recipe_name);
     }
 
-    // Group by category
     const catMap = new Map();
     for (const item of itemMap.values()) {
       if (!catMap.has(item.category)) catMap.set(item.category, []);
       catMap.get(item.category).push({
-        name: item.name,
-        amount: item.amount,
-        unit: item.unit,
-        prep_note: item.prep_note,
-        optional: item.optional,
-        recipes: item.recipes,
+        name: item.name, amount: item.amount, unit: item.unit,
+        prep_note: item.prep_note, optional: item.optional, recipes: item.recipes,
       });
     }
 
-    // Sort categories by preferred order, sort items alphabetically within
     const categories = Array.from(catMap.entries())
       .sort((a, b) => (CATEGORY_META[a[0]]?.order ?? 99) - (CATEGORY_META[b[0]]?.order ?? 99))
       .map(([cat, items]) => ({
