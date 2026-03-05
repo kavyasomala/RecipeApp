@@ -938,42 +938,49 @@ body {
 }
 .rp2__hero-wrap:hover .rp2__photo-edit-btn { opacity: 1; }
 
-/* ─── Photo editor overlay (below hero) ─────────────────────────────────── */
+/* ─── Photo editor — small popover on the image ─────────────────────────── */
 .photo-editor-overlay {
-  background: var(--parchment);
-  border: 1.5px solid var(--border);
-  border-top: none;
-  padding: 14px 16px;
+  position: absolute;
+  bottom: 48px;
+  right: 12px;
+  background: rgba(20,15,10,0.85);
+  border-radius: 10px;
+  padding: 10px 12px;
   display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+  backdrop-filter: blur(6px);
+  width: 280px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 .photo-editor-input {
-  flex: 1;
-  min-width: 200px;
-  padding: 8px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
   font-size: 13px;
-  background: var(--warm-white);
+  background: rgba(255,255,255,0.1);
+  color: white;
   font-family: var(--font-body);
 }
-.photo-editor-input:focus { outline: none; border-color: var(--terracotta); }
-.photo-editor-err { color: var(--terracotta); font-size: 12px; width: 100%; }
-.photo-editor-btns { display: flex; gap: 8px; }
+.photo-editor-input::placeholder { color: rgba(255,255,255,0.5); }
+.photo-editor-input:focus { outline: none; border-color: rgba(255,255,255,0.5); }
+.photo-editor-err { color: #ff9980; font-size: 12px; }
+.photo-editor-btns { display: flex; gap: 6px; justify-content: flex-end; }
 .photo-editor-btn {
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  border: 1.5px solid var(--border);
-  background: var(--warm-white);
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.1);
+  color: white;
 }
-.photo-editor-btn--save { background: var(--terracotta); color: white; border-color: var(--terracotta); }
+.photo-editor-btn--save { background: var(--terracotta); border-color: var(--terracotta); }
 .photo-editor-btn--save:hover { background: var(--terracotta-dark); }
-.photo-editor-btn--cancel:hover { background: var(--parchment); }
+.photo-editor-btn--cancel:hover { background: rgba(255,255,255,0.2); }
 
 /* ─── Header view (title + pencil) ─────────────────────────────────────── */
 .rp2__header-view { padding: 20px 24px 16px; border-bottom: 1.5px solid var(--border); }
@@ -1263,3 +1270,172 @@ body {
   .meta-edit-grid { grid-template-columns: 1fr; }
   .ie-row__top { grid-template-columns: 46px 80px 1fr 22px 22px; gap: 4px; }
 }
+
+/* ─── Hero topbar (back + heart overlaid on image) ───────────────────────── */
+.rp2__hero-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%);
+  z-index: 10;
+}
+.rp2__back-hero {
+  background: rgba(0,0,0,0.35);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  font-family: var(--font-body);
+}
+.rp2__back-hero:hover { background: rgba(0,0,0,0.55); }
+.rp2__hero-heart {
+  background: rgba(0,0,0,0.35);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  width: 36px; height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.rp2__hero-heart--on { color: #ff6b6b; background: rgba(0,0,0,0.5); }
+
+/* ─── Clickable hero pills / tags ────────────────────────────────────────── */
+.rp2__tag--editable,
+.rp2__pill--editable {
+  cursor: pointer;
+  transition: opacity 0.15s, outline 0.15s;
+}
+.rp2__tag--editable:hover,
+.rp2__pill--editable:hover { opacity: 0.8; outline: 1.5px solid rgba(255,255,255,0.5); outline-offset: 2px; border-radius: 20px; }
+.rp2__tag--editing,
+.rp2__pill--editing { outline: 2px solid white; outline-offset: 2px; border-radius: 20px; }
+
+/* ─── Hero field popup ───────────────────────────────────────────────────── */
+.hero-field-popup {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  background: rgba(20,15,10,0.88);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+  backdrop-filter: blur(6px);
+  min-width: 200px;
+  max-width: 320px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.hero-field-popup__input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  font-size: 14px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-family: var(--font-body);
+}
+.hero-field-popup__input option { background: #333; }
+.hero-field-popup__input:focus { outline: none; border-color: rgba(255,255,255,0.5); }
+.hero-field-popup__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.hero-field-popup__btns { display: flex; gap: 6px; justify-content: flex-end; }
+.hero-field-popup__err { color: #ff9980; font-size: 12px; }
+.hero-field-popup__cancel,
+.hero-field-popup__save {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+.hero-field-popup__save { background: var(--terracotta); border-color: var(--terracotta); }
+.hero-field-popup__save:hover { background: var(--terracotta-dark); }
+
+/* meta-edit-tag also used inside hero popup */
+.hero-field-popup .meta-edit-tag {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+  color: white;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.hero-field-popup .meta-edit-tag--on {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+}
+
+/* ─── Title editor row ───────────────────────────────────────────────────── */
+.title-edit-row { display: flex; gap: 10px; align-items: center; }
+.title-edit-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 20px;
+  font-family: var(--font-display);
+  color: var(--charcoal);
+  font-weight: 600;
+  background: var(--warm-white);
+}
+.title-edit-input:focus { outline: none; border-color: var(--terracotta); }
+.title-edit-select {
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font-body);
+  background: var(--warm-white);
+  color: var(--charcoal);
+}
+.title-edit-select:focus { outline: none; border-color: var(--terracotta); }
+
+/* ─── Ingredient group row (flat list model) ─────────────────────────────── */
+.ie-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  background: rgba(122,158,126,0.12);
+  border: 1.5px dashed var(--sage-light);
+  border-radius: var(--radius-sm);
+}
+.ie-group-row__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sage);
+  font-family: var(--font-body);
+  padding: 0;
+}
+.ie-group-row__input:focus { outline: none; }
+.ie-group-row__input::placeholder { color: var(--sage-light); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+/* ─── Add bar (ingredient + group buttons side by side) ──────────────────── */
+.ie-add-bar { display: flex; gap: 8px; margin-top: 10px; }
+.ie-add-bar .ie-add-btn { flex: 1; }
+
+/* ─── Remove old rp2__topbar (buttons now on hero) ───────────────────────── */
+.rp2__topbar { display: none; }
+
+/* ─── Fix rp2__hero position context ────────────────────────────────────── */
+.rp2__hero { position: relative; }
