@@ -1331,7 +1331,7 @@ function AppInner() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { document.title = '🔥 Hearth'; }, []);
 
   const allMyIngredients = useMemo(() => {
     return new Set([...fridgeIngredients, ...pantryStaples].map(i => i.toLowerCase().trim()));
@@ -1361,9 +1361,31 @@ function AppInner() {
   }, [matches]);
 
   // Reset to page 1 when filters change
-  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeProgress, activeCuisine]);
+  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeProgress, activeCuisine, insightFilter]);
 
-  const clearAllFilters = () => { setLibrarySearch(''); setActiveTag(null); setActiveProgress(null); setActiveCuisine(''); };
+  const [insightFilter, setInsightFilter] = useState(null); // 'ready' | 'almost' | 'under30' | 'all'
+  const clearAllFilters = () => { setLibrarySearch(''); setActiveTag(null); setActiveProgress(null); setActiveCuisine(''); setInsightFilter(null); };
+
+  const goInsight = (key) => {
+    setLibrarySearch('');
+    setActiveTag(null);
+    setActiveCuisine('');
+    if (key === 'favorites') {
+      setActiveProgress('__favorite');
+      setInsightFilter(null);
+    } else {
+      setActiveProgress(null);
+      setInsightFilter(key);
+    }
+    setView('recipes');
+  };
+
+  const surpriseMe = () => {
+    if (recipes.length === 0) return;
+    const r = recipes[Math.floor(Math.random() * recipes.length)];
+    openRecipe(r);
+  };
+  
   const hasActiveFilters = librarySearch || activeTag || activeProgress || activeCuisine;
 
   const libraryRecipes = useMemo(() => {
@@ -1406,8 +1428,17 @@ function AppInner() {
       );
     }
 
+     // Insight filter (from clicking Recipe Insights tiles)
+     if (insightFilter === 'ready') {
+      list = list.filter(r => matchById.get(r.id)?.canMake);
+    } else if (insightFilter === 'almost') {
+      list = list.filter(r => { const m = matchById.get(r.id); return m && m.matchScore >= 0.7 && !m.canMake; });
+    } else if (insightFilter === 'under30') {
+      list = list.filter(r => { const m = (r.time || '').match(/(\d+)/); return m && parseInt(m[1]) <= 30; });
+    }
+
     return list;
-  }, [recipes, librarySearch, activeTag, activeProgress, activeCuisine, matchById]);
+  }, [recipes, librarySearch, activeTag, activeProgress, activeCuisine, matchById, insightFilter]);
 
   const openRecipe = async (recipe) => {
     setLastView(view);
@@ -1454,10 +1485,24 @@ function AppInner() {
       <header className="app-header">
         <div className="app-header__bar">
           <div className="app-header__brand">
-            <span className="app-header__logo">🍳</span>
+            <span className="app-header__logo" aria-label="Hearth">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Fireplace arch */}
+                <rect x="3" y="14" width="26" height="15" rx="2" fill="#c4623a" opacity="0.15"/>
+                <path d="M3 29 V16 Q3 10 16 10 Q29 10 29 16 V29 Z" fill="none" stroke="#c4623a" strokeWidth="2.2" strokeLinejoin="round"/>
+                {/* Floor */}
+                <rect x="1" y="27" width="30" height="3" rx="1.5" fill="#c4623a" opacity="0.6"/>
+                {/* Inner dark opening */}
+                <path d="M8 27 V19 Q8 15 16 15 Q24 15 24 19 V27 Z" fill="#2d2d2d" opacity="0.7"/>
+                {/* Flames */}
+                <path d="M16 25 C14 23 13 21 15 19 C14 21 17 21 16 25Z" fill="#e8936e"/>
+                <path d="M16 25 C18 22 19 20 17 18 C18 21 15 22 16 25Z" fill="#c4623a"/>
+                <path d="M16 24 C15.5 22.5 16 21 16 24Z" fill="#ffd580" opacity="0.8"/>
+              </svg>
+            </span>
             <div className="app-header__title-group">
-              <span className="app-header__title">Recipe Library</span>
-              <span className="app-header__subtitle">Your personal cookbook</span>
+              <span className="app-header__title">Hearth</span>
+              <span className="app-header__subtitle">Your personal cookbook ♥ </span>
             </div>
           </div>
           <nav className="nav-tabs">
