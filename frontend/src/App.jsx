@@ -67,19 +67,26 @@ const PROGRESS_FILTERS = [
 
 // Cuisine filter chips — concise list for the filter panel
 const CUISINE_FILTERS = [
-  { key: 'American',       label: '🍔 American'      },
   { key: 'Asian',          label: '🍜 Asian'         },
+  { key: 'Chinese',        label: '🥡 Chinese'       },
+  { key: 'Japanese',       label: '🍣 Japanese'      },
+  { key: 'Korean',         label: '🥢 Korean'        },
+  { key: 'Thai',           label: '🌶 Thai'          },
   { key: 'Indian',         label: '🫕 Indian'        },
-  { key: 'Italian',        label: '🍕 Italian'       },
   { key: 'Mediterranean',  label: '🫒 Mediterranean' },
+  { key: 'Italian',        label: '🍕 Italian'       },
   { key: 'Mexican',        label: '🌮 Mexican'       },
+  { key: 'American',       label: '🍔 American'      },
+  { key: 'French',         label: '🥐 French'        },
   { key: 'Middle Eastern', label: '🧆 Middle Eastern'},
 ];
 
 // All cuisines available in the recipe editor dropdown
 const ALL_CUISINES = [
-  'American', 'Asian', 'Indian', 'Italian', 'Mediterranean',
-  'Mexican', 'Middle Eastern'
+  'American', 'Asian', 'British', 'Caribbean', 'Chinese', 'French', 'Greek',
+  'Indian', 'Italian', 'Japanese', 'Korean', 'Lebanese', 'Mediterranean',
+  'Mexican', 'Middle Eastern', 'Moroccan', 'Persian', 'Spanish',
+  'Thai', 'Turkish', 'Vietnamese',
 ].sort();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -1337,6 +1344,7 @@ function AppInner() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { document.title = '🔥 Hearth'; }, []);
 
   const allMyIngredients = useMemo(() => {
     return new Set([...fridgeIngredients, ...pantryStaples].map(i => i.toLowerCase().trim()));
@@ -1366,9 +1374,30 @@ function AppInner() {
   }, [matches]);
 
   // Reset to page 1 when filters change
-  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeProgress, activeCuisine]);
+  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeProgress, activeCuisine, insightFilter]);
 
-  const clearAllFilters = () => { setLibrarySearch(''); setActiveTag(null); setActiveProgress(null); setActiveCuisine(''); };
+  const [insightFilter, setInsightFilter] = useState(null); // 'ready' | 'almost' | 'under30' | 'all'
+  const clearAllFilters = () => { setLibrarySearch(''); setActiveTag(null); setActiveProgress(null); setActiveCuisine(''); setInsightFilter(null); };
+
+  const goInsight = (key) => {
+    setLibrarySearch('');
+    setActiveTag(null);
+    setActiveCuisine('');
+    if (key === 'favorites') {
+      setActiveProgress('__favorite');
+      setInsightFilter(null);
+    } else {
+      setActiveProgress(null);
+      setInsightFilter(key);
+    }
+    setView('recipes');
+  };
+
+  const surpriseMe = () => {
+    if (recipes.length === 0) return;
+    const r = recipes[Math.floor(Math.random() * recipes.length)];
+    openRecipe(r);
+  };
   const hasActiveFilters = librarySearch || activeTag || activeProgress || activeCuisine;
 
   const libraryRecipes = useMemo(() => {
@@ -1411,8 +1440,16 @@ function AppInner() {
       );
     }
 
+    // Insight filter (from clicking Recipe Insights tiles)
+    if (insightFilter === 'ready') {
+      list = list.filter(r => matchById.get(r.id)?.canMake);
+    } else if (insightFilter === 'almost') {
+      list = list.filter(r => { const m = matchById.get(r.id); return m && m.matchScore >= 0.7 && !m.canMake; });
+    } else if (insightFilter === 'under30') {
+      list = list.filter(r => { const m = (r.time || '').match(/(\d+)/); return m && parseInt(m[1]) <= 30; });
+    }
     return list;
-  }, [recipes, librarySearch, activeTag, activeProgress, activeCuisine, matchById]);
+  }, [recipes, librarySearch, activeTag, activeProgress, activeCuisine, matchById, insightFilter]);
 
   const openRecipe = async (recipe) => {
     setLastView(view);
@@ -1459,9 +1496,23 @@ function AppInner() {
       <header className="app-header">
         <div className="app-header__bar">
           <div className="app-header__brand">
-            <span className="app-header__logo">🍳</span>
+            <span className="app-header__logo" aria-label="Hearth">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Fireplace arch */}
+                <rect x="3" y="14" width="26" height="15" rx="2" fill="#c4623a" opacity="0.15"/>
+                <path d="M3 29 V16 Q3 10 16 10 Q29 10 29 16 V29 Z" fill="none" stroke="#c4623a" strokeWidth="2.2" strokeLinejoin="round"/>
+                {/* Floor */}
+                <rect x="1" y="27" width="30" height="3" rx="1.5" fill="#c4623a" opacity="0.6"/>
+                {/* Inner dark opening */}
+                <path d="M8 27 V19 Q8 15 16 15 Q24 15 24 19 V27 Z" fill="#2d2d2d" opacity="0.7"/>
+                {/* Flames */}
+                <path d="M16 25 C14 23 13 21 15 19 C14 21 17 21 16 25Z" fill="#e8936e"/>
+                <path d="M16 25 C18 22 19 20 17 18 C18 21 15 22 16 25Z" fill="#c4623a"/>
+                <path d="M16 24 C15.5 22.5 16 21 16 24Z" fill="#ffd580" opacity="0.8"/>
+              </svg>
+            </span>
             <div className="app-header__title-group">
-              <span className="app-header__title">Recipe Library</span>
+              <span className="app-header__title">Hearth</span>
               <span className="app-header__subtitle">Your personal cookbook</span>
             </div>
           </div>
@@ -1523,152 +1574,185 @@ function AppInner() {
         />
       )}
 
-      {view === 'home' && (
-        <main className="view home-view">
-          <div className="home-main">
+      {view === 'home' && (() => {
+        const readyCount = matches.filter(m => m.canMake).length;
+        const almostCount = matches.filter(m => m.matchScore >= 0.7 && !m.canMake).length;
+        const under30Count = recipes.filter(r => { const m = (r.time||'').match(/(\d+)/); return m && parseInt(m[1]) <= 30; }).length;
+        const favoriteRecipes = recipes.filter(r => (r.status||'').toLowerCase() === 'favorite');
+        return (
+          <main className="view home-view">
+            <div className="home-main">
 
-            {/* ── Make Soon — always visible ── */}
-            <div className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">♥ Make Soon</h2>
-                {heartedIds.length > 0 && (
-                  <button className="btn btn--ghost btn--sm" onClick={() => setHeartedIds([])}>Clear all</button>
+              {/* ── Make Soon ── */}
+              <div className="home-section">
+                <div className="home-section__header">
+                  <h2 className="home-section__title">♥ Make Soon</h2>
+                  {heartedIds.length > 0 && (
+                    <button className="btn btn--ghost btn--sm" onClick={() => setHeartedIds([])}>Clear all</button>
+                  )}
+                </div>
+                {heartedIds.length === 0 ? (
+                  <div className="home-empty-cta" onClick={() => setView('recipes')}>
+                    <span className="home-empty-cta__icon">♥</span>
+                    <div>
+                      <p className="home-empty-cta__title">No recipes saved yet</p>
+                      <p className="home-empty-cta__sub">Browse recipes and tap ♥ to add them here</p>
+                    </div>
+                    <span className="home-empty-cta__arrow">→</span>
+                  </div>
+                ) : (
+                  <div className="recipe-grid">
+                    {recipes.filter(r => heartedIds.includes(r.id)).map(r => (
+                      <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
+                        isHearted={true} onToggleHeart={() => toggleHeart(r.id)} />
+                    ))}
+                  </div>
                 )}
               </div>
-              {heartedIds.length === 0 ? (
-                <div className="home-empty-cta" onClick={() => setView('recipes')}>
-                  <span className="home-empty-cta__icon">♥</span>
-                  <div>
-                    <p className="home-empty-cta__title">No recipes saved yet</p>
-                    <p className="home-empty-cta__sub">Browse recipes and tap ♥ to add them here for quick access</p>
-                  </div>
-                  <span className="home-empty-cta__arrow">→</span>
+
+              {/* ── What can I make ── */}
+              <div className="home-section">
+                <div className="home-section__header">
+                  <h2 className="home-section__title">What can I make?</h2>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setView('fridge')}>
+                    {fridgeIngredients.length + pantryStaples.length > 0
+                      ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
+                      : 'Set my ingredients →'}
+                  </button>
                 </div>
-              ) : (
-                <div className="recipe-grid">
-                  {recipes.filter(r => heartedIds.includes(r.id)).map(r => (
-                    <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
-                      isHearted={true} onToggleHeart={() => toggleHeart(r.id)} />
-                  ))}
+                {allMyIngredients.size === 0 ? (
+                  <div className="home-empty-cta" onClick={() => setView('fridge')}>
+                    <span className="home-empty-cta__icon">🧊</span>
+                    <div>
+                      <p className="home-empty-cta__title">Add your fridge &amp; pantry ingredients</p>
+                      <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
+                    </div>
+                    <span className="home-empty-cta__arrow">→</span>
+                  </div>
+                ) : (() => {
+                  const goodMatches = matches.filter(m => m.matchScore > 0).slice(0, 6);
+                  return goodMatches.length > 0 ? (
+                    <div className="recipe-grid">
+                      {goodMatches.map(m => {
+                        const r = recipes.find(x => x.id === m.id);
+                        if (!r) return null;
+                        return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
+                          isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)} />;
+                      })}
+                    </div>
+                  ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>;
+                })()}
+              </div>
+
+              {/* ── Favorites ── */}
+              {favoriteRecipes.length > 0 && (
+                <div className="home-section">
+                  <div className="home-section__header">
+                    <h2 className="home-section__title">⭐ Favorites</h2>
+                    <button className="btn btn--ghost btn--sm" onClick={() => { goInsight('favorites'); }}>See all</button>
+                  </div>
+                  <div className="recipe-grid">
+                    {favoriteRecipes.slice(0, 6).map(r => (
+                      <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
+                        isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)} />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* ── What can I make ── */}
-            <div className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">What can I make?</h2>
-                <button className="btn btn--ghost btn--sm" onClick={() => setView('fridge')}>
-                  {fridgeIngredients.length + pantryStaples.length > 0
-                    ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
-                    : 'Set my ingredients →'}
-                </button>
-              </div>
-              {allMyIngredients.size === 0 ? (
-                <div className="home-empty-cta" onClick={() => setView('fridge')}>
-                  <span className="home-empty-cta__icon">🧊</span>
-                  <div>
-                    <p className="home-empty-cta__title">Add your fridge &amp; pantry ingredients</p>
-                    <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
-                  </div>
-                  <span className="home-empty-cta__arrow">→</span>
-                </div>
-              ) : (() => {
-                const goodMatches = matches.filter(m => m.matchScore > 0).slice(0, 6);
-                return goodMatches.length > 0 ? (
-                  <div className="recipe-grid">
-                    {goodMatches.map(m => {
-                      const r = recipes.find(x => x.id === m.id);
-                      if (!r) return null;
-                      return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
-                        isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)} />;
-                    })}
-                  </div>
-                ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>;
-              })()}
-            </div>
-          </div>
+            {/* Right column: Quick Actions + Insights */}
+            <aside className="home-sidebar">
 
-          {/* Right column: Insights + Quick Actions */}
-          <aside className="home-sidebar">
-            <div className="insights-card">
-              <h3 className="insights-title">Recipe Insights</h3>
-              <div className="insights-grid">
-                <div className="insight-item insight-item--blue">
-                  <span className="insight-item__number">{recipes.length}</span>
-                  <span className="insight-item__label">Total recipes</span>
-                  <span className="insight-item__icon">📚</span>
-                </div>
-                <div className="insight-item insight-item--green">
-                  <span className="insight-item__number">{matches.filter(m => m.canMake).length}</span>
-                  <span className="insight-item__label">Ready to cook</span>
-                  <span className="insight-item__icon">✅</span>
-                </div>
-                <div className="insight-item insight-item--amber">
-                  <span className="insight-item__number">{matches.filter(m => m.matchScore >= 0.7 && !m.canMake).length}</span>
-                  <span className="insight-item__label">Almost ready</span>
-                  <span className="insight-item__icon">🔥</span>
-                </div>
-                <div className="insight-item insight-item--purple">
-                  <span className="insight-item__number">
-                    {recipes.filter(r => {
-                      const t = (r.time || '').toLowerCase();
-                      const m = t.match(/(\d+)/);
-                      return m && parseInt(m[1]) <= 30;
-                    }).length}
-                  </span>
-                  <span className="insight-item__label">Under 30 min</span>
-                  <span className="insight-item__icon">⏱</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="quick-actions-card">
-              <h3 className="insights-title">Quick Actions</h3>
-              <div className="quick-actions-list">
-                <button className="quick-action" onClick={() => setView('recipes')}>
-                  <span className="quick-action__icon">📖</span>
-                  <div className="quick-action__text">
-                    <span className="quick-action__label">Browse all recipes</span>
-                    <span className="quick-action__sub">{recipes.length} in your library</span>
-                  </div>
-                  <span className="quick-action__arrow">→</span>
-                </button>
-                <button className="quick-action" onClick={() => setView('fridge')}>
-                  <span className="quick-action__icon">🧊</span>
-                  <div className="quick-action__text">
-                    <span className="quick-action__label">Update my fridge</span>
-                    <span className="quick-action__sub">{fridgeIngredients.length + pantryStaples.length} ingredients tracked</span>
-                  </div>
-                  <span className="quick-action__arrow">→</span>
-                </button>
-                <button className="quick-action" onClick={() => setView('grocery')}>
-                  <span className="quick-action__icon">🛒</span>
-                  <div className="quick-action__text">
-                    <span className="quick-action__label">Build grocery list</span>
-                    <span className="quick-action__sub">Plan your weekly shop</span>
-                  </div>
-                  <span className="quick-action__arrow">→</span>
-                </button>
-                {matches.filter(m => m.canMake).length > 0 && (
-                  <button className="quick-action quick-action--highlight" onClick={() => { clearAllFilters(); setView('recipes'); }}>
-                    <span className="quick-action__icon">🎯</span>
+              {/* ── Quick Actions ── */}
+              <div className="quick-actions-card">
+                <h3 className="insights-title">Quick Actions</h3>
+                <div className="quick-actions-list">
+                  <button className="quick-action quick-action--surprise" onClick={surpriseMe}>
+                    <span className="quick-action__icon">🎲</span>
                     <div className="quick-action__text">
-                      <span className="quick-action__label">Cook something now</span>
-                      <span className="quick-action__sub">{matches.filter(m => m.canMake).length} recipes you can make</span>
+                      <span className="quick-action__label">Surprise me</span>
+                      <span className="quick-action__sub">Open a random recipe</span>
                     </div>
                     <span className="quick-action__arrow">→</span>
                   </button>
-                )}
+                  <button className="quick-action" onClick={() => { clearAllFilters(); setView('recipes'); }}>
+                    <span className="quick-action__icon">📖</span>
+                    <div className="quick-action__text">
+                      <span className="quick-action__label">Browse all recipes</span>
+                      <span className="quick-action__sub">{recipes.length} in your library</span>
+                    </div>
+                    <span className="quick-action__arrow">→</span>
+                  </button>
+                  <button className="quick-action" onClick={() => setView('fridge')}>
+                    <span className="quick-action__icon">🧊</span>
+                    <div className="quick-action__text">
+                      <span className="quick-action__label">Update my fridge</span>
+                      <span className="quick-action__sub">{fridgeIngredients.length + pantryStaples.length} ingredients tracked</span>
+                    </div>
+                    <span className="quick-action__arrow">→</span>
+                  </button>
+                  <button className="quick-action" onClick={() => setView('grocery')}>
+                    <span className="quick-action__icon">🛒</span>
+                    <div className="quick-action__text">
+                      <span className="quick-action__label">Build grocery list</span>
+                      <span className="quick-action__sub">Plan your weekly shop</span>
+                    </div>
+                    <span className="quick-action__arrow">→</span>
+                  </button>
+                  {readyCount > 0 && (
+                    <button className="quick-action quick-action--highlight" onClick={() => goInsight('ready')}>
+                      <span className="quick-action__icon">🎯</span>
+                      <div className="quick-action__text">
+                        <span className="quick-action__label">Cook something now</span>
+                        <span className="quick-action__sub">{readyCount} recipes you can make</span>
+                      </div>
+                      <span className="quick-action__arrow">→</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </aside>
-        </main>
-      )}
+
+              {/* ── Recipe Insights ── */}
+              <div className="insights-card">
+                <h3 className="insights-title">Recipe Insights</h3>
+                <div className="insights-grid">
+                  <button className="insight-item insight-item--green insight-item--btn" onClick={() => goInsight('ready')}>
+                    <span className="insight-item__number">{readyCount}</span>
+                    <span className="insight-item__label">Ready to cook</span>
+                    <span className="insight-item__icon">✅</span>
+                  </button>
+                  <button className="insight-item insight-item--amber insight-item--btn" onClick={() => goInsight('almost')}>
+                    <span className="insight-item__number">{almostCount}</span>
+                    <span className="insight-item__label">Almost ready</span>
+                    <span className="insight-item__icon">🔥</span>
+                  </button>
+                  <button className="insight-item insight-item--purple insight-item--btn" onClick={() => goInsight('under30')}>
+                    <span className="insight-item__number">{under30Count}</span>
+                    <span className="insight-item__label">Under 30 min</span>
+                    <span className="insight-item__icon">⏱</span>
+                  </button>
+                  <button className="insight-item insight-item--blue insight-item--btn" onClick={() => { clearAllFilters(); setView('recipes'); }}>
+                    <span className="insight-item__number">{recipes.length}</span>
+                    <span className="insight-item__label">Total recipes</span>
+                    <span className="insight-item__icon">📚</span>
+                  </button>
+                </div>
+              </div>
+
+            </aside>
+          </main>
+        );
+      })()}
 
       {view === 'recipes' && (() => {
         return (
           <main className="view">
+            <div className="library-header">
+              <h2>All Recipes</h2>
+              <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
+            </div>
+
             {/* ── Search + Filter Toggle ── */}
             <div className="recipes-search-row">
               <div className="filter-bar__search-wrap filter-bar__search-wrap--standalone">
@@ -1745,7 +1829,7 @@ function AppInner() {
 
             {/* Active filter summary pills */}
             {hasActiveFilters && (
-              <div className="active-filter-pills mb-4">
+              <div className="active-filter-pills">
                 {activeTag && <span className="active-filter-pill">{TAG_FILTERS.find(f => f.key === activeTag)?.label} <button onClick={() => setActiveTag(null)}>✕</button></span>}
                 {activeProgress && <span className="active-filter-pill">{PROGRESS_FILTERS.find(f => f.key === activeProgress)?.label} <button onClick={() => setActiveProgress(null)}>✕</button></span>}
                 {activeCuisine && <span className="active-filter-pill">{CUISINE_FILTERS.find(f => f.key === activeCuisine)?.label || activeCuisine} <button onClick={() => setActiveCuisine('')}>✕</button></span>}
