@@ -1500,14 +1500,10 @@ function AppInner() {
           <div className="app-header__brand">
             <span className="app-header__logo" aria-label="Hearth">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Fireplace arch */}
                 <rect x="3" y="14" width="26" height="15" rx="2" fill="#c4623a" opacity="0.15"/>
                 <path d="M3 29 V16 Q3 10 16 10 Q29 10 29 16 V29 Z" fill="none" stroke="#c4623a" strokeWidth="2.2" strokeLinejoin="round"/>
-                {/* Floor */}
                 <rect x="1" y="27" width="30" height="3" rx="1.5" fill="#c4623a" opacity="0.6"/>
-                {/* Inner dark opening */}
                 <path d="M8 27 V19 Q8 15 16 15 Q24 15 24 19 V27 Z" fill="#2d2d2d" opacity="0.7"/>
-                {/* Flames */}
                 <path d="M16 25 C14 23 13 21 15 19 C14 21 17 21 16 25Z" fill="#e8936e"/>
                 <path d="M16 25 C18 22 19 20 17 18 C18 21 15 22 16 25Z" fill="#c4623a"/>
                 <path d="M16 24 C15.5 22.5 16 21 16 24Z" fill="#ffd580" opacity="0.8"/>
