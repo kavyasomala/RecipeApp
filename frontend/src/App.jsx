@@ -45,23 +45,31 @@ const COMMON_UNITS = [
   'rasher', 'fillet', 'fillets', 'sheet', 'sheets',
 ];
 
-const QUICK_FILTERS = [
-  { key: null,        label: 'All'      },
-  { key: 'Basic',     label: 'Basic'    },
-  { key: 'Dessert',   label: 'Dessert'  },
-  { key: 'Drinks',    label: 'Drinks'   },
-  { key: 'Pasta',     label: 'Pasta'    },
-  { key: 'Soup',      label: 'Soup'     },
-  { key: 'Marinade',  label: 'Marinade' },
-  { key: 'Party',     label: 'Party'    },
+c// ── Tag filters — match against recipe's tags array only (not cuisine column)
+const TAG_FILTERS = [
+  { key: 'Meals',    label: '🍽 Meals'    },
+  { key: 'Dessert',  label: '🍰 Desserts' },
+  { key: 'Drinks',   label: '🍹 Drinks'   },
+  { key: 'Pasta',    label: '🍝 Pasta'    },
+  { key: 'Soup',     label: '🍲 Soup'     },
+  { key: 'Marinade', label: '🫙 Marinade' },
+  { key: 'Party',    label: '🎉 Party'    },
 ];
-const QUICK_CHIP_KEYS = new Set(QUICK_FILTERS.filter(f => f.key).map(f => f.key));
+
+// ── Progress filters — based on DB columns (recipe_incomplete, status)
+const PROGRESS_FILTERS = [
+  { key: '__incomplete',    label: '🚧 Incomplete'      },
+  { key: '__needstweaking', label: '🔧 Needs Tweaking'  },
+  { key: '__favorite',      label: '⭐ Favorite'         },
+  { key: '__complete',      label: '✅ Complete'         },
+];
+
+const QUICK_CHIP_KEYS = new Set(TAG_FILTERS.map(f => f.key));
+
 const GEO_CUISINES = [
-  'American', 'British', 'Caribbean', 'Chinese', 'French', 'Greek',
-  'Indian', 'Italian', 'Japanese', 'Korean', 'Lebanese', 'Mediterranean',
-  'Mexican', 'Middle Eastern', 'Moroccan', 'Persian', 'Spanish',
-  'Thai', 'Turkish', 'Vietnamese',
+  'Asian', 'Indian', 'Mediterranean','Mexican', 'Middle Eastern',
 ].sort();
+
 const ALL_CUISINES = [
   ...GEO_CUISINES,
   'Basic', 'Dessert', 'Drinks', 'Marinade', 'Party', 'Pasta', 'Soup',
@@ -1276,35 +1284,92 @@ function AppInner() {
         const allCuisinesFromData = [...new Set(recipes.map(r => r.cuisine).filter(Boolean))].sort();
         const allCuisinesPool = [...new Set([...GEO_CUISINES, ...allCuisinesFromData, ...customCuisines])].sort();
         const dropdownCuisines = allCuisinesPool.filter(c => !QUICK_CHIP_KEYS.has(c));
-        const PAGE_SIZE = 24;
+        const PAGE_SIZE = 25;
         const totalPages = Math.max(1, Math.ceil(libraryRecipes.length / PAGE_SIZE));
         const safePage = Math.min(libraryPage, totalPages);
         const pageRecipes = libraryRecipes.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
         return (
           <main className="view">
-            <div className="library-header">
-              <h2>All Recipes</h2>
-              <p className="library-subtitle">{libraryRecipes.length} of {recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</p>
-            </div>
 
-            <div className="recipes-filter-area">
+            {/* ── Search + Filter Toggle ── */}
+            <div className="recipes-search-row">
               <div className="filter-bar__search-wrap filter-bar__search-wrap--standalone">
                 <span className="filter-bar__search-icon">🔍</span>
-                <input className="filter-bar__search" type="search" placeholder="Search recipes…" value={librarySearch} onChange={e => setLibrarySearch(e.target.value)} />
-                {librarySearch && <button className="filter-bar__clear-x" onClick={() => setLibrarySearch('')}>✕</button>}
-              </div>
-              <div className="recipes-filter-right">
-                <div className="filter-bar">
-                  {QUICK_FILTERS.map(({ key, label }) => (
-                    <button key={String(key)} className={`filter-bar__chip ${activeTag === key ? 'filter-bar__chip--active' : ''}`} onClick={() => { setActiveTag(prev => prev === key ? null : key); setActiveCuisine(''); }}>{label}</button>
-                  ))}
-                </div>
-                <CuisineDropdown cuisines={dropdownCuisines} value={activeCuisine} onChange={c => { setActiveCuisine(c); setActiveTag(null); }} onCreateNew={c => setCustomCuisines(prev => prev.includes(c) ? prev : [...prev, c])} />
-                {(activeTag || activeCuisine || librarySearch) && (
-                  <button className="filter-bar__reset" onClick={() => { setActiveTag(null); setActiveCuisine(''); setLibrarySearch(''); }}>Reset</button>
+                <input
+                  className="filter-bar__search"
+                  type="search"
+                  placeholder="Search recipes…"
+                  value={librarySearch}
+                  onChange={e => setLibrarySearch(e.target.value)}
+                />
+                {librarySearch && (
+                  <button className="filter-bar__clear-x" onClick={() => setLibrarySearch('')}>✕</button>
                 )}
               </div>
+              <button
+                className={`filters-toggle-btn ${filtersOpen ? 'filters-toggle-btn--open' : ''} ${hasActiveFilters ? 'filters-toggle-btn--active' : ''}`}
+                onClick={() => setFiltersOpen(o => !o)}
+              >
+                🔧 Filters {hasActiveFilters ? '·' : ''}
+                <span className="filters-toggle-btn__arrow">{filtersOpen ? '▴' : '▾'}</span>
+              </button>
+              {hasActiveFilters && (
+                <button className="filter-bar__reset" onClick={clearAllFilters}>✕ Clear</button>
+              )}
             </div>
+
+            {/* ── Filter Panel — collapses on mobile ── */}
+            {filtersOpen && (
+              <div className="filter-panel">
+                {/* Tags */}
+                <div className="filter-panel__group">
+                  <span className="filter-panel__label">Tags</span>
+                  <div className="filter-panel__chips">
+                    {TAG_FILTERS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        className={`filter-bar__chip ${activeTag === key ? 'filter-bar__chip--active' : ''}`}
+                        onClick={() => { setActiveTag(prev => prev === key ? null : key); }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Progress */}
+                <div className="filter-panel__group">
+                  <span className="filter-panel__label">Progress</span>
+                  <div className="filter-panel__chips">
+                    {PROGRESS_FILTERS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        className={`filter-bar__chip ${activeProgress === key ? 'filter-bar__chip--active' : ''}`}
+                        onClick={() => { setActiveProgress(prev => prev === key ? null : key); }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cuisine */}
+                <div className="filter-panel__group">
+                  <span className="filter-panel__label">Cuisine</span>
+                  <CuisineDropdown
+                    cuisines={dropdownCuisines}
+                    value={activeCuisine}
+                    onChange={c => setActiveCuisine(c)}
+                    onCreateNew={c => setCustomCuisines(prev => prev.includes(c) ? prev : [...prev, c])}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Active filter summary pills */}
+            {hasActiveFilters && (
+              <div className="active-filter-pills">
+                {activeTag && <span className="active-filter-pill">{TAG_FILTERS.find(f => f.key === activeTag)?.label} <button onClick={() => setActiveTag(null)}>✕</button></span>}
+                {activeProgress && <span className="active-filter-pill">{PROGRESS_FILTERS.find(f => f.key === activeProgress)?.label} <button onClick={() => setActiveProgress(null)}>✕</button></span>}
+                {activeCuisine && <span className="active-filter-pill">🌍 {activeCuisine} <button onClick={() => setActiveCuisine('')}>✕</button></span>}
+              </div>
+            )}
 
             {(() => {
               if (libraryRecipes.length === 0) return (
