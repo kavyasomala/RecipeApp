@@ -887,10 +887,71 @@ const GroceryListTab = ({ recipes, matchById }) => {
   );
 };
 
+// ─── Site Footer ────────────────────────────────────────────────────────────
+const GITHUB_REPO = 'kavyasomala/RecipeApp'; // update with actual repo path
+
+const SiteFooter = ({ onNav }) => {
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  useEffect(() => {
+    fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits?per_page=1`)
+      .then(r => r.json())
+      .then(data => {
+        const date = data?.[0]?.commit?.committer?.date;
+        if (date) setLastUpdated(new Date(date));
+      })
+      .catch(() => {});
+  }, []);
+
+  const fmt = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  return (
+    <footer className="site-footer">
+      <div className="site-footer__inner">
+        {/* Brand + tagline */}
+        <div className="site-footer__brand">
+          <div className="site-footer__logo">🔥 Hearth</div>
+          <p className="site-footer__tagline">A cozy corner for every recipe<br/>you love, tweak, and return to.</p>
+        </div>
+
+        {/* Nav columns */}
+        <div className="site-footer__col">
+          <h4 className="site-footer__col-title">Recipes</h4>
+          <ul className="site-footer__links">
+            <li><button onClick={() => onNav('recipes')}>Browse recipes</button></li>
+            <li><button onClick={() => onNav('home')}>Favorites</button></li>
+            <li><button className="site-footer__coming-soon" disabled>Show cooked <span>soon</span></button></li>
+          </ul>
+        </div>
+
+        <div className="site-footer__col">
+          <h4 className="site-footer__col-title">About</h4>
+          <ul className="site-footer__links">
+            <li><button onClick={() => onNav('fridge')}>What's in my fridge</button></li>
+            <li><button className="site-footer__coming-soon" disabled>Share a recipe <span>soon</span></button></li>
+            <li><button className="site-footer__coming-soon" disabled>My cookbooks <span>soon</span></button></li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="site-footer__bottom">
+        <span className="site-footer__credit">Built by Kavya ♥</span>
+        <span className="site-footer__updated">
+          {lastUpdated ? `Last updated ${fmt(lastUpdated)}` : 'Last updated —'}
+        </span>
+      </div>
+    </footer>
+  );
+};
+
 // ─── Main App ───────────────────────────────────────────────────────────────
 function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
+
+  useEffect(() => { document.title = '🔥 Hearth'; }, []);
   const [allIngredients, setAllIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [fridgeIngredients, setFridgeIngredients] = useState(() => LS.get('fridgeIngredients', []));
@@ -997,20 +1058,17 @@ function AppInner() {
     <div className="app">
       <header className="app-header">
         <div className="app-header__bar">
-          <div className="app-header__brand">
+          <button className="app-header__brand" onClick={() => setView('home')}>
             <span className="app-header__logo">🔥</span>
-            <div className="app-header__title-group">
-              <span className="app-header__title">Hearth</span>
-              <span className="app-header__subtitle">Your personal cookbook</span>
-            </div>
-          </div>
+            <span className="app-header__title">Hearth</span>
+          </button>
           <nav className="nav-tabs">
             {[
               { key: 'home',     label: 'Home'         },
-              { key: 'recipes',  label: 'All Recipes'  },
+              { key: 'recipes',  label: 'Recipes'      },
               { key: 'fridge',   label: 'Fridge'       },
-              { key: 'grocery',  label: 'Grocery List' },
-              { key: 'add',      label: 'Add Recipe'   },
+              { key: 'grocery',  label: 'Grocery'      },
+              { key: 'add',      label: 'Add'          },
               { key: 'settings', label: 'Settings'     },
             ].map(({ key, label }) => (
               <button key={key} className={`nav-tab ${view === key ? 'nav-tab--active' : ''}`} onClick={() => setView(key)} disabled={key === 'recipes' && recipes.length === 0}>
@@ -1293,6 +1351,8 @@ function AppInner() {
       )}
 
       {view === 'settings' && <SettingsTab units={units} setUnits={setUnits} dietaryFilters={dietaryFilters} setDietaryFilters={setDietaryFilters} />}
+
+      <SiteFooter onNav={setView} />
     </div>
   );
 }
