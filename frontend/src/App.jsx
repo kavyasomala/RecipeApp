@@ -124,7 +124,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart }) => {
 
 // ─── Inline editable section wrapper ───────────────────────────────────────
 const EditableSection = ({ onEdit, className = '', children }) => (
-  <div className={`editable-section ${className}`} onClick={onEdit}>
+  <div className={`editable-section ${className}`}>
     {children}
     <button className="editable-section__pencil" onClick={e => { e.stopPropagation(); onEdit(); }} title="Edit">✏️</button>
   </div>
@@ -181,7 +181,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onEd
                     title={isHearted ? 'Remove from favorites' : 'Save to favorites'}
                   >{isHearted ? '♥' : '♡'}</button>
                 )}
-                <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); onEdit(); }}>✏️ Edit</button>
+
               </div>
             </div>
             <div className="rp2__hero-bottom">

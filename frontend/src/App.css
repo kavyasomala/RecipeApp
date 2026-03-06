@@ -919,8 +919,8 @@ body {
 .rp2__hero-heart--on { color: #ff6b8a; }
 
 /* ─── Editable sections ──────────────────────────────────────────────────── */
-.editable-section { position: relative; border-radius: var(--radius-sm); transition: background 0.15s ease; cursor: pointer; }
-.editable-section:hover { background: rgba(196,98,58,0.04); }
+.editable-section { position: relative; border-radius: var(--radius-sm); }
+
 .editable-section__pencil {
   position: absolute; top: 8px; right: 8px; width: 30px; height: 30px;
   border-radius: 50%; border: 1.5px solid var(--border); background: var(--warm-white);
@@ -929,8 +929,8 @@ body {
 }
 .editable-section:hover .editable-section__pencil { display: flex; }
 .editable-section__pencil:hover { background: var(--terracotta); border-color: var(--terracotta); color: white; transform: scale(1.1); }
-.rp2__hero-wrap { overflow: visible; border-radius: 0; cursor: default; }
-.rp2__hero-wrap:hover { background: transparent; }
+.rp2__hero-wrap { overflow: visible; border-radius: 0; }
+
 .rp2__hero-wrap .editable-section__pencil { display: none !important; }
 
 /* ─── Editor hero ────────────────────────────────────────────────────────── */
