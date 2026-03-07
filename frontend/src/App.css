@@ -50,8 +50,7 @@ body {
 /* ─── Header / Nav Tabs ─────────────────────────────────────────────────── */
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 .app-header {
-  background: var(--warm-white);
-  border-bottom: 1px solid var(--border);
+  background: var(--charcoal);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -61,29 +60,31 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 28px;
-  height: 54px;
+  height: 58px;
   gap: 24px;
 }
 .app-header__brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
   text-decoration: none;
+  flex-shrink: 0;
 }
-.app-header__logo { font-size: 20px; line-height: 1; }
+.app-header__flame { font-size: 22px; line-height: 1; }
+.app-header__logo { font-size: 22px; line-height: 1; }
 .app-header__title {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--charcoal);
-  letter-spacing: -0.01em;
+  color: white;
+  letter-spacing: 0.01em;
 }
 
-.nav-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.nav-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav-tab {
   background: none;
   border: none;
@@ -91,14 +92,14 @@ body {
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 500;
-  color: var(--warm-gray);
+  color: rgba(255,255,255,0.6);
   padding: 8px 14px;
   border-radius: 999px;
   transition: var(--transition);
 }
-.nav-tab:hover { background: var(--parchment); color: var(--charcoal); }
-.nav-tab--active { background: var(--charcoal); color: var(--warm-white); }
-.nav-tab:disabled { opacity: 0.4; cursor: default; }
+.nav-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+.nav-tab--active { background: rgba(255,255,255,0.15); color: white; font-weight: 600; }
+.nav-tab:disabled { opacity: 0.3; cursor: default; }
 
 /* ─── Views ──────────────────────────────────────────────────────────────── */
 .view {
@@ -1285,3 +1286,30 @@ body {
   }
   .site-footer__bottom { padding: 14px 24px; flex-direction: column; gap: 4px; align-items: flex-start; }
 }
+
+/* ─── Make Soon stopwatch button on recipe card ─────────────────────────── */
+.recipe-card__soon {
+  position: absolute;
+  top: 8px;
+  left: 46px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(4px);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: var(--warm-gray);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+}
+.recipe-card__soon:hover { transform: scale(1.15); }
+.recipe-card__soon--on { color: #2563eb; background: rgba(255,255,255,0.95); }
+
+/* ─── Surprise Me quick action ──────────────────────────────────────────── */
+.quick-action--surprise { background: #f0f7ff; }
+.quick-action--surprise:hover { background: #dbeafe; }

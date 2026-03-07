@@ -45,7 +45,7 @@ const COMMON_UNITS = [
   'rasher', 'fillet', 'fillets', 'sheet', 'sheets',
 ];
 
-// ── Tag filters — match against recipe's tags array only (not cuisine column)
+c// ── Tag filters — match against recipe's tags array only (not cuisine column)
 const TAG_FILTERS = [
   { key: 'Meals',    label: '🍽 Meals'    },
   { key: 'Dessert',  label: '🍰 Desserts' },
@@ -84,7 +84,7 @@ const Badge = ({ children, variant = 'default' }) => (
 // ─── Recipe Summary Card ───────────────────────────────────────────────────
 const toNum = (v) => { const n = Number(v); return (!isNaN(n) && v !== '' && v !== null && v !== undefined) ? n : null; };
 
-const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart }) => {
+const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon }) => {
   const { name, coverImage, cuisine, time } = recipe;
   const calories = toNum(recipe.calories);
   const protein  = toNum(recipe.protein);
@@ -106,8 +106,15 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart }) => {
           <button
             className={`recipe-card__heart ${isHearted ? 'recipe-card__heart--on' : ''}`}
             onClick={e => { e.stopPropagation(); onToggleHeart(); }}
-            title={isHearted ? 'Remove from favorites' : 'Add to favorites'}
+            title={isHearted ? 'Remove from Favorites' : 'Add to Favorites'}
           >{isHearted ? '♥' : '♡'}</button>
+        )}
+        {onToggleMakeSoon && (
+          <button
+            className={`recipe-card__soon ${isMakeSoon ? 'recipe-card__soon--on' : ''}`}
+            onClick={e => { e.stopPropagation(); onToggleMakeSoon(); }}
+            title={isMakeSoon ? 'Remove from Make Soon' : 'Add to Make Soon'}
+          >⏱</button>
         )}
       </div>
       <div className="recipe-card__body">
@@ -959,7 +966,7 @@ function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
 
-  useEffect(() => { document.title = '🔥 Hearth'; }, []);
+  useEffect(() => { document.title = 'Hearth'; }, []);
   const [allIngredients, setAllIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [fridgeIngredients, setFridgeIngredients] = useState(() => LS.get('fridgeIngredients', []));
@@ -975,16 +982,17 @@ function AppInner() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [activeTag, setActiveTag] = useState(null);
   const [activeCuisine, setActiveCuisine] = useState('');
-  const [activeProgress, setActiveProgress] = useState(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [customCuisines, setCustomCuisines] = useState(() => LS.get('customCuisines', []));
   const [heartedIds, setHeartedIds] = useState(() => LS.get('heartedIds', []));
+  const [makeSoonIds, setMakeSoonIds] = useState(() => LS.get('makeSoonIds', []));
   const [libraryPage, setLibraryPage] = useState(1);
   const [lastSynced, setLastSynced] = useState(null);
 
   useEffect(() => { LS.set('customCuisines', customCuisines); }, [customCuisines]);
   useEffect(() => { LS.set('heartedIds', heartedIds); }, [heartedIds]);
+  useEffect(() => { LS.set('makeSoonIds', makeSoonIds); }, [makeSoonIds]);
   const toggleHeart = (id) => setHeartedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleMakeSoon = (id) => setMakeSoonIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const [units, setUnitsRaw] = useState(() => LS.get('units', 'metric'));
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
@@ -1027,7 +1035,7 @@ function AppInner() {
 
   const matchById = useMemo(() => { const map = new Map(); for (const m of matches) map.set(m.id, m); return map; }, [matches]);
 
-  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeCuisine, activeProgress]);
+  useEffect(() => { setLibraryPage(1); }, [librarySearch, activeTag, activeCuisine]);
 
   const libraryRecipes = useMemo(() => {
     let list = recipes;
@@ -1038,15 +1046,8 @@ function AppInner() {
     else if (activeTag === '__mealprep') list = list.filter(r => r.mealpreppable);
     else if (activeTag === '__makesoon') list = list.filter(r => r.make_soon);
     else if (activeTag) list = list.filter(r => (r.tags || []).some(t => t.toLowerCase() === activeTag.toLowerCase()) || (r.cuisine || '').toLowerCase() === activeTag.toLowerCase());
-    if (activeProgress === '__incomplete') list = list.filter(r => r.recipe_incomplete);
-    else if (activeProgress === '__needstweaking') list = list.filter(r => r.status === 'needs tweaking');
-    else if (activeProgress === '__favorite') list = list.filter(r => r.status === 'favorite');
-    else if (activeProgress === '__complete') list = list.filter(r => !r.recipe_incomplete && r.status === 'complete');
     return list;
   }, [recipes, librarySearch, activeTag, activeCuisine, matchById]);
-
-  const hasActiveFilters = !!(librarySearch || activeTag || activeCuisine || activeProgress);
-  const clearAllFilters = () => { setLibrarySearch(''); setActiveTag(null); setActiveCuisine(''); setActiveProgress(null); };
 
   const openRecipe = async (recipe) => {
     setLastView(view); setView('recipe'); setRecipeLoading(true);
@@ -1135,21 +1136,33 @@ function AppInner() {
           {/* ── Left column ── */}
           <div className="home-main">
 
-            {/* ── ⏱ Make Soon ── */}
-            {heartedIds.length > 0 && (
-              <div className="home-section">
-                <div className="home-section__header">
-                  <h2 className="home-section__title">⏱ Make Soon</h2>
-                  <button className="btn btn--ghost btn--sm" onClick={() => setHeartedIds([])}>Clear all</button>
+            {/* ── ⏱ Make Soon (persistent, always shown) ── */}
+            <div className="home-section">
+              <div className="home-section__header">
+                <h2 className="home-section__title">⏱ Make Soon</h2>
+                {makeSoonIds.length > 0 && (
+                  <button className="btn btn--ghost btn--sm" onClick={() => setMakeSoonIds([])}>Clear all</button>
+                )}
+              </div>
+              {makeSoonIds.length === 0 ? (
+                <div className="home-empty-cta" onClick={() => setView('recipes')}>
+                  <span className="home-empty-cta__icon">⏱</span>
+                  <div>
+                    <p className="home-empty-cta__title">Plan your week</p>
+                    <p className="home-empty-cta__sub">Tap ⏱ on any recipe to add it here</p>
+                  </div>
+                  <span className="home-empty-cta__arrow">→</span>
                 </div>
+              ) : (
                 <div className="recipe-grid">
-                  {recipes.filter(r => heartedIds.includes(r.id)).map(r => (
+                  {recipes.filter(r => makeSoonIds.includes(r.id)).map(r => (
                     <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
-                      isHearted={true} onToggleHeart={() => toggleHeart(r.id)} />
+                      isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
+                      isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* ── What can I make? ── */}
             <div className="home-section">
@@ -1178,7 +1191,8 @@ function AppInner() {
                       const r = recipes.find(x => x.id === m.id);
                       if (!r) return null;
                       return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
-                        isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)} />;
+                        isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
+                        isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />;
                     })}
                   </div>
                 ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>;
@@ -1190,7 +1204,7 @@ function AppInner() {
               <div className="home-section__header">
                 <h2 className="home-section__title">♥ Favorites</h2>
                 {heartedIds.length > 0 && (
-                  <button className="btn btn--ghost btn--sm" onClick={() => setView('recipes')}>View all recipes</button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setView('recipes')}>View all →</button>
                 )}
               </div>
               {heartedIds.length === 0 ? (
@@ -1198,7 +1212,7 @@ function AppInner() {
                   <span className="home-empty-cta__icon">♡</span>
                   <div>
                     <p className="home-empty-cta__title">No favorites yet</p>
-                    <p className="home-empty-cta__sub">Tap the heart on any recipe to save it here</p>
+                    <p className="home-empty-cta__sub">Tap ♡ on any recipe to save it here</p>
                   </div>
                   <span className="home-empty-cta__arrow">→</span>
                 </div>
@@ -1206,7 +1220,8 @@ function AppInner() {
                 <div className="recipe-grid">
                   {recipes.filter(r => heartedIds.includes(r.id)).slice(0, 6).map(r => (
                     <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
-                      isHearted={true} onToggleHeart={() => toggleHeart(r.id)} />
+                      isHearted={true} onToggleHeart={() => toggleHeart(r.id)}
+                      isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
                   ))}
                 </div>
               )}
@@ -1282,6 +1297,18 @@ function AppInner() {
                     <span className="quick-action__arrow">→</span>
                   </button>
                 )}
+                <button className="quick-action quick-action--surprise" onClick={() => {
+                  if (recipes.length === 0) return;
+                  const r = recipes[Math.floor(Math.random() * recipes.length)];
+                  openRecipe(r);
+                }}>
+                  <span className="quick-action__icon">🎲</span>
+                  <div className="quick-action__text">
+                    <span className="quick-action__label">Surprise me!</span>
+                    <span className="quick-action__sub">Open a random recipe</span>
+                  </div>
+                  <span className="quick-action__arrow">→</span>
+                </button>
               </div>
             </div>
 
