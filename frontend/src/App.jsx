@@ -1,4 +1,21 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+
+// ─── Horizontal Scroll Row ─────────────────────────────────────────────────
+const HScrollRow = ({ children }) => {
+  const rowRef = useRef(null);
+  const scroll = (dir) => {
+    if (rowRef.current) rowRef.current.scrollBy({ left: dir * 260, behavior: 'smooth' });
+  };
+  return (
+    <div className="hscroll-wrap">
+      <button className="hscroll-arrow hscroll-arrow--left" onClick={() => scroll(-1)} aria-label="Scroll left">‹</button>
+      <div className="hscroll-row" ref={rowRef}>
+        {children}
+      </div>
+      <button className="hscroll-arrow hscroll-arrow--right" onClick={() => scroll(1)} aria-label="Scroll right">›</button>
+    </div>
+  );
+};
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -177,6 +194,7 @@ const SectionPencil = ({ isEditing, onEdit, onSave, onCancel, saving }) => (
 const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved, loading, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon }) => {
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
+  const [showIngredientsModal, setShowIngredientsModal] = useState(false);
 
   // ── Per-section edit state ──
   const [editingSection, setEditingSection] = useState(null);
@@ -504,67 +522,86 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       {/* ── Two-column body ── */}
       <div className="rp2__body">
 
+        {/* ── Ingredients Modal ── */}
+        {showIngredientsModal && (
+          <div className="ing-modal-overlay" onClick={() => setShowIngredientsModal(false)}>
+            <div className="ing-modal" onClick={e => e.stopPropagation()}>
+              <div className="ing-modal__header">
+                <h2 className="ing-modal__title">Ingredients</h2>
+                <div className="ing-modal__header-actions">
+                  <SectionPencil isEditing={isEdit('ingredients')} onEdit={() => startEdit('ingredients')} onSave={() => saveSection('ingredients')} onCancel={cancelEdit} saving={saving} />
+                  <button className="ing-modal__close" onClick={() => setShowIngredientsModal(false)}>✕</button>
+                </div>
+              </div>
+              <div className="ing-modal__body">
+                {isEdit('ingredients') ? (
+                  <div className="rp2__ing-editor">
+                    {draftIngs.map((ing) => (
+                      <div key={ing._id} className="rp2__ing-edit-card">
+                        <div className="rp2__ing-edit-name-row">
+                          <IngredientAutocomplete value={ing.name} onChange={v => updateDraftIng(ing._id, 'name', v)} allIngredients={[]} />
+                          <button className="editor-remove-btn" onClick={() => removeDraftIng(ing._id)} title="Remove">✕</button>
+                        </div>
+                        <div className="rp2__ing-edit-qty-row">
+                          <input className="editor-input editor-input--sm rp2__ing-qty" value={ing.amount} onChange={e => updateDraftIng(ing._id, 'amount', e.target.value)} placeholder="Qty" />
+                          <UnitAutocomplete value={ing.unit} onChange={v => updateDraftIng(ing._id, 'unit', v)} />
+                          <label className="rp2__ing-optional-toggle" title="Mark as optional">
+                            <input type="checkbox" checked={!!ing.optional} onChange={e => updateDraftIng(ing._id, 'optional', e.target.checked)} />
+                            <span>optional</span>
+                          </label>
+                        </div>
+                        <div className="rp2__ing-edit-meta-row">
+                          <input className="editor-input rp2__ing-prep" value={ing.prep_note || ''} onChange={e => updateDraftIng(ing._id, 'prep_note', e.target.value)} placeholder="Prep note (e.g. finely chopped)" />
+                          <input className="editor-input rp2__ing-group" value={ing.group_label || ''} onChange={e => updateDraftIng(ing._id, 'group_label', e.target.value)} placeholder="Group" />
+                        </div>
+                      </div>
+                    ))}
+                    <button className="btn btn--ghost editor-add-btn" onClick={addDraftIng}>+ Add Ingredient</button>
+                  </div>
+                ) : (
+                  ingredientGroups.length > 0
+                    ? ingredientGroups.map(({ label, items }) => (
+                        <div key={label || '__default'} className="rp2__ing-group">
+                          {label && <p className="rp2__ing-group-label">{label}</p>}
+                          <ul className="rp2__ing-list">
+                            {items.map((ing, idx) => {
+                              const key = `${label}-${idx}`;
+                              const isChecked = checkedIngredients.has(key);
+                              const amountStr = [ing.amount, ing.unit].filter(Boolean).join(' ');
+                              return (
+                                <li key={key} className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`} onClick={() => toggleIngredient(key)}>
+                                  <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && '✓'}</div>
+                                  <div className="rp2__ing-text">
+                                    {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
+                                    <span className="rp2__ing-name">{pluralizeIng(ing.name, ing.amount)}</span>
+                                    {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
+                                    {ing.optional && <span className="rp2__ing-optional">optional</span>}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))
+                    : <p className="rp2__empty-hint">No ingredients yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Ingredients ── */}
         <div className="rp2__ingredients">
           <div className="rp2__section-title-row">
             <h2 className="rp2__section-title">Ingredients</h2>
             <SectionPencil isEditing={isEdit('ingredients')} onEdit={() => startEdit('ingredients')} onSave={() => saveSection('ingredients')} onCancel={cancelEdit} saving={saving} />
           </div>
-
-          {isEdit('ingredients') ? (
-            <div className="rp2__ing-editor">
-              {draftIngs.map((ing) => (
-                <div key={ing._id} className="rp2__ing-edit-card">
-                  {/* Row 1: Name (full width) + remove */}
-                  <div className="rp2__ing-edit-name-row">
-                    <IngredientAutocomplete value={ing.name} onChange={v => updateDraftIng(ing._id, 'name', v)} allIngredients={[]} />
-                    <button className="editor-remove-btn" onClick={() => removeDraftIng(ing._id)} title="Remove">✕</button>
-                  </div>
-                  {/* Row 2: Qty + Unit */}
-                  <div className="rp2__ing-edit-qty-row">
-                    <input className="editor-input editor-input--sm rp2__ing-qty" value={ing.amount} onChange={e => updateDraftIng(ing._id, 'amount', e.target.value)} placeholder="Qty" />
-                    <UnitAutocomplete value={ing.unit} onChange={v => updateDraftIng(ing._id, 'unit', v)} />
-                    <label className="rp2__ing-optional-toggle" title="Mark as optional">
-                      <input type="checkbox" checked={!!ing.optional} onChange={e => updateDraftIng(ing._id, 'optional', e.target.checked)} />
-                      <span>optional</span>
-                    </label>
-                  </div>
-                  {/* Row 3: Prep note + Group */}
-                  <div className="rp2__ing-edit-meta-row">
-                    <input className="editor-input rp2__ing-prep" value={ing.prep_note || ''} onChange={e => updateDraftIng(ing._id, 'prep_note', e.target.value)} placeholder="Prep note (e.g. finely chopped)" />
-                    <input className="editor-input rp2__ing-group" value={ing.group_label || ''} onChange={e => updateDraftIng(ing._id, 'group_label', e.target.value)} placeholder="Group" />
-                  </div>
-                </div>
-              ))}
-              <button className="btn btn--ghost editor-add-btn" onClick={addDraftIng}>+ Add Ingredient</button>
-            </div>
-          ) : (
-            ingredientGroups.length > 0
-              ? ingredientGroups.map(({ label, items }) => (
-                  <div key={label || '__default'} className="rp2__ing-group">
-                    {label && <p className="rp2__ing-group-label">{label}</p>}
-                    <ul className="rp2__ing-list">
-                      {items.map((ing, idx) => {
-                        const key = `${label}-${idx}`;
-                        const isChecked = checkedIngredients.has(key);
-                        const amountStr = [ing.amount, ing.unit].filter(Boolean).join(' ');
-                        return (
-                          <li key={key} className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`} onClick={() => toggleIngredient(key)}>
-                            <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && '✓'}</div>
-                            <div className="rp2__ing-text">
-                              {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
-                              <span className="rp2__ing-name">{pluralizeIng(ing.name, ing.amount)}</span>
-                              {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
-                              {ing.optional && <span className="rp2__ing-optional">optional</span>}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))
-              : <p className="rp2__empty-hint">No ingredients yet.</p>
-          )}
+          <button className="ing-modal-trigger" onClick={() => setShowIngredientsModal(true)}>
+            <span className="ing-modal-trigger__count">
+              {bodyIngredients?.length ?? 0} ingredient{(bodyIngredients?.length ?? 0) !== 1 ? 's' : ''}
+            </span>
+            <span className="ing-modal-trigger__cta">View & check off →</span>
+          </button>
         </div>
 
         {/* ── Instructions ── */}
@@ -1332,14 +1369,229 @@ const SiteFooter = ({ onNav }) => {
   );
 };
 
-// ─── Main App ───────────────────────────────────────────────────────────────
+// ─── Add Recipe Tab ─────────────────────────────────────────────────────────
+const AddRecipeTab = ({ allIngredients, onSaved }) => {
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
+  const [details, setDetails] = useState({
+    name: '', cuisine: '', time: '', servings: '', calories: '', protein: '',
+    cover_image_url: '', status: '', recipe_incomplete: false, tags: [],
+  });
+  const [ings, setIngs] = useState([]);
+  const [steps, setSteps] = useState([]);
+  const [notesList, setNotesList] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [showImageInput, setShowImageInput] = useState(false);
+
+  const setDetail = (k, v) => setDetails(prev => ({ ...prev, [k]: v }));
+  const toggleTag = (tag) => setDetails(prev => ({
+    ...prev, tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag],
+  }));
+
+  const addIng = () => setIngs(prev => [...prev, { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '' }]);
+  const updateIng = (id, k, v) => setIngs(prev => prev.map(i => i._id === id ? { ...i, [k]: v } : i));
+  const removeIng = (id) => setIngs(prev => prev.filter(i => i._id !== id));
+  const onIngDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      setIngs(prev => { const o = prev.findIndex(i => i._id === active.id); const n = prev.findIndex(i => i._id === over.id); return arrayMove(prev, o, n); });
+    }
+  };
+
+  const addStep = () => setSteps(prev => [...prev, { _id: `step-new-${Date.now()}`, step_number: prev.length + 1, body_text: '' }]);
+  const updateStep = (id, v) => setSteps(prev => prev.map(s => s._id === id ? { ...s, body_text: v } : s));
+  const removeStep = (id) => setSteps(prev => prev.filter(s => s._id !== id));
+  const onStepDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      setSteps(prev => { const o = prev.findIndex(s => s._id === active.id); const n = prev.findIndex(s => s._id === over.id); return arrayMove(prev, o, n); });
+    }
+  };
+
+  const addNote = () => setNotesList(prev => [...prev, { _id: `note-new-${Date.now()}`, text: '' }]);
+  const updateNote = (id, v) => setNotesList(prev => prev.map(n => n._id === id ? { ...n, text: v } : n));
+  const removeNote = (id) => setNotesList(prev => prev.filter(n => n._id !== id));
+
+  const save = async () => {
+    if (!details.name.trim()) { setSaveError('Recipe name is required.'); return; }
+    setSaving(true); setSaveError(null);
+    try {
+      const payload = {
+        details: {
+          name: details.name, cuisine: details.cuisine, time: details.time,
+          servings: details.servings, calories: details.calories, protein: details.protein,
+          cover_image_url: details.cover_image_url, status: details.status,
+          recipe_incomplete: details.recipe_incomplete, tags: details.tags,
+        },
+        ingredients: ings.map((i, idx) => ({ ...i, order_index: idx })),
+        instructions: steps.map((s, idx) => ({ ...s, step_number: idx + 1 })),
+        notes: notesList.map((n, idx) => ({ ...n, order_index: idx })),
+      };
+      const res = await fetch(`${API}/api/recipes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      if (onSaved) onSaved(data.recipe);
+    } catch (e) { setSaveError(e.message); } finally { setSaving(false); }
+  };
+
+  const groupLabels = [...new Set(ings.map(i => i.group_label).filter(Boolean))];
+
+  return (
+    <main className="view editor-page rp2">
+      {/* Hero */}
+      <div className="rp2__hero ed-hero">
+        {details.cover_image_url
+          ? <img className="rp2__hero-img" src={details.cover_image_url} alt={details.name} />
+          : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
+        <button className="ed-hero__img-btn" onClick={() => setShowImageInput(v => !v)} title="Change cover image">
+          {details.cover_image_url ? '🖼 Change' : '➕ Add Photo'}
+        </button>
+        {showImageInput && (
+          <div className="ed-hero__img-popover">
+            <p className="ed-hero__img-popover-label">Cover image URL</p>
+            <input className="editor-input" autoFocus value={details.cover_image_url}
+              onChange={e => setDetail('cover_image_url', e.target.value)}
+              placeholder="https://…"
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setShowImageInput(false); }} />
+            <button className="btn btn--primary btn--sm" style={{ marginTop: 6 }} onClick={() => setShowImageInput(false)}>Done</button>
+          </div>
+        )}
+        <div className="rp2__hero-overlay">
+          <div className="rp2__hero-topbar">
+            <span className="rp2__hero-btn" style={{ opacity: 0.6 }}>➕ New Recipe</span>
+            <button className="rp2__hero-btn rp2__hero-btn--primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : '✓ Save Recipe'}</button>
+          </div>
+        </div>
+      </div>
+
+      {saveError && <p className="editor-error" style={{ margin: '8px 24px 0' }}>⚠️ {saveError}</p>}
+
+      <div className="rp2__header ed-name-row">
+        <input className="ed-title-input" value={details.name} onChange={e => setDetail('name', e.target.value)} placeholder="Recipe name…" />
+      </div>
+
+      <div className="ed-meta-row">
+        <label className="ed-meta-field">
+          <span className="ed-meta-label">🌍 Cuisine</span>
+          <select className="editor-input editor-select ed-meta-input" value={details.cuisine} onChange={e => setDetail('cuisine', e.target.value)}>
+            <option value="">— none —</option>
+            {ALL_CUISINES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className="ed-meta-field">
+          <span className="ed-meta-label">⏱ Time</span>
+          <input className="editor-input ed-meta-input" value={details.time} onChange={e => setDetail('time', e.target.value)} placeholder="45 mins" />
+        </label>
+        <label className="ed-meta-field">
+          <span className="ed-meta-label">🍽 Servings</span>
+          <input className="editor-input ed-meta-input" value={details.servings} onChange={e => setDetail('servings', e.target.value)} placeholder="4" />
+        </label>
+        <label className="ed-meta-field">
+          <span className="ed-meta-label">🔥 Calories</span>
+          <input className="editor-input ed-meta-input" type="number" value={details.calories} onChange={e => setDetail('calories', e.target.value)} placeholder="kcal" />
+        </label>
+        <label className="ed-meta-field">
+          <span className="ed-meta-label">💪 Protein</span>
+          <input className="editor-input ed-meta-input" type="number" value={details.protein} onChange={e => setDetail('protein', e.target.value)} placeholder="g" />
+        </label>
+      </div>
+
+      {/* Tags */}
+      <div className="editor-section editor-section--tags">
+        <h3 className="editor-section__title">Tags</h3>
+        <div className="picker__chips" style={{ marginTop: 8 }}>
+          {TAG_FILTERS.map(({ key, label }) => (
+            <button key={key}
+              className={`chip ${details.tags.includes(key) ? 'chip--selected' : ''}`}
+              onClick={() => toggleTag(key)}>
+              {details.tags.includes(key) && <span className="chip__check">✓</span>}{label}
+            </button>
+          ))}
+        </div>
+        <div className="ed-meta-row" style={{ marginTop: 12 }}>
+          <label className="ed-meta-field">
+            <span className="ed-meta-label">📋 Status</span>
+            <select className="editor-input editor-select ed-meta-input" value={details.status} onChange={e => setDetail('status', e.target.value)}>
+              <option value="">— none —</option>
+              <option value="complete">✅ Complete</option>
+              <option value="needs tweaking">🔧 Needs Tweaking</option>
+            </select>
+          </label>
+          <label className="ed-meta-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={details.recipe_incomplete} onChange={e => setDetail('recipe_incomplete', e.target.checked)} />
+            <span className="ed-meta-label">🚧 Mark as incomplete</span>
+          </label>
+        </div>
+      </div>
+
+      <section className="editor-section">
+        <h3 className="editor-section__title">Ingredients</h3>
+        <datalist id="add-group-labels">{groupLabels.map(l => <option key={l} value={l} />)}</datalist>
+        {ings.length > 0 && <div className="editor-ing-header"><span>Amount</span><span>Unit</span><span>Name</span><span>Group</span><span>Prep note</span><span>Opt?</span><span></span></div>}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onIngDragEnd}>
+          <SortableContext items={ings.map(i => i._id)} strategy={verticalListSortingStrategy}>
+            {ings.map(ing => (
+              <SortableItem key={ing._id} id={ing._id}>
+                <div className="editor-ing-row">
+                  <input className="editor-input editor-input--sm" value={ing.amount} onChange={e => updateIng(ing._id, 'amount', e.target.value)} placeholder="2" />
+                  <UnitAutocomplete value={ing.unit} onChange={v => updateIng(ing._id, 'unit', v)} />
+                  <IngredientAutocomplete value={ing.name} onChange={v => updateIng(ing._id, 'name', v)} allIngredients={allIngredients.filter(Boolean)} />
+                  <input className="editor-input editor-input--sm" value={ing.group_label || ''} onChange={e => updateIng(ing._id, 'group_label', e.target.value)} placeholder="e.g. Sauce" list="add-group-labels" />
+                  <input className="editor-input" value={ing.prep_note || ''} onChange={e => updateIng(ing._id, 'prep_note', e.target.value)} placeholder="finely chopped" />
+                  <button className={`editor-optional-btn ${ing.optional ? 'editor-optional-btn--on' : ''}`} onClick={() => updateIng(ing._id, 'optional', !ing.optional)} title="Mark as optional">{ing.optional ? '✓' : '○'}</button>
+                  <button className="editor-remove-btn" onClick={() => removeIng(ing._id)}>✕</button>
+                </div>
+              </SortableItem>
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button className="btn btn--ghost editor-add-btn" onClick={addIng}>+ Add Ingredient</button>
+      </section>
+
+      <section className="editor-section">
+        <h3 className="editor-section__title">Instructions</h3>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStepDragEnd}>
+          <SortableContext items={steps.map(s => s._id)} strategy={verticalListSortingStrategy}>
+            {steps.map((step, idx) => (
+              <SortableItem key={step._id} id={step._id}>
+                <div className="editor-step-row">
+                  <span className="editor-step-num">{idx + 1}</span>
+                  <textarea className="editor-textarea" value={step.body_text} onChange={e => updateStep(step._id, e.target.value)} placeholder="Describe this step…" rows={2} />
+                  <button className="editor-remove-btn" onClick={() => removeStep(step._id)}>✕</button>
+                </div>
+              </SortableItem>
+            ))}
+          </SortableContext>
+        </DndContext>
+        <button className="btn btn--ghost editor-add-btn" onClick={addStep}>+ Add Step</button>
+      </section>
+
+      <section className="editor-section">
+        <h3 className="editor-section__title">Notes &amp; Modifications</h3>
+        {notesList.map(note => (
+          <div key={note._id} className="editor-note-row">
+            <input className="editor-input" value={note.text || ''} onChange={e => updateNote(note._id, e.target.value)} placeholder="e.g. Works great with tofu instead of chicken" />
+            <button className="editor-remove-btn" onClick={() => removeNote(note._id)}>✕</button>
+          </div>
+        ))}
+        <button className="btn btn--ghost editor-add-btn" onClick={addNote}>+ Add Note</button>
+      </section>
+
+      <div className="editor-save-bar">
+        {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+        <button className="btn btn--primary btn--large" onClick={save} disabled={saving}>{saving ? 'Saving…' : '✓ Save Recipe'}</button>
+      </div>
+    </main>
+  );
+};
+
+// ─── Main App ────────────────────────────────────────────────────────────────
 function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [showAllSoon, setShowAllSoon] = useState(false);
-  const [showAllMatch, setShowAllMatch] = useState(false);
-  const [showAllFav, setShowAllFav] = useState(false);
+  const [showAllSoon] = useState(true);
+  const [showAllMatch] = useState(true);
+  const [showAllFav] = useState(true);
 
   useEffect(() => { document.title = 'Hearth'; }, []);
   const [allIngredients, setAllIngredients] = useState([]);
@@ -1607,20 +1859,13 @@ function AppInner() {
                       <span className="home-empty-cta__arrow">→</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="recipe-grid">
-                        {visibleSoon.map(r => (
+                    <HScrollRow>
+                        {makeSoonRecipes.map(r => (
                           <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
                             isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
                             isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
                         ))}
-                      </div>
-                      {makeSoonRecipes.length > 4 && (
-                        <button className="home-section__show-more" onClick={() => setShowAllSoon(s => !s)}>
-                          {showAllSoon ? '▴ Show less' : `▾ Show ${makeSoonRecipes.length - 4} more`}
-                        </button>
-                      )}
-                    </>
+                    </HScrollRow>
                   )}
                 </div>
               );
@@ -1650,22 +1895,15 @@ function AppInner() {
                       <span className="home-empty-cta__arrow">→</span>
                     </div>
                   ) : goodMatches.length > 0 ? (
-                    <>
-                      <div className="recipe-grid">
-                        {visibleMatch.map(m => {
+                    <HScrollRow>
+                      {goodMatches.map(m => {
                           const r = recipes.find(x => x.id === m.id);
                           if (!r) return null;
                           return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
                             isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
                             isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />;
                         })}
-                      </div>
-                      {goodMatches.length > 4 && (
-                        <button className="home-section__show-more" onClick={() => setShowAllMatch(s => !s)}>
-                          {showAllMatch ? '▴ Show less' : `▾ Show ${goodMatches.length - 4} more`}
-                        </button>
-                      )}
-                    </>
+                    </HScrollRow>
                   ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Kitchen tab.</p>}
                 </div>
               );
@@ -1693,20 +1931,13 @@ function AppInner() {
                       <span className="home-empty-cta__arrow">→</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="recipe-grid">
-                        {visibleFav.map(r => (
+                    <HScrollRow>
+                        {favRecipes.map(r => (
                           <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
                             isHearted={true} onToggleHeart={() => toggleHeart(r.id)}
                             isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
                         ))}
-                      </div>
-                      {favRecipes.length > 4 && (
-                        <button className="home-section__show-more" onClick={() => setShowAllFav(s => !s)}>
-                          {showAllFav ? '▴ Show less' : `▾ Show ${favRecipes.length - 4} more`}
-                        </button>
-                      )}
-                    </>
+                    </HScrollRow>
                   )}
                 </div>
               );
@@ -1998,12 +2229,13 @@ function AppInner() {
       {view === 'grocery' && <GroceryListTab recipes={recipes} matchById={matchById} />}
 
       {view === 'add' && (
-        <main className="view">
-          <div className="placeholder">
-            <h2>Add Recipe</h2>
-            <p>Coming soon – paste an Instagram or TikTok link and we'll draft a recipe for you.</p>
-          </div>
-        </main>
+        <AddRecipeTab
+          allIngredients={allIngredients.map(i => typeof i === 'string' ? i : i.name).filter(Boolean)}
+          onSaved={(newRecipe) => {
+            loadData();
+            openRecipe(newRecipe);
+          }}
+        />
       )}
 
       {view === 'log' && (
