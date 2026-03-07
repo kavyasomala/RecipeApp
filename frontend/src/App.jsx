@@ -1337,6 +1337,9 @@ function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [showAllSoon, setShowAllSoon] = useState(false);
+  const [showAllMatch, setShowAllMatch] = useState(false);
+  const [showAllFav, setShowAllFav] = useState(false);
 
   useEffect(() => { document.title = 'Hearth'; }, []);
   const [allIngredients, setAllIngredients] = useState([]);
@@ -1585,7 +1588,6 @@ function AppInner() {
             {/* ── ⏱ Make Soon ── */}
             {(() => {
               const makeSoonRecipes = recipes.filter(r => makeSoonIds.includes(r.id));
-              const [showAllSoon, setShowAllSoon] = React.useState(false);
               const visibleSoon = showAllSoon ? makeSoonRecipes : makeSoonRecipes.slice(0, 4);
               return (
                 <div className="home-section">
@@ -1627,7 +1629,6 @@ function AppInner() {
             {/* ── What can I make? ── */}
             {(() => {
               const goodMatches = matches.filter(m => m.matchScore > 0);
-              const [showAllMatch, setShowAllMatch] = React.useState(false);
               const visibleMatch = showAllMatch ? goodMatches : goodMatches.slice(0, 4);
               return (
                 <div className="home-section">
@@ -1673,7 +1674,6 @@ function AppInner() {
             {/* ── ♥ Favorites ── */}
             {(() => {
               const favRecipes = recipes.filter(r => heartedIds.includes(r.id));
-              const [showAllFav, setShowAllFav] = React.useState(false);
               const visibleFav = showAllFav ? favRecipes : favRecipes.slice(0, 4);
               return (
                 <div className="home-section">
