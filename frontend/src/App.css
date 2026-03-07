@@ -1114,46 +1114,50 @@ body {
 .rp2__hero-soon { font-size: 15px; padding: 7px 9px; }
 .rp2__hero-soon--on { color: #2563eb; }
 
-/* ─── Hero bottom as button (meta edit trigger) ──────────────────────────── */
-.rp2__hero-bottom-btn {
-  display: flex; flex-direction: column; gap: 6px;
-  background: none; border: none; cursor: pointer; text-align: left;
-  width: 100%; padding: 0;
-  transition: opacity 0.15s ease;
+/* ─── Photo btn wrap — popover drops DOWN ────────────────────────────────── */
+.rp2__photo-btn-wrap { position: relative; }
+.rp2__img-popover-down {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: min(320px, 88vw);
+  background: var(--warm-white); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-lg); z-index: 50;
+  display: flex; flex-direction: column; gap: 10px;
 }
-.rp2__hero-bottom-btn:hover { opacity: 0.85; }
-.rp2__tag-edit-hint {
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; opacity: 0.55; background: rgba(255,255,255,0.15);
-  border-radius: 999px; padding: 3px 7px; border: 1px solid rgba(255,255,255,0.2);
-  margin-left: 2px;
+
+/* ─── Hero tags as clickable button ─────────────────────────────────────── */
+.rp2__hero-tags-btn {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+  background: none; border: none; cursor: pointer; padding: 0; text-align: left;
+}
+.rp2__hero-tags-btn:hover .rp2__tag { opacity: 0.85; }
+.rp2__tag--placeholder {
+  background: rgba(255,255,255,0.12); border: 1.5px dashed rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.65); font-style: italic;
+}
+.rp2__pill--placeholder {
+  background: rgba(255,255,255,0.1); border: 1.5px dashed rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.55); cursor: pointer; font-style: italic; font-size: 11px;
 }
 .rp2__tag--warning { background: rgba(234,179,8,0.85); color: white; }
 .rp2__tag--success { background: rgba(34,197,94,0.85); color: white; }
 
-/* ─── Photo button wrap (anchors popover) ────────────────────────────────── */
-.rp2__photo-btn-wrap { position: relative; }
-
-/* ─── Meta / image popover ───────────────────────────────────────────────── */
-.rp2__meta-popover {
-  position: absolute; bottom: calc(100% + 10px); right: 0;
-  width: min(380px, 94vw);
+/* ─── Meta popover — below hero ─────────────────────────────────────────── */
+.rp2__meta-popover-below {
+  margin: 0 0 4px;
   background: var(--warm-white); border: 1.5px solid var(--border);
-  border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-lg); z-index: 40;
-  display: flex; flex-direction: column; gap: 12px;
+  border-radius: var(--radius); padding: 16px 20px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 14px;
 }
-.rp2__meta-popover--right { right: 0; left: auto; }
-.rp2__meta-popover-label { font-size: 12px; font-weight: 700; color: var(--warm-gray); margin-bottom: 4px; }
-.rp2__meta-popover-actions { display: flex; gap: 8px; margin-top: 4px; }
+.rp2__meta-popover-actions { display: flex; gap: 8px; }
 .rp2__meta-save-btn {
-  flex: 1; padding: 7px 14px; border-radius: 8px; border: none;
+  flex: 1; padding: 8px 16px; border-radius: 8px; border: none;
   background: var(--sage); color: white; font-family: var(--font-body);
   font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s ease;
 }
 .rp2__meta-save-btn:hover:not(:disabled) { background: #5e8462; }
 .rp2__meta-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .rp2__meta-cancel-btn {
-  padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border);
+  padding: 8px 16px; border-radius: 8px; border: 1.5px solid var(--border);
   background: transparent; color: var(--warm-gray); font-family: var(--font-body);
   font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;
 }
@@ -1204,6 +1208,28 @@ body {
 
 /* ─── Recipe card progress emoji ────────────────────────────────────────── */
 .recipe-card__progress { font-size: 13px; line-height: 1; }
+
+/* ─── Recipe total count ─────────────────────────────────────────────────── */
+.recipes-total-count {
+  text-align: center; font-size: 13px; color: var(--warm-gray);
+  padding: 12px 0 4px; font-style: italic;
+}
+
+/* ─── Placeholder tabs (Log, Profile) ────────────────────────────────────── */
+.placeholder-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; text-align: center; padding: 40px 20px; gap: 12px;
+}
+.placeholder-tab__icon { font-size: 56px; line-height: 1; margin-bottom: 4px; }
+.placeholder-tab__title { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--charcoal); }
+.placeholder-tab__sub { font-size: 15px; color: var(--warm-gray); max-width: 360px; line-height: 1.6; }
+.placeholder-tab__features {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px;
+}
+.placeholder-tab__feature {
+  background: var(--cream); border: 1.5px solid var(--border); border-radius: 999px;
+  padding: 6px 14px; font-size: 13px; color: var(--warm-gray); font-weight: 500;
+}
 
 /* ─── Editor hero ────────────────────────────────────────────────────────── */
 .ed-hero { position: relative; cursor: default; }
