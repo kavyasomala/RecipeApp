@@ -409,17 +409,9 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
     const next = new Set(prev); next.has(num) ? next.delete(num) : next.add(num); return next;
   });
 
-  if (loading) return <main className="view"><div className="placeholder"><h2>Loading recipe…</h2></div></main>;
-  if (!recipe) return <main className="view"><div className="placeholder"><h2>Recipe not found</h2><button className="btn btn--ghost" onClick={onBack}>← Back</button></div></main>;
-
-  const calories   = toNum(recipe.calories);
-  const protein    = toNum(recipe.protein);
-  const fiber      = toNum(recipe.fiber);
-
-  // Auto-calculate nutrition from ingredients if not set on recipe
+  // ── Auto-calculate nutrition — must be before any early returns (Rules of Hooks) ──
   const autoNutrition = useMemo(() => {
     if (!bodyIngredients?.length) return { calories: null, protein: null, fiber: null };
-    // Simple estimation table (per 100g/ml common items)
     const NUTRITION_DB = {
       'chicken breast': { cal: 165, prot: 31, fiber: 0 },
       'chicken': { cal: 165, prot: 31, fiber: 0 },
@@ -462,26 +454,23 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       const [, nutr] = entry;
       const amount = parseFloat(ing.amount) || 1;
       const unit = (ing.unit || '').toLowerCase().trim();
-      let grams;
-      if (nutr.perUnit) {
-        grams = amount * 100;
-      } else {
-        const unitG = UNIT_GRAMS[unit] || 100;
-        grams = amount * unitG;
-      }
-      const factor = grams / 100;
-      totalCal += nutr.cal * factor;
-      totalProt += nutr.prot * factor;
+      const unitG = nutr.perUnit ? 100 : (UNIT_GRAMS[unit] || 100);
+      const factor = (amount * unitG) / 100;
+      totalCal   += nutr.cal  * factor;
+      totalProt  += nutr.prot * factor;
       totalFiber += nutr.fiber * factor;
       matched++;
     }
     if (matched === 0) return { calories: null, protein: null, fiber: null };
-    return {
-      calories: Math.round(totalCal),
-      protein: Math.round(totalProt),
-      fiber: Math.round(totalFiber),
-    };
+    return { calories: Math.round(totalCal), protein: Math.round(totalProt), fiber: Math.round(totalFiber) };
   }, [bodyIngredients]);
+
+  if (loading) return <main className="view"><div className="placeholder"><h2>Loading recipe…</h2></div></main>;
+  if (!recipe) return <main className="view"><div className="placeholder"><h2>Recipe not found</h2><button className="btn btn--ghost" onClick={onBack}>← Back</button></div></main>;
+
+  const calories = toNum(recipe.calories);
+  const protein  = toNum(recipe.protein);
+  const fiber    = toNum(recipe.fiber);
 
   const displayCalories = calories ?? autoNutrition.calories;
   const displayProtein  = protein  ?? autoNutrition.protein;
