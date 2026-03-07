@@ -223,75 +223,46 @@ const SectionPencil = ({ isEditing, onEdit, onSave, onCancel, saving }) => (
   </span>
 );
 
-// ─── Draggable Hero Image ───────────────────────────────────────────────────
-const DraggableHeroImage = ({ src, alt, recipeId, onSaved, recipe, bodyIngredients, instructions, notes }) => {
-  const [offset, setOffset] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(`hero-offset-${recipeId}`)) || { x: 50, y: 50 }; } catch { return { x: 50, y: 50 }; }
-  });
-  const [dragging, setDragging] = useState(false);
-  const [isPanMode, setIsPanMode] = useState(false);
-  const startRef = useRef(null);
-  const imgRef = useRef(null);
+// ─── Hero Image (no reposition) ────────────────────────────────────────────
+const HeroImage = ({ src, alt }) => (
+  <div className="rp2__hero-img-wrap">
+    <img className="rp2__hero-img" src={src} alt={alt} draggable={false} />
+  </div>
+);
 
-  const saveOffset = useCallback((o) => {
-    try { localStorage.setItem(`hero-offset-${recipeId}`, JSON.stringify(o)); } catch {}
-  }, [recipeId]);
-
-  const onPointerDown = useCallback((e) => {
-    if (!isPanMode) return;
-    e.preventDefault();
-    setDragging(true);
-    startRef.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y };
-    imgRef.current?.setPointerCapture(e.pointerId);
-  }, [isPanMode, offset]);
-
-  const onPointerMove = useCallback((e) => {
-    if (!dragging || !startRef.current) return;
-    const el = imgRef.current?.parentElement;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    const dx = ((e.clientX - startRef.current.mx) / width) * -100;
-    const dy = ((e.clientY - startRef.current.my) / height) * -100;
-    const next = {
-      x: Math.max(0, Math.min(100, startRef.current.ox + dx)),
-      y: Math.max(0, Math.min(100, startRef.current.oy + dy)),
-    };
-    setOffset(next);
-  }, [dragging]);
-
-  const onPointerUp = useCallback((e) => {
-    if (!dragging) return;
-    setDragging(false);
-    saveOffset(offset);
-  }, [dragging, offset, saveOffset]);
-
+// ─── Ingredient Flat Row (sortable) ────────────────────────────────────────
+const IngFlatRow = ({ ing, onUpdate, onRemove }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ing._id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1, zIndex: isDragging ? 10 : undefined };
   return (
-    <div
-      className={`rp2__hero-img-wrap ${isPanMode ? 'rp2__hero-img-wrap--pan' : ''} ${dragging ? 'rp2__hero-img-wrap--dragging' : ''}`}
-    >
-      <img
-        ref={imgRef}
-        className="rp2__hero-img"
-        src={src}
-        alt={alt}
-        style={{ objectPosition: `${offset.x}% ${offset.y}%` }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        draggable={false}
-      />
-      {isPanMode && (
-        <div className="rp2__pan-hint">
-          {dragging ? 'Drag to reposition' : 'Click & drag to reposition'}
-        </div>
-      )}
-      <button
-        className={`rp2__pan-toggle ${isPanMode ? 'rp2__pan-toggle--active' : ''}`}
-        onClick={() => setIsPanMode(v => !v)}
-        title={isPanMode ? 'Done repositioning' : 'Reposition image'}
-      >
-        {isPanMode ? '✓ Done' : '⤢ Reposition'}
-      </button>
+    <div className="ing-flat-row" ref={setNodeRef} style={style}>
+      <span className="ing-flat-row__drag" {...attributes} {...listeners}>⠿</span>
+      <input className="editor-input ing-flat-row__qty" value={ing.amount} onChange={e => onUpdate('amount', e.target.value)} placeholder="Qty" />
+      <div className="ing-flat-row__unit-wrap">
+        <UnitAutocomplete value={ing.unit} onChange={v => onUpdate('unit', v)} />
+      </div>
+      <div className="ing-flat-row__name-wrap">
+        <IngredientAutocomplete value={ing.name} onChange={v => onUpdate('name', v)} allIngredients={[]} />
+      </div>
+      <input className="editor-input ing-flat-row__prep" value={ing.prep_note || ''} onChange={e => onUpdate('prep_note', e.target.value)} placeholder="e.g. finely chopped" />
+      <label className="ing-flat-row__opt" title="Optional">
+        <input type="checkbox" checked={!!ing.optional} onChange={e => onUpdate('optional', e.target.checked)} />
+      </label>
+      <button className="editor-remove-btn" onClick={onRemove} title="Remove">✕</button>
+    </div>
+  );
+};
+
+// ─── Ingredient Group Row (sortable separator) ──────────────────────────────
+const IngGroupRow = ({ ing, onLabelChange, onRemove, onAddIngredient }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ing._id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1 };
+  return (
+    <div className="ing-group-row" ref={setNodeRef} style={style}>
+      <span className="ing-flat-row__drag ing-group-row__drag" {...attributes} {...listeners}>⠿</span>
+      <input className="ing-group-row__label-input" value={ing.name} onChange={e => onLabelChange(e.target.value)} placeholder="Group name…" />
+      <button className="ing-group-row__add-btn" onClick={onAddIngredient} title="Add ingredient to this group">＋</button>
+      <button className="editor-remove-btn" onClick={onRemove} title="Remove group">✕</button>
     </div>
   );
 };
@@ -304,6 +275,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const ingDndSensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   // ── Per-section edit state ──
   const [editingSection, setEditingSection] = useState(null);
@@ -317,6 +289,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const [draftSteps, setDraftSteps] = useState([]);
   const [draftNotes, setDraftNotes] = useState([]);
   const [draftMeta, setDraftMeta] = useState({});
+  const [draftCookbook, setDraftCookbook] = useState({ cookbook: '', page_number: '' });
 
   const isEdit = (s) => editingSection === s;
 
@@ -324,9 +297,25 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
     setSaveError(null);
     if (section === 'title')        setDraftName(recipe.name || '');
     if (section === 'image')        setDraftImageInput(recipe.coverImage || '');
-    if (section === 'ingredients')  setDraftIngs((bodyIngredients || []).map((i, idx) => ({ ...i, _id: `ing-${idx}` })));
+    if (section === 'ingredients') {
+      // Build flat list: group separator rows interspersed with ingredient rows
+      const ings = bodyIngredients || [];
+      const flat = [];
+      const seenGroups = new Set();
+      for (let i = 0; i < ings.length; i++) {
+        const ing = ings[i];
+        const g = ing.group_label || '';
+        if (g && !seenGroups.has(g)) {
+          seenGroups.add(g);
+          flat.push({ _id: `grp-exist-${g}-${i}`, _isGroup: true, name: g });
+        }
+        flat.push({ ...ing, _id: `ing-${i}` });
+      }
+      setDraftIngs(flat);
+    }
     if (section === 'instructions') setDraftSteps((instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` })));
     if (section === 'notes')        setDraftNotes((notes || []).map((n, idx) => ({ ...n, _id: `note-${idx}`, text: n.text ?? n.body_text ?? '' })));
+    if (section === 'cookbook')      setDraftCookbook({ cookbook: recipe.cookbook || '', page_number: recipe.page_number || '' });
     if (['meta','meta-cuisine','meta-tags','meta-progress','meta-time','meta-servings'].includes(section)) setDraftMeta({
       time: recipe.time || '',
       servings: recipe.servings || '',
@@ -356,8 +345,16 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
           status:          isMeta ? draftMeta.status : (recipe.status || ''),
           recipe_incomplete: isMeta ? draftMeta.recipe_incomplete : (recipe.recipe_incomplete || false),
           tags:            isMeta ? draftMeta.tags   : (recipe.tags || []),
+          cookbook:        section === 'cookbook' ? draftCookbook.cookbook : (recipe.cookbook || ''),
+          page_number:     section === 'cookbook' ? draftCookbook.page_number : (recipe.page_number || ''),
         },
-        ingredients:  section === 'ingredients'  ? draftIngs.map((i, idx) => ({ ...i, order_index: idx }))  : (bodyIngredients || []),
+        ingredients:  section === 'ingredients'  ? (() => {
+          let grp = '';
+          return draftIngs
+            .map(i => { if (i._isGroup) { grp = i.name || ''; return null; } return { ...i, group_label: grp }; })
+            .filter(Boolean)
+            .map((i, idx) => ({ ...i, order_index: idx }));
+        })() : (bodyIngredients || []),
         instructions: section === 'instructions' ? draftSteps.map((s, idx) => ({ ...s, step_number: idx + 1 })) : (instructions || []),
         notes:        section === 'notes'        ? draftNotes.map((n, idx) => ({ ...n, order_index: idx }))  : (notes || []),
       };
@@ -418,6 +415,77 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const calories   = toNum(recipe.calories);
   const protein    = toNum(recipe.protein);
   const fiber      = toNum(recipe.fiber);
+
+  // Auto-calculate nutrition from ingredients if not set on recipe
+  const autoNutrition = useMemo(() => {
+    if (!bodyIngredients?.length) return { calories: null, protein: null, fiber: null };
+    // Simple estimation table (per 100g/ml common items)
+    const NUTRITION_DB = {
+      'chicken breast': { cal: 165, prot: 31, fiber: 0 },
+      'chicken': { cal: 165, prot: 31, fiber: 0 },
+      'beef': { cal: 250, prot: 26, fiber: 0 },
+      'salmon': { cal: 208, prot: 20, fiber: 0 },
+      'tuna': { cal: 132, prot: 29, fiber: 0 },
+      'egg': { cal: 78, prot: 6, fiber: 0, perUnit: true },
+      'eggs': { cal: 78, prot: 6, fiber: 0, perUnit: true },
+      'pasta': { cal: 157, prot: 6, fiber: 2 },
+      'rice': { cal: 130, prot: 3, fiber: 0.4 },
+      'broccoli': { cal: 34, prot: 3, fiber: 3 },
+      'spinach': { cal: 23, prot: 3, fiber: 2 },
+      'onion': { cal: 40, prot: 1, fiber: 2 },
+      'garlic': { cal: 4, prot: 0.2, fiber: 0.1, perUnit: true },
+      'tomato': { cal: 22, prot: 1, fiber: 1.5 },
+      'potato': { cal: 87, prot: 2, fiber: 2 },
+      'butter': { cal: 717, prot: 1, fiber: 0 },
+      'olive oil': { cal: 884, prot: 0, fiber: 0 },
+      'oil': { cal: 884, prot: 0, fiber: 0 },
+      'flour': { cal: 364, prot: 10, fiber: 3 },
+      'sugar': { cal: 387, prot: 0, fiber: 0 },
+      'milk': { cal: 61, prot: 3, fiber: 0 },
+      'cream': { cal: 340, prot: 3, fiber: 0 },
+      'cheese': { cal: 400, prot: 25, fiber: 0 },
+      'lentils': { cal: 116, prot: 9, fiber: 8 },
+      'chickpeas': { cal: 164, prot: 9, fiber: 7 },
+      'beans': { cal: 127, prot: 8, fiber: 7 },
+      'oats': { cal: 389, prot: 17, fiber: 11 },
+    };
+    const UNIT_GRAMS = {
+      'g': 1, 'kg': 1000, 'oz': 28, 'lb': 454,
+      'cup': 240, 'cups': 240, 'ml': 1, 'l': 1000,
+      'tbsp': 15, 'tsp': 5,
+    };
+    let totalCal = 0, totalProt = 0, totalFiber = 0, matched = 0;
+    for (const ing of bodyIngredients) {
+      const name = (ing.name || '').toLowerCase().trim();
+      const entry = Object.entries(NUTRITION_DB).find(([k]) => name.includes(k));
+      if (!entry) continue;
+      const [, nutr] = entry;
+      const amount = parseFloat(ing.amount) || 1;
+      const unit = (ing.unit || '').toLowerCase().trim();
+      let grams;
+      if (nutr.perUnit) {
+        grams = amount * 100;
+      } else {
+        const unitG = UNIT_GRAMS[unit] || 100;
+        grams = amount * unitG;
+      }
+      const factor = grams / 100;
+      totalCal += nutr.cal * factor;
+      totalProt += nutr.prot * factor;
+      totalFiber += nutr.fiber * factor;
+      matched++;
+    }
+    if (matched === 0) return { calories: null, protein: null, fiber: null };
+    return {
+      calories: Math.round(totalCal),
+      protein: Math.round(totalProt),
+      fiber: Math.round(totalFiber),
+    };
+  }, [bodyIngredients]);
+
+  const displayCalories = calories ?? autoNutrition.calories;
+  const displayProtein  = protein  ?? autoNutrition.protein;
+  const displayFiber    = fiber    ?? autoNutrition.fiber;
   const doneCount  = doneSteps.size;
   const totalSteps = instructions?.length ?? 0;
 
@@ -457,7 +525,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       {/* ── Hero ── */}
       <div className="rp2__hero">
         {recipe.coverImage
-          ? <DraggableHeroImage src={recipe.coverImage} alt={recipe.name} recipeId={recipe.id} onSaved={onSaved} recipe={recipe} bodyIngredients={bodyIngredients} instructions={instructions} notes={notes} />
+          ? <HeroImage src={recipe.coverImage} alt={recipe.name} />
           : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
 
         <div className="rp2__hero-overlay">
@@ -477,10 +545,10 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 onClick={e => { e.stopPropagation(); onToggleMakeSoon && onToggleMakeSoon(); }}
                 title={isMakeSoon ? 'Remove from Make Soon' : 'Add to Make Soon'}
               >⏱</button>
-              {/* Change photo — pencil icon, popover opens DOWNWARD from topbar */}
+              {/* Change photo — camera icon, same size as heart/stopwatch */}
               <div className="rp2__photo-btn-wrap">
-                <button className="rp2__hero-btn rp2__hero-btn--icon" onClick={e => { e.stopPropagation(); startEdit(isEdit('image') ? null : 'image'); }} title="Edit photo">
-                  ✎
+                <button className="rp2__hero-btn rp2__hero-soon rp2__hero-btn--photo" onClick={e => { e.stopPropagation(); startEdit(isEdit('image') ? null : 'image'); }} title="Change photo link">
+                  📷
                 </button>
                 {isEdit('image') && (
                   <div className="rp2__img-popover-down">
@@ -500,8 +568,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                   </div>
                 )}
               </div>
-              {/* Delete recipe */}
-              <button className="rp2__hero-btn rp2__hero-btn--delete" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe">🗑</button>
+
             </div>
           </div>
 
@@ -633,9 +700,9 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               </div>
 
               {/* Display-only nutrition pills */}
-              {calories !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🔥</span>{Math.round(calories)} kcal</span>}
-              {protein  !== null && <span className="rp2__pill"><span className="rp2__pill-icon">💪</span>{Math.round(protein)}g prot</span>}
-              {fiber    !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🌿</span>{Math.round(fiber)}g fiber</span>}
+              {displayCalories !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🔥</span>{displayCalories} kcal{calories === null && autoNutrition.calories !== null ? ' ~' : ''}</span>}
+              {displayProtein  !== null && <span className="rp2__pill"><span className="rp2__pill-icon">💪</span>{displayProtein}g prot{protein === null && autoNutrition.protein !== null ? ' ~' : ''}</span>}
+              {displayFiber    !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🌿</span>{displayFiber}g fiber{fiber === null && autoNutrition.fiber !== null ? ' ~' : ''}</span>}
             </div>
           </div>
         </div>
@@ -656,6 +723,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             <h1 className="rp2__title">{recipe.name}</h1>
           )}
           <SectionPencil isEditing={isEdit('title')} onEdit={() => startEdit('title')} onSave={() => saveSection('title')} onCancel={cancelEdit} saving={saving} />
+          <button className="rp2__title-delete-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe">🗑</button>
         </div>
       </div>
 
@@ -665,7 +733,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
         {/* ── Ingredients Edit Modal (opens only when pencil clicked) ── */}
         {showIngredientsModal && (
           <div className="ing-modal-overlay" onClick={() => { setShowIngredientsModal(false); cancelEdit(); }}>
-            <div className="ing-modal" onClick={e => e.stopPropagation()}>
+            <div className="ing-modal ing-modal--wide" onClick={e => e.stopPropagation()}>
               <div className="ing-modal__header">
                 <h2 className="ing-modal__title">Edit Ingredients</h2>
                 <div className="ing-modal__header-actions">
@@ -680,28 +748,56 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 </div>
               </div>
               <div className="ing-modal__body">
-                <div className="rp2__ing-editor">
-                  {draftIngs.map((ing) => (
-                    <div key={ing._id} className="rp2__ing-edit-card">
-                      <div className="rp2__ing-edit-name-row">
-                        <IngredientAutocomplete value={ing.name} onChange={v => updateDraftIng(ing._id, 'name', v)} allIngredients={[]} />
-                        <button className="editor-remove-btn" onClick={() => removeDraftIng(ing._id)} title="Remove">✕</button>
+                <DndContext
+                  sensors={ingDndSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={({ active, over }) => {
+                    if (!over || active.id === over.id) return;
+                    setDraftIngs(prev => arrayMove(prev, prev.findIndex(i => i._id === active.id), prev.findIndex(i => i._id === over.id)));
+                  }}
+                >
+                  <SortableContext items={draftIngs.map(i => i._id)} strategy={verticalListSortingStrategy}>
+                    <div className="ing-flat-list">
+                      {/* Column headers */}
+                      <div className="ing-flat-header">
+                        <span className="ing-flat-header__drag" />
+                        <span className="ing-flat-header__qty">Qty</span>
+                        <span className="ing-flat-header__unit">Unit</span>
+                        <span className="ing-flat-header__name">Ingredient</span>
+                        <span className="ing-flat-header__prep">Prep note</span>
+                        <span className="ing-flat-header__opt">Opt</span>
+                        <span className="ing-flat-header__rm" />
                       </div>
-                      <div className="rp2__ing-edit-qty-row">
-                        <input className="editor-input editor-input--sm rp2__ing-qty" value={ing.amount} onChange={e => updateDraftIng(ing._id, 'amount', e.target.value)} placeholder="Qty" />
-                        <UnitAutocomplete value={ing.unit} onChange={v => updateDraftIng(ing._id, 'unit', v)} />
-                        <label className="rp2__ing-optional-toggle" title="Mark as optional">
-                          <input type="checkbox" checked={!!ing.optional} onChange={e => updateDraftIng(ing._id, 'optional', e.target.checked)} />
-                          <span>optional</span>
-                        </label>
-                      </div>
-                      <div className="rp2__ing-edit-meta-row">
-                        <input className="editor-input rp2__ing-prep" value={ing.prep_note || ''} onChange={e => updateDraftIng(ing._id, 'prep_note', e.target.value)} placeholder="Prep note (e.g. finely chopped)" />
-                        <input className="editor-input rp2__ing-group" value={ing.group_label || ''} onChange={e => updateDraftIng(ing._id, 'group_label', e.target.value)} placeholder="Group" />
-                      </div>
+                      {draftIngs.map((ing) => {
+                        if (ing._isGroup) {
+                          // Group separator row
+                          return (
+                            <IngGroupRow key={ing._id} ing={ing}
+                              onLabelChange={v => setDraftIngs(prev => prev.map(i => i._id === ing._id ? {...i, name: v} : i))}
+                              onRemove={() => setDraftIngs(prev => prev.filter(i => i._id !== ing._id))}
+                              onAddIngredient={() => setDraftIngs(prev => {
+                                const idx = prev.findIndex(i => i._id === ing._id);
+                                const newIng = { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: ing.name };
+                                const next = [...prev];
+                                next.splice(idx + 1, 0, newIng);
+                                return next;
+                              })}
+                            />
+                          );
+                        }
+                        return (
+                          <IngFlatRow key={ing._id} ing={ing}
+                            onUpdate={(k, v) => updateDraftIng(ing._id, k, v)}
+                            onRemove={() => removeDraftIng(ing._id)}
+                          />
+                        );
+                      })}
                     </div>
-                  ))}
-                  <button className="btn btn--ghost editor-add-btn" onClick={addDraftIng}>+ Add Ingredient</button>
+                  </SortableContext>
+                </DndContext>
+                <div className="ing-flat-add-row">
+                  <button className="btn btn--ghost editor-add-btn" onClick={() => setDraftIngs(prev => [...prev, { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '' }])}>+ Add Ingredient</button>
+                  <button className="btn btn--ghost editor-add-btn ing-add-group-btn" onClick={() => setDraftIngs(prev => [...prev, { _id: `grp-${Date.now()}`, _isGroup: true, name: 'New Group' }])}>+ Add Group</button>
                 </div>
               </div>
             </div>
@@ -815,10 +911,18 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               )}
             </div>
 
-            {/* Cookbook Reference — always shown */}
+            {/* Cookbook Reference — editable */}
             <div className="rp2__cookbook">
-              <h2 className="rp2__section-title rp2__cookbook-title">📖 Cookbook</h2>
-              {(recipe.cookbook || recipe.page_number) ? (
+              <div className="rp2__section-title-row">
+                <h2 className="rp2__section-title rp2__cookbook-title">📖 Cookbook</h2>
+                <SectionPencil isEditing={isEdit('cookbook')} onEdit={() => startEdit('cookbook')} onSave={() => saveSection('cookbook')} onCancel={cancelEdit} saving={saving} />
+              </div>
+              {isEdit('cookbook') ? (
+                <div className="rp2__cookbook-editor">
+                  <input className="editor-input" value={draftCookbook.cookbook} onChange={e => setDraftCookbook(p => ({...p, cookbook: e.target.value}))} placeholder="Cookbook name or URL" />
+                  <input className="editor-input" value={draftCookbook.page_number} onChange={e => setDraftCookbook(p => ({...p, page_number: e.target.value}))} placeholder="Page number" style={{marginTop: 6}} />
+                </div>
+              ) : (recipe.cookbook || recipe.page_number) ? (
                 <div className="rp2__cookbook-card">
                   {recipe.cookbook && <p className="rp2__cookbook-name">{recipe.cookbook}</p>}
                   {recipe.page_number && <p className="rp2__cookbook-page">p. {recipe.page_number}</p>}
@@ -826,7 +930,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               ) : (
                 <div className="rp2__cookbook-empty">
                   <p className="rp2__cookbook-prompt">No reference yet</p>
-                  <p className="rp2__cookbook-hint">Add a cookbook &amp; page number, or a link to a YouTube video or online recipe via the database.</p>
+                  <p className="rp2__cookbook-hint">Click ✎ to add a cookbook, page number, or URL.</p>
                 </div>
               )}
             </div>

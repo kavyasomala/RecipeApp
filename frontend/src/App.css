@@ -2,26 +2,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  --cream: #faf8f3;
-  --warm-white: #fffdf9;
-  --parchment: #f0ebe0;
-  --terracotta: #c4623a;
-  --terracotta-dark: #a84f2d;
-  --terracotta-light: #e8936e;
+  /* New palette — warm kitchen, fire, hearth */
+  --cream: #FFF6ED;
+  --warm-white: #FFFAF4;
+  --parchment: #F5EAD8;
+  --terracotta: #C65D3B;
+  --terracotta-dark: #A84830;
+  --terracotta-light: #E07A3F;
+  --ember: #E07A3F;
+  --ash: #D4B896;
   --sage: #7a9e7e;
   --sage-light: #a8c5ab;
-  --charcoal: #2d2d2d;
-  --warm-gray: #6b6560;
-  --light-gray: #e8e3db;
-  --border: #ddd8ce;
+  --charcoal: #2E2A27;
+  --warm-gray: #6b6158;
+  --light-gray: #E8DDD0;
+  --border: #E0D4C4;
 
   --font-display: 'Lora', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, sans-serif;
 
   --radius: 16px;
   --radius-sm: 8px;
-  --shadow: 0 2px 16px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.14);
+  --shadow: 0 2px 16px rgba(46,42,39,0.08);
+  --shadow-lg: 0 8px 40px rgba(46,42,39,0.16);
   --transition: 0.2s ease;
 }
 
@@ -2020,18 +2023,9 @@ body {
 .btn--danger:hover { background: #a93226; }
 .btn--danger:disabled { opacity: 0.6; cursor: default; }
 
-/* Delete button in hero */
-.rp2__hero-btn--delete {
-  opacity: 0.7;
-  transition: opacity var(--transition), color var(--transition);
-}
-.rp2__hero-btn--delete:hover { opacity: 1; color: #ff6b6b; }
-.rp2__hero-btn--icon {
-  font-size: 1.1rem;
-  letter-spacing: 0;
-}
+/* Delete button in hero — removed, now in title row */
 
-/* ─── Draggable Hero Image ──────────────────────────────────────────────── */
+/* ─── Draggable Hero Image (simplified, no pan) ─────────────────────────── */
 .rp2__hero-img-wrap {
   position: absolute;
   inset: 0;
@@ -2042,44 +2036,138 @@ body {
   height: 100%;
   object-fit: cover;
   user-select: none;
-  transition: object-position 0s;
 }
-.rp2__hero-img-wrap--pan .rp2__hero-img {
-  cursor: grab;
-}
-.rp2__hero-img-wrap--dragging .rp2__hero-img {
-  cursor: grabbing;
-}
-.rp2__pan-hint {
-  position: absolute;
-  bottom: 48px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 0.78rem;
-  padding: 4px 12px;
-  border-radius: 20px;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.rp2__pan-toggle {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 20px;
-  padding: 5px 12px;
-  font-size: 0.78rem;
+
+/* ─── Title row delete button ────────────────────────────────────────────── */
+.rp2__title-delete-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 16px;
   cursor: pointer;
-  transition: background var(--transition);
-  z-index: 3;
+  opacity: 0.12;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--charcoal);
+  line-height: 1;
 }
-.rp2__pan-toggle:hover { background: rgba(0,0,0,0.7); }
-.rp2__pan-toggle--active { background: var(--terracotta); border-color: var(--terracotta); }
-.rp2__pan-toggle--active:hover { background: var(--terracotta-dark); }
+.rp2__title-delete-btn:hover { opacity: 1; color: #c0392b; }
+
+/* ─── Photo change button — same size as heart/stopwatch ────────────────── */
+.rp2__hero-btn--photo {
+  font-size: 15px;
+  padding: 7px 9px;
+  position: relative;
+}
+.rp2__hero-btn--photo::after {
+  content: 'Change photo link';
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  background: rgba(20,20,20,0.92);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-family: var(--font-body);
+  z-index: 200;
+}
+.rp2__hero-btn--photo:hover::after { opacity: 1; }
+
+/* ─── Cookbook editor ────────────────────────────────────────────────────── */
+.rp2__cookbook-editor { display: flex; flex-direction: column; gap: 6px; }
+
+/* ─── Ingredients modal wider ────────────────────────────────────────────── */
+.ing-modal--wide { max-width: 920px !important; }
+
+/* ─── Flat ingredient list ───────────────────────────────────────────────── */
+.ing-flat-list { display: flex; flex-direction: column; gap: 4px; }
+
+.ing-flat-header {
+  display: grid;
+  grid-template-columns: 24px 60px 90px 1fr 160px 36px 28px;
+  gap: 8px;
+  padding: 0 0 6px 0;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--warm-gray);
+  border-bottom: 1.5px solid var(--border);
+  align-items: center;
+}
+.ing-flat-header__drag, .ing-flat-header__rm { /* spacers */ }
+.ing-flat-header__qty { text-align: center; }
+.ing-flat-header__opt { text-align: center; }
+
+.ing-flat-row {
+  display: grid;
+  grid-template-columns: 24px 60px 90px 1fr 160px 36px 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--warm-white);
+  border: 1.5px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ing-flat-row:hover { border-color: var(--border); background: var(--cream); }
+
+.ing-flat-row__drag {
+  cursor: grab; font-size: 16px; color: var(--ash);
+  user-select: none; text-align: center; line-height: 1;
+  padding: 0;
+}
+.ing-flat-row__drag:active { cursor: grabbing; }
+.ing-flat-row__drag:hover { color: var(--warm-gray); }
+
+.ing-flat-row__qty { width: 100%; padding: 5px 8px !important; font-size: 13px !important; text-align: right; }
+.ing-flat-row__unit-wrap, .ing-flat-row__name-wrap { min-width: 0; }
+.ing-flat-row__unit-wrap .editor-input,
+.ing-flat-row__name-wrap .editor-input { font-size: 13px !important; padding: 5px 8px !important; }
+.ing-flat-row__prep { font-size: 12px !important; padding: 5px 8px !important; }
+.ing-flat-row__opt { display: flex; align-items: center; justify-content: center; }
+.ing-flat-row__opt input { accent-color: var(--terracotta); width: 15px; height: 15px; cursor: pointer; }
+
+/* ─── Group separator row ────────────────────────────────────────────────── */
+.ing-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #fdf0e8, #fae8d8);
+  border: 1.5px solid var(--terracotta-light);
+  margin: 6px 0 2px;
+}
+.ing-group-row__drag {
+  cursor: grab; font-size: 16px; color: var(--terracotta);
+  user-select: none; flex-shrink: 0;
+}
+.ing-group-row__drag:active { cursor: grabbing; }
+.ing-group-row__label-input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  color: var(--terracotta-dark); outline: none; min-width: 0;
+  letter-spacing: 0.02em; text-transform: uppercase;
+}
+.ing-group-row__label-input::placeholder { color: rgba(198, 93, 59, 0.4); }
+.ing-group-row__add-btn {
+  border: none; background: var(--terracotta); color: white;
+  border-radius: 50%; width: 24px; height: 24px;
+  font-size: 14px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; transition: background 0.15s;
+  line-height: 1;
+}
+.ing-group-row__add-btn:hover { background: var(--terracotta-dark); }
+
+/* ─── Add row ────────────────────────────────────────────────────────────── */
+.ing-flat-add-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.ing-add-group-btn { border-color: var(--terracotta-light) !important; color: var(--terracotta) !important; }
 
 /* ─── Fridge Tab — edit/delete buttons ─────────────────────────────────── */
 .fridge-retype-btn--del {
