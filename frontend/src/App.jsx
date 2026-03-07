@@ -1582,98 +1582,137 @@ function AppInner() {
           {/* ── Left column ── */}
           <div className="home-main">
 
-            {/* ── ⏱ Make Soon (persistent, always shown) ── */}
-            <div className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">⏱ Make Soon</h2>
-                {makeSoonIds.length > 0 && (
-                  <button className="btn btn--ghost btn--sm" onClick={() => setMakeSoonIds([])}>Clear all</button>
-                )}
-              </div>
-              {makeSoonIds.length === 0 ? (
-                <div className="home-empty-cta" onClick={() => setView('recipes')}>
-                  <span className="home-empty-cta__icon">⏱</span>
-                  <div>
-                    <p className="home-empty-cta__title">Plan your week</p>
-                    <p className="home-empty-cta__sub">Tap ⏱ on any recipe to add it here</p>
+            {/* ── ⏱ Make Soon ── */}
+            {(() => {
+              const makeSoonRecipes = recipes.filter(r => makeSoonIds.includes(r.id));
+              const [showAllSoon, setShowAllSoon] = React.useState(false);
+              const visibleSoon = showAllSoon ? makeSoonRecipes : makeSoonRecipes.slice(0, 4);
+              return (
+                <div className="home-section">
+                  <div className="home-section__header">
+                    <h2 className="home-section__title">⏱ Make Soon</h2>
+                    {makeSoonIds.length > 0 && (
+                      <button className="btn btn--ghost btn--sm" onClick={() => setMakeSoonIds([])}>Clear all</button>
+                    )}
                   </div>
-                  <span className="home-empty-cta__arrow">→</span>
+                  {makeSoonIds.length === 0 ? (
+                    <div className="home-empty-cta" onClick={() => setView('recipes')}>
+                      <span className="home-empty-cta__icon">⏱</span>
+                      <div>
+                        <p className="home-empty-cta__title">Plan your week</p>
+                        <p className="home-empty-cta__sub">Tap ⏱ on any recipe to add it here</p>
+                      </div>
+                      <span className="home-empty-cta__arrow">→</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="recipe-grid">
+                        {visibleSoon.map(r => (
+                          <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
+                            isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
+                            isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
+                        ))}
+                      </div>
+                      {makeSoonRecipes.length > 4 && (
+                        <button className="home-section__show-more" onClick={() => setShowAllSoon(s => !s)}>
+                          {showAllSoon ? '▴ Show less' : `▾ Show ${makeSoonRecipes.length - 4} more`}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div className="recipe-grid">
-                  {recipes.filter(r => makeSoonIds.includes(r.id)).map(r => (
-                    <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
-                      isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
-                      isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
-                  ))}
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* ── What can I make? ── */}
-            <div className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">What can I make?</h2>
-                <button className="btn btn--ghost btn--sm" onClick={() => setView('kitchen')}>
-                  {fridgeIngredients.length + pantryStaples.length > 0
-                    ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
-                    : 'Set my ingredients →'}
-                </button>
-              </div>
-              {allMyIngredients.size === 0 ? (
-                <div className="home-empty-cta" onClick={() => setView('kitchen')}>
-                  <span className="home-empty-cta__icon">🧊</span>
-                  <div>
-                    <p className="home-empty-cta__title">Add your kitchen &amp; pantry ingredients</p>
-                    <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
+            {(() => {
+              const goodMatches = matches.filter(m => m.matchScore > 0);
+              const [showAllMatch, setShowAllMatch] = React.useState(false);
+              const visibleMatch = showAllMatch ? goodMatches : goodMatches.slice(0, 4);
+              return (
+                <div className="home-section">
+                  <div className="home-section__header">
+                    <h2 className="home-section__title">What can I make?</h2>
+                    <button className="btn btn--ghost btn--sm" onClick={() => setView('kitchen')}>
+                      {fridgeIngredients.length + pantryStaples.length > 0
+                        ? `${fridgeIngredients.length + pantryStaples.length} ingredients set`
+                        : 'Set my ingredients →'}
+                    </button>
                   </div>
-                  <span className="home-empty-cta__arrow">→</span>
+                  {allMyIngredients.size === 0 ? (
+                    <div className="home-empty-cta" onClick={() => setView('kitchen')}>
+                      <span className="home-empty-cta__icon">🧊</span>
+                      <div>
+                        <p className="home-empty-cta__title">Add your kitchen &amp; pantry ingredients</p>
+                        <p className="home-empty-cta__sub">We'll show you what you can cook right now</p>
+                      </div>
+                      <span className="home-empty-cta__arrow">→</span>
+                    </div>
+                  ) : goodMatches.length > 0 ? (
+                    <>
+                      <div className="recipe-grid">
+                        {visibleMatch.map(m => {
+                          const r = recipes.find(x => x.id === m.id);
+                          if (!r) return null;
+                          return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
+                            isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
+                            isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />;
+                        })}
+                      </div>
+                      {goodMatches.length > 4 && (
+                        <button className="home-section__show-more" onClick={() => setShowAllMatch(s => !s)}>
+                          {showAllMatch ? '▴ Show less' : `▾ Show ${goodMatches.length - 4} more`}
+                        </button>
+                      )}
+                    </>
+                  ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Kitchen tab.</p>}
                 </div>
-              ) : (() => {
-                const goodMatches = matches.filter(m => m.matchScore > 0).slice(0, 6);
-                return goodMatches.length > 0 ? (
-                  <div className="recipe-grid">
-                    {goodMatches.map(m => {
-                      const r = recipes.find(x => x.id === m.id);
-                      if (!r) return null;
-                      return <RecipeCard key={r.id} recipe={r} match={m} onClick={openRecipe}
-                        isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
-                        isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />;
-                    })}
-                  </div>
-                ) : <p className="home-no-matches">No matches yet — try adding more ingredients in the Fridge tab.</p>;
-              })()}
-            </div>
+              );
+            })()}
 
             {/* ── ♥ Favorites ── */}
-            <div className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">♥ Favorites</h2>
-                {heartedIds.length > 0 && (
-                  <button className="btn btn--ghost btn--sm" onClick={() => setView('recipes')}>View all →</button>
-                )}
-              </div>
-              {heartedIds.length === 0 ? (
-                <div className="home-empty-cta" onClick={() => setView('recipes')}>
-                  <span className="home-empty-cta__icon">♡</span>
-                  <div>
-                    <p className="home-empty-cta__title">No favorites yet</p>
-                    <p className="home-empty-cta__sub">Tap ♡ on any recipe to save it here</p>
+            {(() => {
+              const favRecipes = recipes.filter(r => heartedIds.includes(r.id));
+              const [showAllFav, setShowAllFav] = React.useState(false);
+              const visibleFav = showAllFav ? favRecipes : favRecipes.slice(0, 4);
+              return (
+                <div className="home-section">
+                  <div className="home-section__header">
+                    <h2 className="home-section__title">♥ Favorites</h2>
+                    {heartedIds.length > 0 && (
+                      <button className="btn btn--ghost btn--sm" onClick={() => setView('recipes')}>View all →</button>
+                    )}
                   </div>
-                  <span className="home-empty-cta__arrow">→</span>
+                  {heartedIds.length === 0 ? (
+                    <div className="home-empty-cta" onClick={() => setView('recipes')}>
+                      <span className="home-empty-cta__icon">♡</span>
+                      <div>
+                        <p className="home-empty-cta__title">No favorites yet</p>
+                        <p className="home-empty-cta__sub">Tap ♡ on any recipe to save it here</p>
+                      </div>
+                      <span className="home-empty-cta__arrow">→</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="recipe-grid">
+                        {visibleFav.map(r => (
+                          <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
+                            isHearted={true} onToggleHeart={() => toggleHeart(r.id)}
+                            isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
+                        ))}
+                      </div>
+                      {favRecipes.length > 4 && (
+                        <button className="home-section__show-more" onClick={() => setShowAllFav(s => !s)}>
+                          {showAllFav ? '▴ Show less' : `▾ Show ${favRecipes.length - 4} more`}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div className="recipe-grid">
-                  {recipes.filter(r => heartedIds.includes(r.id)).slice(0, 6).map(r => (
-                    <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
-                      isHearted={true} onToggleHeart={() => toggleHeart(r.id)}
-                      isMakeSoon={makeSoonIds.includes(r.id)} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
-                  ))}
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
-          </div>{/* end home-main */}
+                    </div>{/* end home-main */}
 
           {/* ── Right sidebar: Quick Actions FIRST, then Insights ── */}
           <aside className="home-sidebar">
@@ -1681,28 +1720,32 @@ function AppInner() {
           <div className="insights-card">
               <h3 className="insights-title">Recipe Insights</h3>
               <div className="insights-grid">
-                <div className="insight-item insight-item--green">
+                <button className="insight-item insight-item--green insight-item--btn"
+                  onClick={() => { setView('recipes'); setFiltersOpen(false); }}>
                   <span className="insight-item__number">{matches.filter(m => m.canMake).length}</span>
                   <span className="insight-item__label">Ready to cook</span>
                   <span className="insight-item__icon">✅</span>
-                </div>
-                <div className="insight-item insight-item--amber">
+                </button>
+                <button className="insight-item insight-item--amber insight-item--btn"
+                  onClick={() => { setView('recipes'); setMaxCalories(null); setMaxMinutes(null); }}>
                   <span className="insight-item__number">{matches.filter(m => m.matchScore >= 0.7 && !m.canMake).length}</span>
                   <span className="insight-item__label">Almost ready</span>
                   <span className="insight-item__icon">🔥</span>
-                </div>
-                <div className="insight-item insight-item--purple">
+                </button>
+                <button className="insight-item insight-item--purple insight-item--btn"
+                  onClick={() => { setView('recipes'); setMaxMinutes(30); setFiltersOpen(false); }}>
                   <span className="insight-item__number">
                     {recipes.filter(r => { const t = (r.time || '').toLowerCase(); const m = t.match(/(\d+)/); return m && parseInt(m[1]) <= 30; }).length}
                   </span>
                   <span className="insight-item__label">Under 30 min</span>
                   <span className="insight-item__icon">⏱</span>
-                </div>
-                <div className="insight-item insight-item--blue">
+                </button>
+                <button className="insight-item insight-item--blue insight-item--btn"
+                  onClick={() => { setView('recipes'); clearAllFilters(); }}>
                   <span className="insight-item__number">{recipes.length}</span>
                   <span className="insight-item__label">Total recipes</span>
                   <span className="insight-item__icon">📚</span>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -1845,7 +1888,7 @@ function AppInner() {
                 </div>
 
                 {/* Calories slider */}
-                <div className="filter-panel__group">
+                <div className="filter-panel__group filter-panel__group--slider">
                   <div className="filter-panel__slider-header">
                     <span className="filter-panel__label">Calories</span>
                     <div className="filter-panel__cal-dir">
@@ -1877,7 +1920,7 @@ function AppInner() {
                 </div>
 
                 {/* Time slider */}
-                <div className="filter-panel__group">
+                <div className="filter-panel__group filter-panel__group--slider">
                   <div className="filter-panel__slider-header">
                     <span className="filter-panel__label">Time</span>
                     {maxMinutes !== null && <button className="filter-panel__clear-slider" onClick={() => setMaxMinutes(null)}>✕ clear</button>}
