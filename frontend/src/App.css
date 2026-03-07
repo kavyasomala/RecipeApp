@@ -1188,13 +1188,25 @@ body {
 .rp2__tag--warning { background: rgba(234,179,8,0.85); color: white; }
 .rp2__tag--success { background: rgba(34,197,94,0.85); color: white; }
 
-/* ─── Inline ingredient editor cards ────────────────────────────────────── */
+/* ─── Inline ingredient editor cards — vertical layout ──────────────────── */
 .rp2__ing-editor { display: flex; flex-direction: column; gap: 8px; }
-.rp2__ing-edit-card { background: var(--cream); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
-.rp2__ing-edit-row1 { display: flex; gap: 6px; align-items: center; }
-.rp2__ing-edit-row1 .ing-ac-wrap { flex: 2; }
-.rp2__ing-edit-row2 { display: flex; gap: 6px; align-items: center; }
-.rp2__ing-edit-row2 .editor-input { font-size: 12px; padding: 5px 8px; }
+.rp2__ing-edit-card {
+  background: var(--cream); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.rp2__ing-edit-name-row { display: flex; gap: 6px; align-items: center; }
+.rp2__ing-edit-name-row .ing-ac-wrap { flex: 1; }
+.rp2__ing-edit-qty-row { display: flex; gap: 6px; align-items: center; }
+.rp2__ing-qty { width: 60px; flex-shrink: 0; }
+.rp2__ing-optional-toggle {
+  display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--warm-gray);
+  cursor: pointer; white-space: nowrap; margin-left: auto;
+}
+.rp2__ing-optional-toggle input { accent-color: var(--terracotta); width: 13px; height: 13px; cursor: pointer; }
+.rp2__ing-edit-meta-row { display: flex; gap: 6px; }
+.rp2__ing-prep { flex: 2; font-size: 12px !important; padding: 5px 8px !important; }
+.rp2__ing-group { flex: 1; font-size: 12px !important; padding: 5px 8px !important; }
 
 /* ─── Inline step/note editor ────────────────────────────────────────────── */
 .rp2__inline-editor { display: flex; flex-direction: column; gap: 8px; }
@@ -1208,8 +1220,28 @@ body {
   outline: none; width: 100%; padding: 2px 0;
 }
 
-/* ─── Notes under instructions ───────────────────────────────────────────── */
-.rp2__notes { padding: 24px 0 0; margin-top: 24px; border-top: 1.5px solid var(--border); }
+/* ─── Notes + Cookbook row ───────────────────────────────────────────────── */
+.rp2__notes-row {
+  display: flex; gap: 24px; padding: 24px 0 0; margin-top: 24px;
+  border-top: 1.5px solid var(--border); align-items: flex-start;
+}
+.rp2__notes { flex: 1; min-width: 0; }
+.rp2__cookbook {
+  width: 180px; flex-shrink: 0;
+}
+.rp2__cookbook-title { margin-bottom: 10px !important; }
+.rp2__cookbook-card {
+  background: var(--cream); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.rp2__cookbook-name {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700;
+  color: var(--charcoal); line-height: 1.3; margin: 0;
+}
+.rp2__cookbook-page {
+  font-size: 13px; color: var(--warm-gray); margin: 0; font-style: italic;
+}
 
 /* ─── Empty hint ─────────────────────────────────────────────────────────── */
 .rp2__empty-hint { font-size: 13px; color: var(--warm-gray); padding: 8px 0; font-style: italic; }

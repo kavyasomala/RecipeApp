@@ -67,22 +67,39 @@ const PROGRESS_FILTERS = [
 const QUICK_CHIP_KEYS = new Set(TAG_FILTERS.map(f => f.key));
 
 const GEO_CUISINES = [
-  'Asian', 'Indian', 'Italian', 'Mediterranean', 'Mexican', 'Middle Eastern', 'American', 'French', 'Japanese', 'Thai',
+  'Asian', 'Indian', 'Italian', 'Mediterranean', 'Mexican', 'Middle Eastern', 'Thai',
 ].sort();
 
 const CUISINE_EMOJI = {
   'Asian': '🥢', 'Indian': '🍛', 'Italian': '🍝', 'Mediterranean': '🫒',
-  'Mexican': '🌮', 'Middle Eastern': '🥙', 'American': '🍔', 'French': '🥐',
-  'Japanese': '🍱', 'Thai': '🍜',
+  'Mexican': '🌮', 'Middle Eastern': '🥙', 'Thai': '🍜',
 };
 
-const ALL_CUISINES = [
-  ...GEO_CUISINES,
-  'Dessert', 'Drinks', 'Marinade', 'Party', 'Pasta', 'Soup',
-].sort();
+const ALL_CUISINES = [...GEO_CUISINES].sort();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const pct = (score) => Math.round(score * 100);
+// Auto-pluralize ingredient names based on numeric amount
+const pluralizeIng = (name, amount) => {
+  if (!name) return name;
+  const n = parseFloat(amount);
+  if (isNaN(n) || n <= 1) return name;
+  // Already plural heuristics
+  const lower = name.toLowerCase();
+  if (lower.endsWith('s') || lower.endsWith('rice') || lower.endsWith('flour') ||
+      lower.endsWith('milk') || lower.endsWith('water') || lower.endsWith('oil') ||
+      lower.endsWith('vinegar') || lower.endsWith('sauce') || lower.endsWith('cheese') ||
+      lower.endsWith('butter') || lower.endsWith('sugar') || lower.endsWith('salt') ||
+      lower.endsWith('pepper') || lower.endsWith('broth') || lower.endsWith('stock') ||
+      lower.endsWith('juice') || lower.endsWith('paste') || lower.endsWith('powder') ||
+      lower.endsWith('flakes') || lower.endsWith('leaves') || lower.endsWith('zest') ||
+      lower.endsWith('cream') || lower.endsWith('honey') || lower.endsWith('bread')) return name;
+  if (lower.endsWith('ch') || lower.endsWith('sh') || lower.endsWith('x') || lower.endsWith('z')) return name + 'es';
+  if (lower.endsWith('y') && !/[aeiou]y$/.test(lower)) return name.slice(0, -1) + 'ies';
+  if (lower.endsWith('fe')) return name.slice(0, -2) + 'ves';
+  if (lower.endsWith('f') && !lower.endsWith('ff')) return name.slice(0, -1) + 'ves';
+  return name + 's';
+};
 const Badge = ({ children, variant = 'default' }) => (
   <span className={`badge badge--${variant}`}>{children}</span>
 );
@@ -498,16 +515,24 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             <div className="rp2__ing-editor">
               {draftIngs.map((ing) => (
                 <div key={ing._id} className="rp2__ing-edit-card">
-                  <div className="rp2__ing-edit-row1">
-                    <input className="editor-input editor-input--sm" value={ing.amount} onChange={e => updateDraftIng(ing._id, 'amount', e.target.value)} placeholder="Qty" />
-                    <UnitAutocomplete value={ing.unit} onChange={v => updateDraftIng(ing._id, 'unit', v)} />
+                  {/* Row 1: Name (full width) + remove */}
+                  <div className="rp2__ing-edit-name-row">
                     <IngredientAutocomplete value={ing.name} onChange={v => updateDraftIng(ing._id, 'name', v)} allIngredients={[]} />
                     <button className="editor-remove-btn" onClick={() => removeDraftIng(ing._id)} title="Remove">✕</button>
                   </div>
-                  <div className="rp2__ing-edit-row2">
-                    <input className="editor-input" style={{flex:1}} value={ing.group_label || ''} onChange={e => updateDraftIng(ing._id, 'group_label', e.target.value)} placeholder="Group (e.g. Sauce)" />
-                    <input className="editor-input" style={{flex:2}} value={ing.prep_note || ''} onChange={e => updateDraftIng(ing._id, 'prep_note', e.target.value)} placeholder="Prep note (e.g. finely chopped)" />
-                    <button className={`editor-optional-btn ${ing.optional ? 'editor-optional-btn--on' : ''}`} onClick={() => updateDraftIng(ing._id, 'optional', !ing.optional)} title="Optional">{ing.optional ? '✓' : '○'}</button>
+                  {/* Row 2: Qty + Unit */}
+                  <div className="rp2__ing-edit-qty-row">
+                    <input className="editor-input editor-input--sm rp2__ing-qty" value={ing.amount} onChange={e => updateDraftIng(ing._id, 'amount', e.target.value)} placeholder="Qty" />
+                    <UnitAutocomplete value={ing.unit} onChange={v => updateDraftIng(ing._id, 'unit', v)} />
+                    <label className="rp2__ing-optional-toggle" title="Mark as optional">
+                      <input type="checkbox" checked={!!ing.optional} onChange={e => updateDraftIng(ing._id, 'optional', e.target.checked)} />
+                      <span>optional</span>
+                    </label>
+                  </div>
+                  {/* Row 3: Prep note + Group */}
+                  <div className="rp2__ing-edit-meta-row">
+                    <input className="editor-input rp2__ing-prep" value={ing.prep_note || ''} onChange={e => updateDraftIng(ing._id, 'prep_note', e.target.value)} placeholder="Prep note (e.g. finely chopped)" />
+                    <input className="editor-input rp2__ing-group" value={ing.group_label || ''} onChange={e => updateDraftIng(ing._id, 'group_label', e.target.value)} placeholder="Group" />
                   </div>
                 </div>
               ))}
@@ -528,7 +553,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                             <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && '✓'}</div>
                             <div className="rp2__ing-text">
                               {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
-                              <span className="rp2__ing-name">{ing.name}</span>
+                              <span className="rp2__ing-name">{pluralizeIng(ing.name, ing.amount)}</span>
                               {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
                               {ing.optional && <span className="rp2__ing-optional">optional</span>}
                             </div>
@@ -585,31 +610,44 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               : <p className="rp2__empty-hint">No instructions yet.</p>
           )}
 
-          {/* ── Notes — lives under instructions ── */}
-          <div className="rp2__notes">
-            <div className="rp2__section-title-row">
-              <h2 className="rp2__section-title">Notes &amp; Tips</h2>
-              <SectionPencil isEditing={isEdit('notes')} onEdit={() => startEdit('notes')} onSave={() => saveSection('notes')} onCancel={cancelEdit} saving={saving} />
+          {/* ── Notes + Cookbook — side by side under instructions ── */}
+          <div className="rp2__notes-row">
+            <div className="rp2__notes">
+              <div className="rp2__section-title-row">
+                <h2 className="rp2__section-title">Notes &amp; Tips</h2>
+                <SectionPencil isEditing={isEdit('notes')} onEdit={() => startEdit('notes')} onSave={() => saveSection('notes')} onCancel={cancelEdit} saving={saving} />
+              </div>
+
+              {isEdit('notes') ? (
+                <div className="rp2__inline-editor">
+                  {draftNotes.map(n => (
+                    <div key={n._id} className="rp2__ed-note-row">
+                      <input className="editor-input" style={{flex:1}} value={n.text} onChange={e => updateDraftNote(n._id, e.target.value)} placeholder="Add a tip or note…" />
+                      <button className="editor-remove-btn" onClick={() => removeDraftNote(n._id)}>✕</button>
+                    </div>
+                  ))}
+                  <button className="btn btn--ghost editor-add-btn" onClick={addDraftNote}>+ Add Note</button>
+                </div>
+              ) : (
+                notes?.length > 0
+                  ? <ul className="rp2__notes-list">
+                      {notes.map((n, i) => (
+                        <li key={i} className="rp2__notes-item">{n.text ?? n.body_text ?? n}</li>
+                      ))}
+                    </ul>
+                  : <p className="rp2__empty-hint">No notes yet.</p>
+              )}
             </div>
 
-            {isEdit('notes') ? (
-              <div className="rp2__inline-editor">
-                {draftNotes.map(n => (
-                  <div key={n._id} className="rp2__ed-note-row">
-                    <input className="editor-input" style={{flex:1}} value={n.text} onChange={e => updateDraftNote(n._id, e.target.value)} placeholder="Add a tip or note…" />
-                    <button className="editor-remove-btn" onClick={() => removeDraftNote(n._id)}>✕</button>
-                  </div>
-                ))}
-                <button className="btn btn--ghost editor-add-btn" onClick={addDraftNote}>+ Add Note</button>
+            {/* Cookbook Reference — only shown if cookbook data exists */}
+            {(recipe.cookbook || recipe.page_number) && (
+              <div className="rp2__cookbook">
+                <h2 className="rp2__section-title rp2__cookbook-title">📖 Cookbook</h2>
+                <div className="rp2__cookbook-card">
+                  {recipe.cookbook && <p className="rp2__cookbook-name">{recipe.cookbook}</p>}
+                  {recipe.page_number && <p className="rp2__cookbook-page">p. {recipe.page_number}</p>}
+                </div>
               </div>
-            ) : (
-              notes?.length > 0
-                ? <ul className="rp2__notes-list">
-                    {notes.map((n, i) => (
-                      <li key={i} className="rp2__notes-item">{n.text ?? n.body_text ?? n}</li>
-                    ))}
-                  </ul>
-                : <p className="rp2__empty-hint">No notes yet.</p>
             )}
           </div>
         </div>
