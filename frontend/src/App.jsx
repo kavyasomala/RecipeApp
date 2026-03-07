@@ -245,9 +245,14 @@ const IngFlatRow = ({ ing, onUpdate, onRemove }) => {
         <IngredientAutocomplete value={ing.name} onChange={v => onUpdate('name', v)} allIngredients={[]} />
       </div>
       <input className="editor-input ing-flat-row__prep" value={ing.prep_note || ''} onChange={e => onUpdate('prep_note', e.target.value)} placeholder="e.g. finely chopped" />
-      <label className="ing-flat-row__opt" title="Optional">
-        <input type="checkbox" checked={!!ing.optional} onChange={e => onUpdate('optional', e.target.checked)} />
-      </label>
+      <button
+        className={`ing-opt-toggle ${ing.optional ? 'ing-opt-toggle--on' : ''}`}
+        onClick={() => onUpdate('optional', !ing.optional)}
+        title={ing.optional ? 'Mark as required' : 'Mark as optional'}
+        type="button"
+      >
+        {ing.optional ? 'optional' : 'required'}
+      </button>
       <button className="editor-remove-btn" onClick={onRemove} title="Remove">✕</button>
     </div>
   );
@@ -332,6 +337,63 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const saveSection = async (section) => {
     setSaving(true); setSaveError(null);
     const isMeta = section === 'meta' || section.startsWith('meta-');
+
+    // When saving ingredients, compute fresh nutrition from the new ingredient list
+    let computedNutrition = { calories: recipe.calories ?? '', protein: recipe.protein ?? '', fiber: recipe.fiber ?? '' };
+    if (section === 'ingredients') {
+      const ingsToCalc = draftIngs
+        .map(i => { if (i._isGroup) return null; return i; })
+        .filter(Boolean);
+      const NUTRITION_DB = {
+        'chicken breast': { cal: 165, prot: 31, fiber: 0 },
+        'chicken': { cal: 165, prot: 31, fiber: 0 },
+        'beef': { cal: 250, prot: 26, fiber: 0 },
+        'salmon': { cal: 208, prot: 20, fiber: 0 },
+        'tuna': { cal: 132, prot: 29, fiber: 0 },
+        'egg': { cal: 78, prot: 6, fiber: 0, perUnit: true },
+        'eggs': { cal: 78, prot: 6, fiber: 0, perUnit: true },
+        'pasta': { cal: 157, prot: 6, fiber: 2 },
+        'rice': { cal: 130, prot: 3, fiber: 0.4 },
+        'broccoli': { cal: 34, prot: 3, fiber: 3 },
+        'spinach': { cal: 23, prot: 3, fiber: 2 },
+        'onion': { cal: 40, prot: 1, fiber: 2 },
+        'garlic': { cal: 4, prot: 0.2, fiber: 0.1, perUnit: true },
+        'tomato': { cal: 22, prot: 1, fiber: 1.5 },
+        'potato': { cal: 87, prot: 2, fiber: 2 },
+        'butter': { cal: 717, prot: 1, fiber: 0 },
+        'olive oil': { cal: 884, prot: 0, fiber: 0 },
+        'oil': { cal: 884, prot: 0, fiber: 0 },
+        'flour': { cal: 364, prot: 10, fiber: 3 },
+        'sugar': { cal: 387, prot: 0, fiber: 0 },
+        'milk': { cal: 61, prot: 3, fiber: 0 },
+        'cream': { cal: 340, prot: 3, fiber: 0 },
+        'cheese': { cal: 400, prot: 25, fiber: 0 },
+        'lentils': { cal: 116, prot: 9, fiber: 8 },
+        'chickpeas': { cal: 164, prot: 9, fiber: 7 },
+        'beans': { cal: 127, prot: 8, fiber: 7 },
+        'oats': { cal: 389, prot: 17, fiber: 11 },
+      };
+      const UNIT_GRAMS = { 'g': 1, 'kg': 1000, 'oz': 28, 'lb': 454, 'cup': 240, 'cups': 240, 'ml': 1, 'l': 1000, 'tbsp': 15, 'tsp': 5 };
+      let totalCal = 0, totalProt = 0, totalFiber = 0, matched = 0;
+      for (const ing of ingsToCalc) {
+        const name = (ing.name || '').toLowerCase().trim();
+        const entry = Object.entries(NUTRITION_DB).find(([k]) => name.includes(k));
+        if (!entry) continue;
+        const [, nutr] = entry;
+        const amount = parseFloat(ing.amount) || 1;
+        const unit = (ing.unit || '').toLowerCase().trim();
+        const unitG = nutr.perUnit ? 100 : (UNIT_GRAMS[unit] || 100);
+        const factor = (amount * unitG) / 100;
+        totalCal   += nutr.cal  * factor;
+        totalProt  += nutr.prot * factor;
+        totalFiber += nutr.fiber * factor;
+        matched++;
+      }
+      if (matched > 0) {
+        computedNutrition = { calories: Math.round(totalCal), protein: Math.round(totalProt), fiber: Math.round(totalFiber) };
+      }
+    }
+
     try {
       const payload = {
         details: {
@@ -339,8 +401,9 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
           cuisine:         isMeta ? draftMeta.cuisine : (recipe.cuisine || ''),
           time:            isMeta ? draftMeta.time    : (recipe.time || ''),
           servings:        isMeta ? draftMeta.servings : (recipe.servings || ''),
-          calories:        recipe.calories ?? '',
-          protein:         recipe.protein ?? '',
+          calories:        computedNutrition.calories,
+          protein:         computedNutrition.protein,
+          fiber:           computedNutrition.fiber,
           cover_image_url: section === 'image' ? draftImageInput : (recipe.coverImage || ''),
           status:          isMeta ? draftMeta.status : (recipe.status || ''),
           recipe_incomplete: isMeta ? draftMeta.recipe_incomplete : (recipe.recipe_incomplete || false),
@@ -475,6 +538,8 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const displayCalories = calories ?? autoNutrition.calories;
   const displayProtein  = protein  ?? autoNutrition.protein;
   const displayFiber    = fiber    ?? autoNutrition.fiber;
+  // Show ~ if we're showing a live estimate (not yet saved to DB)
+  const nutritionIsEstimate = calories === null && autoNutrition.calories !== null;
   const doneCount  = doneSteps.size;
   const totalSteps = instructions?.length ?? 0;
 
@@ -534,10 +599,10 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 onClick={e => { e.stopPropagation(); onToggleMakeSoon && onToggleMakeSoon(); }}
                 title={isMakeSoon ? 'Remove from Make Soon' : 'Add to Make Soon'}
               >⏱</button>
-              {/* Change photo — camera icon, same size as heart/stopwatch */}
+              {/* Change photo — pencil icon, same size as heart/stopwatch */}
               <div className="rp2__photo-btn-wrap">
                 <button className="rp2__hero-btn rp2__hero-soon rp2__hero-btn--photo" onClick={e => { e.stopPropagation(); startEdit(isEdit('image') ? null : 'image'); }} title="Change photo link">
-                  📷
+                  ✎
                 </button>
                 {isEdit('image') && (
                   <div className="rp2__img-popover-down">
@@ -689,9 +754,9 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               </div>
 
               {/* Display-only nutrition pills */}
-              {displayCalories !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🔥</span>{displayCalories} kcal{calories === null && autoNutrition.calories !== null ? ' ~' : ''}</span>}
-              {displayProtein  !== null && <span className="rp2__pill"><span className="rp2__pill-icon">💪</span>{displayProtein}g prot{protein === null && autoNutrition.protein !== null ? ' ~' : ''}</span>}
-              {displayFiber    !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🌿</span>{displayFiber}g fiber{fiber === null && autoNutrition.fiber !== null ? ' ~' : ''}</span>}
+              {displayCalories !== null && <span className="rp2__pill" title={nutritionIsEstimate ? 'Estimated — save ingredients to lock in' : 'Auto-calculated from ingredients'}><span className="rp2__pill-icon">🔥</span>{displayCalories} kcal{nutritionIsEstimate ? ' ~' : ''}</span>}
+              {displayProtein  !== null && <span className="rp2__pill"><span className="rp2__pill-icon">💪</span>{displayProtein}g prot{nutritionIsEstimate ? ' ~' : ''}</span>}
+              {displayFiber    !== null && <span className="rp2__pill"><span className="rp2__pill-icon">🌿</span>{displayFiber}g fiber{nutritionIsEstimate ? ' ~' : ''}</span>}
             </div>
           </div>
         </div>
@@ -754,7 +819,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                         <span className="ing-flat-header__unit">Unit</span>
                         <span className="ing-flat-header__name">Ingredient</span>
                         <span className="ing-flat-header__prep">Prep note</span>
-                        <span className="ing-flat-header__opt">Opt</span>
+                        <span className="ing-flat-header__opt">Status</span>
                         <span className="ing-flat-header__rm" />
                       </div>
                       {draftIngs.map((ing) => {
@@ -1508,18 +1573,18 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
                 const isOn = allSelected.has(ing.name.toLowerCase());
                 const hasNutrition = ing.calories != null || ing.protein != null || ing.fiber != null;
                 return (
-                  <div key={ing.name} className="fridge-chip-wrap">
-                    <button className={`chip ${isOn ? 'chip--selected' : ''}`} onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}>
-                      {isOn && <span className="chip__check">✓</span>}
-                      {ing.name}
-                      {hasNutrition && <span className="fridge-chip__nutrition-dot" title="Has nutrition data">·</span>}
-                    </button>
-                    <button className="fridge-retype-btn" title="Edit ingredient" onClick={() => setEditingIng({ ...ing, type: typeOverrides[ing.name] ?? ing.type })}>
-                      ✎
-                    </button>
-                    <button className="fridge-retype-btn fridge-retype-btn--del" title="Delete ingredient" onClick={() => setDeleteTarget(ing)}>
-                      ✕
-                    </button>
+                  <div key={ing.name} className="fridge-ing-wrap">
+                    <div className="fridge-chip-group">
+                      <button className={`chip ${isOn ? 'chip--selected' : ''}`} onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}>
+                        {isOn && <span className="chip__check">✓</span>}
+                        {ing.name}
+                        {hasNutrition && <span className="fridge-chip__nutrition-dot" title="Has nutrition data" />}
+                      </button>
+                      <div className="fridge-chip-actions">
+                        <button className="fridge-chip-action fridge-chip-action--edit" title="Edit" onClick={() => setEditingIng({ ...ing, type: typeOverrides[ing.name] ?? ing.type })}>✎</button>
+                        <button className="fridge-chip-action fridge-chip-action--del" title="Delete" onClick={() => setDeleteTarget(ing)}>✕</button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
