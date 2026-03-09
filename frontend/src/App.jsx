@@ -2209,184 +2209,184 @@ const SiteFooter = ({ onNav }) => {
 };
 
 // ─── Cookbooks Tab ─────────────────────────────────────────────────────────
-const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe }) => {
-  const [selectedCookbook, setSelectedCookbook] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingCookbook, setEditingCookbook] = useState(null);
+// ─── Cookbook helpers ────────────────────────────────────────────────────────
+const COOKBOOK_SORTS = [
+  { key: 'page',   label: 'Page #' },
+  { key: 'alpha',  label: 'A–Z' },
+  { key: 'recent', label: 'Recently Added' },
+];
 
-  const handleSaveCookbook = (data) => {
-    if (editingCookbook) {
-      setCookbooks(prev => prev.map(c => c.id === editingCookbook.id ? { ...c, ...data } : c));
-    } else {
-      setCookbooks(prev => [...prev, { id: `cb-${Date.now()}`, recipes: [], ...data }]);
-    }
-    setShowAddModal(false);
-    setEditingCookbook(null);
-  };
-
-  const handleDeleteCookbook = (id) => {
-    setCookbooks(prev => prev.filter(c => c.id !== id));
-    if (selectedCookbook?.id === id) setSelectedCookbook(null);
-  };
-
-  // Auto-sync: when a recipe references a cookbook, it should appear in that cookbook's recipe list
-  const enrichedCookbooks = useMemo(() => {
-    return cookbooks.map(cb => {
-      // Find all app recipes that reference this cookbook
-      const linkedRecipes = recipes.filter(r => r.cookbook && r.cookbook.toLowerCase().trim() === cb.title.toLowerCase().trim());
-      // Merge: manual entries + linked recipes (dedup by name)
-      const manualEntries = cb.recipes || [];
-      const allEntries = [...manualEntries];
-      for (const lr of linkedRecipes) {
-        if (!allEntries.some(e => e.name.toLowerCase() === lr.name.toLowerCase())) {
-          allEntries.push({ name: lr.name, page: lr.reference || '', recipeId: lr.id });
-        } else {
-          // Update recipeId if not set
-          const idx = allEntries.findIndex(e => e.name.toLowerCase() === lr.name.toLowerCase());
-          if (idx >= 0 && !allEntries[idx].recipeId) {
-            allEntries[idx] = { ...allEntries[idx], recipeId: lr.id };
-          }
-        }
-      }
-      return { ...cb, recipes: allEntries, savedCount: linkedRecipes.length };
-    });
-  }, [cookbooks, recipes]);
-
-  const currentCb = selectedCookbook ? enrichedCookbooks.find(c => c.id === selectedCookbook.id) : null;
-
-  if (selectedCookbook && currentCb) {
-    return <CookbookDetail
-      cookbook={currentCb}
-      onBack={() => setSelectedCookbook(null)}
-      onEdit={() => { setEditingCookbook(currentCb); setShowAddModal(true); }}
-      onDelete={() => handleDeleteCookbook(currentCb.id)}
-      onOpenRecipe={onOpenRecipe}
-      recipes={recipes}
-      onUpdateRecipes={(newRecipes) => setCookbooks(prev => prev.map(c => c.id === currentCb.id ? { ...c, recipes: newRecipes } : c))}
-    />;
-  }
-
-  return (
-    <main className="view cookbooks-tab">
-      {(showAddModal || editingCookbook) && (
-        <CookbookEditModal
-          cookbook={editingCookbook}
-          onSave={handleSaveCookbook}
-          onClose={() => { setShowAddModal(false); setEditingCookbook(null); }}
-        />
-      )}
-
-      <div className="cookbooks-header">
-        <div>
-          <h2 className="cookbooks-title">My Cookbooks</h2>
-          <p className="cookbooks-subtitle">{cookbooks.length} {cookbooks.length === 1 ? 'cookbook' : 'cookbooks'} in your collection</p>
-        </div>
-        <button className="btn btn--primary" onClick={() => setShowAddModal(true)}>+ Add Cookbook</button>
-      </div>
-
-      {cookbooks.length === 0 ? (
-        <div className="cookbooks-empty">
-          <div className="cookbooks-empty__icon">📚</div>
-          <h3 className="cookbooks-empty__title">Start your cookbook shelf</h3>
-          <p className="cookbooks-empty__sub">Add your physical cookbooks and track which recipes you've saved in Hearth</p>
-          <button className="btn btn--primary" onClick={() => setShowAddModal(true)}>+ Add your first cookbook</button>
-        </div>
-      ) : (
-        <div className="cookbooks-grid">
-          {enrichedCookbooks.map(cb => (
-            <button key={cb.id} className="cookbook-card" onClick={() => setSelectedCookbook(cb)}>
-              <div className="cookbook-card__spine" style={{ background: cb.spineColor || '#C65D3B' }} />
-              <div className="cookbook-card__cover">
-                {cb.coverImage
-                  ? <img src={cb.coverImage} alt={cb.title} className="cookbook-card__img" />
-                  : <div className="cookbook-card__placeholder">
-                      <span className="cookbook-card__placeholder-icon">📖</span>
-                    </div>
-                }
-              </div>
-              <div className="cookbook-card__info">
-                <h3 className="cookbook-card__title">{cb.title}</h3>
-                {cb.author && <p className="cookbook-card__author">{cb.author}</p>}
-                <div className="cookbook-card__stats">
-                  <span className="cookbook-card__stat">{cb.recipes?.length || 0} recipes</span>
-                  {cb.savedCount > 0 && <span className="cookbook-card__stat cookbook-card__stat--saved">✓ {cb.savedCount} saved</span>}
-                </div>
-              </div>
-            </button>
-          ))}
-          <button className="cookbook-card cookbook-card--add" onClick={() => setShowAddModal(true)}>
-            <div className="cookbook-card__add-icon">+</div>
-            <p className="cookbook-card__add-label">Add cookbook</p>
-          </button>
-        </div>
-      )}
-    </main>
-  );
-};
-
-const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
-  const isNew = !cookbook;
-  const [form, setForm] = useState({
-    title: cookbook?.title || '',
-    author: cookbook?.author || '',
-    coverImage: cookbook?.coverImage || '',
-    spineColor: cookbook?.spineColor || '#C65D3B',
-    notes: cookbook?.notes || '',
-  });
-  const [imgError, setImgError] = useState(false);
-  const SPINE_COLORS = ['#C65D3B','#2E2A27','#7a9e7e','#4a6fa5','#8B4513','#6B3FA0','#B5451B','#2C5F2E'];
-
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  const save = () => {
-    if (!form.title.trim()) return;
-    onSave({ ...form, title: form.title.trim() });
-  };
-
+// ─── Add Reference Modal ─────────────────────────────────────────────────────
+const AddReferenceModal = ({ onSave, onClose, allTags }) => {
+  const [name, setName]   = useState('');
+  const [page, setPage]   = useState('');
+  const [image, setImage] = useState('');
+  const [tags, setTags]   = useState([]);
+  const [imgErr, setImgErr] = useState(false);
+  const toggle = t => setTags(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
+  const save = () => { if (!name.trim()) return; onSave({ name: name.trim(), page: page.trim(), image: image.trim(), tags, recipeId: null, addedAt: Date.now() }); };
   return (
     <div className="create-modal-overlay" onClick={onClose}>
       <div className="create-modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
         <div className="create-modal__header">
+          <h2 className="create-modal__title">📌 Add Reference</h2>
+          <button className="ing-modal__close" onClick={onClose}>✕</button>
+        </div>
+        <div className="create-modal__body" style={{ gap: 14 }}>
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Recipe name <span className="create-modal__required">*</span></label>
+            <input className="editor-input create-modal__name-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Roast Chicken" autoFocus onKeyDown={e => e.key === 'Enter' && save()} />
+          </div>
+          <div style={{ display:'flex', gap:12 }}>
+            <div className="create-modal__field" style={{ flex:1 }}>
+              <label className="create-modal__field-label">Page number</label>
+              <input className="editor-input" value={page} onChange={e => setPage(e.target.value)} placeholder="e.g. 142" />
+            </div>
+          </div>
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Image URL <span style={{opacity:.5,fontWeight:400}}>(optional)</span></label>
+            <input className="editor-input" value={image} onChange={e => { setImage(e.target.value); setImgErr(false); }} placeholder="https://…" />
+            {image && !imgErr && <img src={image} alt="" onError={() => setImgErr(true)} style={{ width:72, height:72, objectFit:'cover', borderRadius:8, marginTop:6, border:'1.5px solid var(--border)' }} />}
+          </div>
+          {allTags.length > 0 && (
+            <div className="create-modal__field">
+              <label className="create-modal__field-label">Tags</label>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
+                {allTags.map(t => (
+                  <button key={t} className={`chip ${tags.includes(t) ? 'chip--selected' : ''}`} onClick={() => toggle(t)} type="button">
+                    {tags.includes(t) && <span className="chip__check">✓</span>}{t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="create-modal__footer">
+          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" onClick={save} disabled={!name.trim()}>+ Add Reference</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Quick Add Modal ──────────────────────────────────────────────────────────
+const QuickAddModal = ({ onSave, onClose }) => {
+  const [rows, setRows] = useState([{id:1,name:'',page:''},{id:2,name:'',page:''},{id:3,name:'',page:''}]);
+  const nextId = useRef(4);
+  const upd = (id,k,v) => setRows(p => p.map(r => r.id===id ? {...r,[k]:v} : r));
+  const addRow = () => setRows(p => [...p, {id: nextId.current++, name:'', page:''}]);
+  const rmRow  = id => setRows(p => p.filter(r => r.id !== id));
+  const valid  = rows.filter(r => r.name.trim());
+  const save   = () => { if (!valid.length) return; onSave(valid.map(r => ({ name: r.name.trim(), page: r.page.trim(), image:'', tags:[], recipeId:null, addedAt:Date.now() }))); };
+  return (
+    <div className="create-modal-overlay" onClick={onClose}>
+      <div className="create-modal" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
+        <div className="create-modal__header">
+          <h2 className="create-modal__title">⚡ Quick Add</h2>
+          <button className="ing-modal__close" onClick={onClose}>✕</button>
+        </div>
+        <div className="create-modal__body" style={{ gap:8 }}>
+          <p style={{ fontSize:13, color:'var(--warm-gray)', marginBottom:4 }}>Add multiple recipes at once — leave rows blank to skip.</p>
+          <div style={{ display:'flex', gap:8, padding:'0 0 4px', fontWeight:600, fontSize:12, color:'var(--warm-gray)' }}>
+            <span style={{ flex:3 }}>Recipe name</span><span style={{ width:90 }}>Page #</span><span style={{ width:28 }} />
+          </div>
+          {rows.map((row,i) => (
+            <div key={row.id} style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <input className="editor-input" style={{ flex:3 }} value={row.name} onChange={e => upd(row.id,'name',e.target.value)} placeholder={`Recipe ${i+1}`} />
+              <input className="editor-input" style={{ width:90 }} value={row.page} onChange={e => upd(row.id,'page',e.target.value)} placeholder="Page #" />
+              {rows.length > 1 && <button className="editor-remove-btn" onClick={() => rmRow(row.id)}>✕</button>}
+            </div>
+          ))}
+          <button className="btn btn--ghost editor-add-btn" onClick={addRow} style={{ marginTop:4 }}>+ Add row</button>
+        </div>
+        <div className="create-modal__footer">
+          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" onClick={save} disabled={!valid.length}>✓ Add {valid.length || ''} Recipes</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Convert to Full Recipe Modal ─────────────────────────────────────────────
+const ConvertRecipeModal = ({ entry, cookbookTitle, onConverted, onClose }) => {
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const convert = async () => {
+    setSaving(true); setErr(null);
+    try {
+      const res = await fetch(`${API}/api/recipes`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ details:{ name:entry.name, cookbook:cookbookTitle, page_number:entry.page, cover_image_url:entry.image||'', status:'to try', tags:entry.tags||[] }, ingredients:[], instructions:[], notes:[] }),
+      });
+      let data = {}; try { data = await res.json(); } catch {}
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      onConverted(data.recipe);
+    } catch(e) { setErr(e.message); setSaving(false); }
+  };
+  return (
+    <div className="create-modal-overlay" onClick={onClose}>
+      <div className="create-modal" style={{ maxWidth:420 }} onClick={e => e.stopPropagation()}>
+        <div className="create-modal__header">
+          <h2 className="create-modal__title">✨ Convert to Full Recipe</h2>
+        </div>
+        <div className="create-modal__body">
+          <p style={{ fontSize:14, lineHeight:1.5 }}>This will add <strong>{entry.name}</strong> to Hearth as a full recipe, pre-filled with the cookbook and page number. You can add ingredients and instructions afterwards.</p>
+          {err && <p style={{ color:'var(--terracotta)', fontSize:13, marginTop:8 }}>⚠️ {err}</p>}
+        </div>
+        <div className="create-modal__footer">
+          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" onClick={convert} disabled={saving}>{saving ? 'Creating…' : '✨ Convert'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── CookbookEditModal ────────────────────────────────────────────────────────
+const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
+  const isNew = !cookbook;
+  const [form, setForm] = useState({ title:cookbook?.title||'', author:cookbook?.author||'', coverImage:cookbook?.coverImage||'', spineColor:cookbook?.spineColor||'#C65D3B', notes:cookbook?.notes||'' });
+  const [imgError, setImgError] = useState(false);
+  const SPINE_COLORS = ['#C65D3B','#2E2A27','#7a9e7e','#4a6fa5','#8B4513','#6B3FA0','#B5451B','#2C5F2E'];
+  const set = (k,v) => setForm(p => ({...p,[k]:v}));
+  const save = () => { if (!form.title.trim()) return; onSave({...form, title:form.title.trim()}); };
+  return (
+    <div className="create-modal-overlay" onClick={onClose}>
+      <div className="create-modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+        <div className="create-modal__header">
           <h2 className="create-modal__title">{isNew ? '📚 Add Cookbook' : `Edit "${cookbook.title}"`}</h2>
           <button className="ing-modal__close" onClick={onClose}>✕</button>
         </div>
-        <div className="create-modal__body" style={{ gap: 16 }}>
-          {/* Cover image preview + URL */}
+        <div className="create-modal__body" style={{ gap:16 }}>
           <div className="create-modal__img-row">
             <div className="create-modal__img-preview cookbook-edit__cover-preview">
-              {form.coverImage && !imgError
-                ? <img src={form.coverImage} alt="cover" onError={() => setImgError(true)} />
-                : <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', fontSize:32 }}>📖</div>}
+              {form.coverImage && !imgError ? <img src={form.coverImage} alt="cover" onError={() => setImgError(true)} /> : <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100%',fontSize:32 }}>📖</div>}
             </div>
             <div className="create-modal__img-input-wrap">
               <label className="create-modal__field-label">Cover image URL</label>
-              <input className="editor-input" value={form.coverImage} onChange={e => { set('coverImage', e.target.value); setImgError(false); }} placeholder="https://…" />
+              <input className="editor-input" value={form.coverImage} onChange={e => { set('coverImage',e.target.value); setImgError(false); }} placeholder="https://…" />
               <p className="create-modal__field-hint">Paste a book cover URL</p>
             </div>
           </div>
-
           <div className="create-modal__field">
             <label className="create-modal__field-label">Cookbook title <span className="create-modal__required">*</span></label>
-            <input className="editor-input create-modal__name-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Ottolenghi Simple" autoFocus={isNew} />
+            <input className="editor-input create-modal__name-input" value={form.title} onChange={e => set('title',e.target.value)} placeholder="e.g. Ottolenghi Simple" autoFocus={isNew} />
           </div>
           <div className="create-modal__field">
             <label className="create-modal__field-label">Author</label>
-            <input className="editor-input" value={form.author} onChange={e => set('author', e.target.value)} placeholder="e.g. Yotam Ottolenghi" />
+            <input className="editor-input" value={form.author} onChange={e => set('author',e.target.value)} placeholder="e.g. Yotam Ottolenghi" />
           </div>
-
           <div className="create-modal__field">
             <label className="create-modal__field-label">Spine colour</label>
             <div className="cookbook-spine-picker">
-              {SPINE_COLORS.map(c => (
-                <button key={c} className={`cookbook-spine-swatch ${form.spineColor === c ? 'cookbook-spine-swatch--active' : ''}`}
-                  style={{ background: c }} onClick={() => set('spineColor', c)} type="button" />
-              ))}
+              {SPINE_COLORS.map(c => <button key={c} className={`cookbook-spine-swatch ${form.spineColor===c?'cookbook-spine-swatch--active':''}`} style={{ background:c }} onClick={() => set('spineColor',c)} type="button" />)}
             </div>
           </div>
-
           <div className="create-modal__field">
             <label className="create-modal__field-label">Notes</label>
-            <input className="editor-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this book…" />
+            <input className="editor-input" value={form.notes} onChange={e => set('notes',e.target.value)} placeholder="Any notes about this book…" />
           </div>
         </div>
         <div className="create-modal__footer">
@@ -2398,57 +2398,62 @@ const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
   );
 };
 
-const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, recipes, onUpdateRecipes }) => {
-  const [showAddRecipe, setShowAddRecipe] = useState(false);
-  const [newRecipeName, setNewRecipeName] = useState('');
-  const [newRecipePage, setNewRecipePage] = useState('');
+// ─── CookbookDetail ───────────────────────────────────────────────────────────
+const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, recipes, onUpdateRecipes, allTags, setCookingRecipe, cookLog, onRecipeConverted }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [editingEntryIdx, setEditingEntryIdx] = useState(null);
+  const [showAddRef,   setShowAddRef]   = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [convertEntry, setConvertEntry] = useState(null);
+  const [editingEntry, setEditingEntry] = useState(null); // the entry object being edited
   const [editName, setEditName] = useState('');
   const [editPage, setEditPage] = useState('');
-  const [search, setSearch] = useState('');
+  const [search,   setSearch]   = useState('');
+  const [sortKey,  setSortKey]  = useState('page');
 
   const savedCount = useMemo(() => recipes.filter(r => r.cookbook && r.cookbook.toLowerCase().trim() === cookbook.title.toLowerCase().trim()).length, [recipes, cookbook]);
+  const cookedIds  = useMemo(() => new Set((cookLog||[]).map(e => e.recipe_id)), [cookLog]);
+  const cookedCount = useMemo(() => cookbook.recipes.filter(e => e.recipeId && cookedIds.has(e.recipeId)).length, [cookbook.recipes, cookedIds]);
+  const pct = cookbook.recipes.length > 0 ? Math.round((cookedCount / cookbook.recipes.length) * 100) : 0;
 
-  const filteredRecipes = useMemo(() => {
-    if (!search.trim()) return cookbook.recipes;
+  const sorted = useMemo(() => {
+    const list = [...cookbook.recipes];
+    if (sortKey === 'page')   list.sort((a,b) => (parseInt(a.page)||9999) - (parseInt(b.page)||9999));
+    if (sortKey === 'alpha')  list.sort((a,b) => a.name.localeCompare(b.name));
+    if (sortKey === 'recent') list.sort((a,b) => (b.addedAt||0) - (a.addedAt||0));
+    return list;
+  }, [cookbook.recipes, sortKey]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return sorted;
     const q = search.toLowerCase();
-    return cookbook.recipes.filter(e => e.name.toLowerCase().includes(q));
-  }, [cookbook.recipes, search]);
+    return sorted.filter(e => e.name.toLowerCase().includes(q) || (e.page||'').includes(q));
+  }, [sorted, search]);
 
-  const addRecipeEntry = () => {
-    if (!newRecipeName.trim()) return;
-    const matchedRecipe = recipes.find(r => r.name.toLowerCase() === newRecipeName.trim().toLowerCase());
-    const newEntry = { name: newRecipeName.trim(), page: newRecipePage.trim(), recipeId: matchedRecipe?.id || null };
-    onUpdateRecipes([...cookbook.recipes, newEntry]);
-    setNewRecipeName(''); setNewRecipePage(''); setShowAddRecipe(false);
-  };
-
-  const removeEntry = (idx) => onUpdateRecipes(cookbook.recipes.filter((_, i) => i !== idx));
-
-  const startEditEntry = (idx, entry) => {
-    setEditingEntryIdx(idx); setEditName(entry.name); setEditPage(entry.page || '');
-  };
-
-  const saveEditEntry = () => {
+  const addEntries = (entries) => { onUpdateRecipes([...cookbook.recipes, ...entries]); setShowAddRef(false); setShowQuickAdd(false); };
+  const removeEntry = (entry) => onUpdateRecipes(cookbook.recipes.filter(e => e !== entry));
+  const startEdit = (entry) => { setEditingEntry(entry); setEditName(entry.name); setEditPage(entry.page||''); };
+  const saveEdit = () => {
     if (!editName.trim()) return;
-    const matchedRecipe = recipes.find(r => r.name.toLowerCase() === editName.trim().toLowerCase());
-    onUpdateRecipes(cookbook.recipes.map((e, i) => i === editingEntryIdx
-      ? { ...e, name: editName.trim(), page: editPage.trim(), recipeId: matchedRecipe?.id || e.recipeId }
-      : e
-    ));
-    setEditingEntryIdx(null);
+    const matched = recipes.find(r => r.name.toLowerCase() === editName.trim().toLowerCase());
+    onUpdateRecipes(cookbook.recipes.map(e => e === editingEntry ? {...e, name:editName.trim(), page:editPage.trim(), recipeId:matched?.id||e.recipeId} : e));
+    setEditingEntry(null);
   };
 
   return (
     <main className="view cookbook-detail">
-      <div className="cookbook-detail__header">
-        <button className="btn btn--ghost btn--sm" onClick={onBack}>← Cookbooks</button>
-        <div className="cookbook-detail__actions">
-          <button className="btn btn--ghost btn--sm" onClick={onEdit}>✎ Edit</button>
-          <button className="btn btn--ghost btn--sm" style={{ color: 'var(--terracotta)' }} onClick={() => setShowDeleteConfirm(true)}>🗑 Remove</button>
-        </div>
-      </div>
+      {showAddRef   && <AddReferenceModal onSave={e => addEntries([e])} onClose={() => setShowAddRef(false)} allTags={allTags} />}
+      {showQuickAdd && <QuickAddModal onSave={addEntries} onClose={() => setShowQuickAdd(false)} />}
+      {convertEntry && (
+        <ConvertRecipeModal
+          entry={convertEntry} cookbookTitle={cookbook.title}
+          onConverted={(newRecipe) => {
+            onUpdateRecipes(cookbook.recipes.map(e => e === convertEntry ? {...e, recipeId:newRecipe.id} : e));
+            onRecipeConverted && onRecipeConverted(newRecipe);
+            setConvertEntry(null);
+          }}
+          onClose={() => setConvertEntry(null)}
+        />
+      )}
 
       {showDeleteConfirm && (
         <div className="create-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
@@ -2464,85 +2469,106 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
         </div>
       )}
 
+      <div className="cookbook-detail__header">
+        <button className="btn btn--ghost btn--sm" onClick={onBack}>← Cookbooks</button>
+        <div className="cookbook-detail__actions">
+          <button className="btn btn--ghost btn--sm" onClick={onEdit}>✎ Edit</button>
+          <button className="btn btn--ghost btn--sm" style={{ color:'var(--terracotta)' }} onClick={() => setShowDeleteConfirm(true)}>🗑 Remove</button>
+        </div>
+      </div>
+
       <div className="cookbook-detail__hero">
         <div className="cookbook-detail__cover">
-          {cookbook.coverImage
-            ? <img src={cookbook.coverImage} alt={cookbook.title} />
-            : <div className="cookbook-detail__cover-placeholder" style={{ background: cookbook.spineColor || '#C65D3B' }}><span>📖</span></div>
-          }
+          {cookbook.coverImage ? <img src={cookbook.coverImage} alt={cookbook.title} /> : <div className="cookbook-detail__cover-placeholder" style={{ background:cookbook.spineColor||'#C65D3B' }}><span>📖</span></div>}
         </div>
         <div className="cookbook-detail__meta">
           <h1 className="cookbook-detail__title">{cookbook.title}</h1>
           {cookbook.author && <p className="cookbook-detail__author">by {cookbook.author}</p>}
-          {cookbook.notes && <p className="cookbook-detail__notes">{cookbook.notes}</p>}
+          {cookbook.notes  && <p className="cookbook-detail__notes">{cookbook.notes}</p>}
           <div className="cookbook-detail__stats">
             <span className="cookbook-detail__stat"><strong>{cookbook.recipes.length}</strong> recipes listed</span>
             <span className="cookbook-detail__stat cookbook-detail__stat--saved"><strong>{savedCount}</strong> saved in Hearth</span>
           </div>
+          {cookbook.recipes.length > 0 && (
+            <div className="cbdetail-progress">
+              <div className="cbdetail-progress__bar"><div className="cbdetail-progress__fill" style={{ width:`${pct}%` }} /></div>
+              <span className="cbdetail-progress__label">{cookedCount} of {cookbook.recipes.length} cooked · {pct}%</span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="cookbook-detail__recipes">
         <div className="cookbook-detail__recipes-header">
           <h2 className="cookbook-detail__recipes-title">Recipes</h2>
-          <button className="btn btn--primary btn--sm" onClick={() => setShowAddRecipe(v => !v)}>+ Add Recipe</button>
+          <div className="cbdetail-toolbar">
+            <div className="cookbook-sort-tabs">
+              {COOKBOOK_SORTS.map(o => <button key={o.key} className={`cookbook-sort-tab ${sortKey===o.key?'cookbook-sort-tab--active':''}`} onClick={() => setSortKey(o.key)}>{o.label}</button>)}
+            </div>
+            <button className="btn btn--ghost btn--sm" onClick={() => setShowQuickAdd(true)}>⚡ Quick Add</button>
+            <button className="btn btn--primary btn--sm" onClick={() => setShowAddRef(true)}>+ Add Reference</button>
+          </div>
         </div>
 
-        {cookbook.recipes.length > 3 && (
-          <div className="cookbook-search-wrap">
-            <input className="editor-input cookbook-search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes in this book…" />
-            {search && <button className="cookbook-search-clear" onClick={() => setSearch('')}>✕</button>}
-          </div>
-        )}
-
-        {showAddRecipe && (
-          <div className="cookbook-add-recipe-row">
-            <input className="editor-input" style={{ flex: 2 }} value={newRecipeName} onChange={e => setNewRecipeName(e.target.value)} placeholder="Recipe name" autoFocus onKeyDown={e => { if (e.key === 'Enter') addRecipeEntry(); }} />
-            <input className="editor-input" style={{ width: 90 }} value={newRecipePage} onChange={e => setNewRecipePage(e.target.value)} placeholder="Page #" onKeyDown={e => { if (e.key === 'Enter') addRecipeEntry(); }} />
-            <button className="btn btn--primary btn--sm" onClick={addRecipeEntry}>Add</button>
-            <button className="btn btn--ghost btn--sm" onClick={() => setShowAddRecipe(false)}>Cancel</button>
-          </div>
-        )}
+        <div className="cookbook-search-wrap">
+          <input className="editor-input cookbook-search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes in this book…" />
+          {search && <button className="cookbook-search-clear" onClick={() => setSearch('')}>✕</button>}
+        </div>
 
         {cookbook.recipes.length === 0 ? (
-          <div className="cookbook-detail__empty"><p>No recipes listed yet. Add recipe names to track what's in this book.</p></div>
-        ) : filteredRecipes.length === 0 ? (
+          <div className="cookbook-detail__empty"><p>No recipes listed yet. Add references to track what's in this book.</p></div>
+        ) : filtered.length === 0 ? (
           <div className="cookbook-detail__empty"><p>No recipes match "{search}".</p></div>
         ) : (
           <div className="cookbook-recipe-list">
-            {filteredRecipes.map((entry, idx) => {
-              const realIdx = cookbook.recipes.indexOf(entry);
-              const linkedRecipe = entry.recipeId ? recipes.find(r => r.id === entry.recipeId) : null;
-              const isEditing = editingEntryIdx === realIdx;
+            {filtered.map((entry, idx) => {
+              const linked  = entry.recipeId ? recipes.find(r => r.id === entry.recipeId) : null;
+              const isEditing = editingEntry === entry;
+              const entryTags = linked?.tags || entry.tags || [];
 
-              if (isEditing) {
-                return (
-                  <div key={realIdx} className="cookbook-recipe-entry cookbook-recipe-entry--editing">
-                    <input className="editor-input" style={{ flex: 2 }} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Recipe name" autoFocus onKeyDown={e => { if (e.key === 'Enter') saveEditEntry(); if (e.key === 'Escape') setEditingEntryIdx(null); }} />
-                    <input className="editor-input" style={{ width: 90 }} value={editPage} onChange={e => setEditPage(e.target.value)} placeholder="Page #" onKeyDown={e => { if (e.key === 'Enter') saveEditEntry(); }} />
-                    <button className="btn btn--primary btn--sm" onClick={saveEditEntry}>Save</button>
-                    <button className="btn btn--ghost btn--sm" onClick={() => setEditingEntryIdx(null)}>Cancel</button>
-                  </div>
-                );
-              }
+              if (isEditing) return (
+                <div key={idx} className="cookbook-recipe-entry cookbook-recipe-entry--editing">
+                  <input className="editor-input" style={{ flex:2 }} value={editName} onChange={e => setEditName(e.target.value)} autoFocus onKeyDown={e => { if(e.key==='Enter') saveEdit(); if(e.key==='Escape') setEditingEntry(null); }} placeholder="Recipe name" />
+                  <input className="editor-input" style={{ width:90 }} value={editPage} onChange={e => setEditPage(e.target.value)} placeholder="Page #" onKeyDown={e => e.key==='Enter' && saveEdit()} />
+                  <button className="btn btn--primary btn--sm" onClick={saveEdit}>Save</button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setEditingEntry(null)}>Cancel</button>
+                </div>
+              );
 
               return (
-                <div key={realIdx} className={`cookbook-recipe-entry ${linkedRecipe ? 'cookbook-recipe-entry--linked' : ''}`}>
-                  <div className="cookbook-recipe-entry__main">
-                    {entry.page && <span className="cookbook-recipe-entry__page">p.{entry.page}</span>}
-                    {linkedRecipe
-                      ? <button className="cookbook-recipe-entry__name cookbook-recipe-entry__name--link" onClick={() => onOpenRecipe(linkedRecipe)}>
-                          {entry.name}
-                          <span className="cookbook-recipe-entry__saved-badge">✓ Saved</span>
-                        </button>
-                      : <span className="cookbook-recipe-entry__name">{entry.name}</span>
-                    }
+                <div key={idx} className={`cbentry ${linked ? 'cbentry--linked' : ''}`}>
+                  {/* Thumbnail */}
+                  <div className="cbentry__thumb-wrap">
+                    {(entry.image || linked?.coverImage)
+                      ? <img className="cbentry__thumb" src={entry.image || linked?.coverImage} alt={entry.name} />
+                      : <div className="cbentry__thumb cbentry__thumb--empty">📖</div>}
                   </div>
-                  <div className="cookbook-recipe-entry__actions">
-                    {!linkedRecipe && (
-                      <button className="cookbook-recipe-entry__edit" onClick={() => startEditEntry(realIdx, entry)} title="Edit">✎</button>
+                  {/* Info */}
+                  <div className="cbentry__info">
+                    <div className="cbentry__name-row">
+                      {linked
+                        ? <button className="cbentry__name cbentry__name--link" onClick={() => onOpenRecipe(linked)}>{entry.name}</button>
+                        : <span className="cbentry__name">{entry.name}</span>}
+                      {linked && <span className="cookbook-recipe-entry__saved-badge">✓ Saved</span>}
+                    </div>
+                    {entry.page && <span className="cbentry__page">p. {entry.page}</span>}
+                    {entryTags.length > 0 && (
+                      <div className="cbentry__tags">
+                        {entryTags.slice(0,5).map(t => <span key={t} className="cbentry__tag">{t}</span>)}
+                      </div>
                     )}
-                    <button className="editor-remove-btn cookbook-recipe-entry__remove" onClick={() => removeEntry(realIdx)} title="Remove">✕</button>
+                  </div>
+                  {/* Actions */}
+                  <div className="cbentry__actions">
+                    <button className="cbentry__action cbentry__action--cook" title="Mark as Cooked"
+                      onClick={() => setCookingRecipe({ id: entry.recipeId || `ref-${idx}`, name: entry.name, coverImage: entry.image || linked?.coverImage || null })}>
+                      🍳
+                    </button>
+                    {linked
+                      ? <button className="cbentry__action cbentry__action--view" onClick={() => onOpenRecipe(linked)} title="Open in Hearth">View →</button>
+                      : <button className="cbentry__action cbentry__action--convert" onClick={() => setConvertEntry(entry)} title="Convert to full recipe">✨ Convert</button>}
+                    {!linked && <button className="cbentry__action cbentry__action--edit" onClick={() => startEdit(entry)} title="Edit">✎</button>}
+                    {!linked && <button className="cbentry__action cbentry__action--remove" onClick={() => removeEntry(entry)} title="Remove">✕</button>}
                   </div>
                 </div>
               );
@@ -2550,6 +2576,155 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
           </div>
         )}
       </div>
+    </main>
+  );
+};
+
+// ─── CookbooksTab ─────────────────────────────────────────────────────────────
+const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags, setCookingRecipe, cookLog, onRecipeConverted }) => {
+  const [selectedCookbook, setSelectedCookbook] = useState(null);
+  const [showAddModal,     setShowAddModal]     = useState(false);
+  const [editingCookbook,  setEditingCookbook]  = useState(null);
+  const [globalSearch,     setGlobalSearch]     = useState('');
+
+  const handleSaveCookbook = (data) => {
+    if (editingCookbook) setCookbooks(prev => prev.map(c => c.id===editingCookbook.id ? {...c,...data} : c));
+    else setCookbooks(prev => [...prev, { id:`cb-${Date.now()}`, recipes:[], ...data }]);
+    setShowAddModal(false); setEditingCookbook(null);
+  };
+
+  const handleDeleteCookbook = (id) => {
+    setCookbooks(prev => prev.filter(c => c.id !== id));
+    if (selectedCookbook?.id === id) setSelectedCookbook(null);
+  };
+
+  const enrichedCookbooks = useMemo(() => cookbooks.map(cb => {
+    const linked = recipes.filter(r => r.cookbook && r.cookbook.toLowerCase().trim() === cb.title.toLowerCase().trim());
+    const entries = [...(cb.recipes||[])];
+    for (const lr of linked) {
+      if (!entries.some(e => e.name.toLowerCase() === lr.name.toLowerCase()))
+        entries.push({ name:lr.name, page:lr.reference||'', image:lr.coverImage||'', tags:lr.tags||[], recipeId:lr.id, addedAt:Date.now() });
+      else {
+        const i = entries.findIndex(e => e.name.toLowerCase() === lr.name.toLowerCase());
+        if (i >= 0 && !entries[i].recipeId) entries[i] = {...entries[i], recipeId:lr.id};
+      }
+    }
+    return {...cb, recipes:entries, savedCount:linked.length};
+  }), [cookbooks, recipes]);
+
+  const globalResults = useMemo(() => {
+    if (!globalSearch.trim()) return [];
+    const q = globalSearch.toLowerCase();
+    const out = [];
+    for (const cb of enrichedCookbooks)
+      for (const e of cb.recipes)
+        if (e.name.toLowerCase().includes(q)) out.push({...e, _cbTitle:cb.title, _cbId:cb.id});
+    return out;
+  }, [globalSearch, enrichedCookbooks]);
+
+  const currentCb = selectedCookbook ? enrichedCookbooks.find(c => c.id===selectedCookbook.id) : null;
+
+  if (selectedCookbook && currentCb) {
+    return <CookbookDetail
+      cookbook={currentCb}
+      onBack={() => setSelectedCookbook(null)}
+      onEdit={() => { setEditingCookbook(currentCb); setShowAddModal(true); }}
+      onDelete={() => handleDeleteCookbook(currentCb.id)}
+      onOpenRecipe={onOpenRecipe}
+      recipes={recipes}
+      onUpdateRecipes={(newRecipes) => setCookbooks(prev => prev.map(c => c.id===currentCb.id ? {...c, recipes:newRecipes} : c))}
+      allTags={allTags}
+      setCookingRecipe={setCookingRecipe}
+      cookLog={cookLog}
+      onRecipeConverted={onRecipeConverted}
+    />;
+  }
+
+  return (
+    <main className="view cookbooks-tab">
+      {(showAddModal||editingCookbook) && (
+        <CookbookEditModal cookbook={editingCookbook} onSave={handleSaveCookbook} onClose={() => { setShowAddModal(false); setEditingCookbook(null); }} />
+      )}
+
+      <div className="cookbooks-header">
+        <div>
+          <h2 className="cookbooks-title">My Cookbooks</h2>
+          <p className="cookbooks-subtitle">{cookbooks.length} {cookbooks.length===1?'cookbook':'cookbooks'} · {enrichedCookbooks.reduce((s,c) => s+c.recipes.length, 0)} recipes indexed</p>
+        </div>
+        <button className="btn btn--primary" onClick={() => setShowAddModal(true)}>+ Add Cookbook</button>
+      </div>
+
+      {cookbooks.length > 0 && (
+        <div className="cookbooks-global-search">
+          <input className="editor-input" value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Search recipes across all cookbooks…" />
+          {globalSearch && <button className="cookbook-search-clear" onClick={() => setGlobalSearch('')}>✕</button>}
+        </div>
+      )}
+
+      {globalSearch.trim() && (
+        <div className="cookbooks-search-results">
+          {globalResults.length === 0
+            ? <p className="cookbooks-search-empty">No recipes found for "{globalSearch}"</p>
+            : globalResults.map((e, i) => {
+                const linked = e.recipeId ? recipes.find(r => r.id===e.recipeId) : null;
+                return (
+                  <div key={i} className="cbsearch-result">
+                    <div className="cbsearch-result__info">
+                      <span className="cbsearch-result__name">{e.name}</span>
+                      <span className="cbsearch-result__meta">{e._cbTitle}{e.page ? ` · p. ${e.page}` : ''}</span>
+                    </div>
+                    <div className="cbsearch-result__actions">
+                      {linked && <button className="btn btn--ghost btn--sm" onClick={() => onOpenRecipe(linked)}>View →</button>}
+                      <button className="btn btn--ghost btn--sm" onClick={() => { setGlobalSearch(''); setSelectedCookbook(enrichedCookbooks.find(c => c.id===e._cbId)); }}>Open cookbook</button>
+                    </div>
+                  </div>
+                );
+              })
+          }
+        </div>
+      )}
+
+      {!globalSearch.trim() && (cookbooks.length === 0 ? (
+        <div className="cookbooks-empty">
+          <div className="cookbooks-empty__icon">📚</div>
+          <h3 className="cookbooks-empty__title">Start your cookbook shelf</h3>
+          <p className="cookbooks-empty__sub">Add your physical cookbooks and track which recipes you've saved in Hearth</p>
+          <button className="btn btn--primary" onClick={() => setShowAddModal(true)}>+ Add your first cookbook</button>
+        </div>
+      ) : (
+        <div className="cookbooks-grid">
+          {enrichedCookbooks.map(cb => {
+            const cookedCt = cb.recipes.filter(e => e.recipeId && (cookLog||[]).some(l => l.recipe_id===e.recipeId)).length;
+            const p = cb.recipes.length > 0 ? Math.round((cookedCt/cb.recipes.length)*100) : 0;
+            return (
+              <button key={cb.id} className="cookbook-card" onClick={() => setSelectedCookbook(cb)}>
+                <div className="cookbook-card__spine" style={{ background:cb.spineColor||'#C65D3B' }} />
+                <div className="cookbook-card__cover">
+                  {cb.coverImage ? <img src={cb.coverImage} alt={cb.title} className="cookbook-card__img" /> : <div className="cookbook-card__placeholder"><span className="cookbook-card__placeholder-icon">📖</span></div>}
+                </div>
+                <div className="cookbook-card__info">
+                  <h3 className="cookbook-card__title">{cb.title}</h3>
+                  {cb.author && <p className="cookbook-card__author">{cb.author}</p>}
+                  <div className="cookbook-card__stats">
+                    <span className="cookbook-card__stat">{cb.recipes?.length||0} recipes</span>
+                    {cb.savedCount > 0 && <span className="cookbook-card__stat cookbook-card__stat--saved">✓ {cb.savedCount} saved</span>}
+                  </div>
+                  {cb.recipes.length > 0 && (
+                    <div className="cbcard-progress">
+                      <div className="cbcard-progress__bar"><div className="cbcard-progress__fill" style={{ width:`${p}%` }} /></div>
+                      <span className="cbcard-progress__label">{cookedCt} cooked</span>
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+          <button className="cookbook-card cookbook-card--add" onClick={() => setShowAddModal(true)}>
+            <div className="cookbook-card__add-icon">+</div>
+            <p className="cookbook-card__add-label">Add cookbook</p>
+          </button>
+        </div>
+      ))}
     </main>
   );
 };
@@ -3505,6 +3680,10 @@ function AppInner() {
           setCookbooks={setCookbooks}
           recipes={recipes}
           onOpenRecipe={openRecipe}
+          allTags={allTags}
+          setCookingRecipe={setCookingRecipe}
+          cookLog={[]}
+          onRecipeConverted={(newRecipe) => { loadData(); openRecipe(newRecipe); }}
         />
       )}
 

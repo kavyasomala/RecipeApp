@@ -26,52 +26,68 @@ async function query(sql, params) {
   }
 }
 
-// ─── Grocery category mapping ───────────────────────────────────────────────
+// ─── Grocery category mapping ─────────────────────────────────────────────────
+// Categories intentionally mirror the Kitchen tab: Produce, Meat & Fish, Dairy,
+// Sauces, Spices, Alcohol, Staples, Other
 const CATEGORY_MAP = {
-  produce: ['onion', 'garlic', 'ginger', 'tomato', 'tomatoes', 'lemon', 'lime', 'spinach',
-    'carrot', 'carrots', 'celery', 'potato', 'potatoes', 'bell pepper', 'cucumber',
-    'zucchini', 'broccoli', 'cauliflower', 'mushroom', 'mushrooms', 'avocado',
-    'lettuce', 'kale', 'cabbage', 'spring onion', 'scallion', 'shallot', 'shallots',
-    'chilli', 'chili', 'jalapeño', 'capsicum', 'leek', 'asparagus', 'eggplant',
-    'aubergine', 'sweet potato', 'pumpkin', 'butternut squash', 'beetroot', 'radish',
-    'green beans', 'peas', 'corn', 'coriander', 'cilantro', 'parsley', 'basil',
-    'mint', 'thyme', 'rosemary', 'dill', 'chives', 'bay leaves', 'lemongrass',
-    'orange', 'lime leaves', 'thai basil'],
-
-  'meat & seafood': ['chicken', 'beef', 'pork', 'lamb', 'turkey', 'duck', 'bacon',
-    'sausage', 'mince', 'ground beef', 'ground pork', 'steak', 'salmon', 'tuna',
-    'shrimp', 'prawns', 'cod', 'tilapia', 'fish', 'crab', 'lobster', 'scallops',
-    'mussels', 'anchovies', 'ham', 'pancetta', 'prosciutto', 'chorizo', 'salami'],
-
-  'dairy & eggs': ['egg', 'eggs', 'milk', 'butter', 'cream', 'heavy cream', 'double cream',
-    'sour cream', 'yogurt', 'greek yogurt', 'cheese', 'parmesan', 'cheddar', 'feta',
-    'mozzarella', 'ricotta', 'cream cheese', 'brie', 'gouda', 'halloumi',
-    'creme fraiche', 'ghee', 'buttermilk', 'condensed milk', 'coconut milk',
-    'coconut cream'],
-
-  'pantry & dry goods': ['rice', 'pasta', 'noodles', 'flour', 'bread', 'breadcrumbs',
-    'panko', 'oats', 'quinoa', 'lentils', 'chickpeas', 'black beans', 'kidney beans',
-    'cannellini beans', 'lentil', 'split peas', 'couscous', 'polenta', 'cornmeal',
-    'tortilla', 'wrap', 'pita', 'stock', 'broth', 'chicken stock', 'beef stock',
-    'vegetable stock', 'oil', 'olive oil', 'sesame oil', 'vegetable oil', 'coconut oil',
-    'vinegar', 'balsamic vinegar', 'rice vinegar', 'apple cider vinegar',
-    'soy sauce', 'fish sauce', 'oyster sauce', 'hoisin sauce', 'worcestershire sauce',
-    'tomato paste', 'tomato sauce', 'passata', 'canned tomatoes', 'diced tomatoes',
-    'coconut milk', 'sugar', 'brown sugar', 'honey', 'maple syrup', 'cornstarch',
-    'cornflour', 'baking powder', 'baking soda', 'yeast', 'vanilla extract',
-    'chocolate', 'cocoa', 'peanut butter', 'tahini', 'miso', 'dried pasta',
-    'udon', 'rice noodles', 'glass noodles', 'wonton wrappers'],
-
-  'spices & condiments': ['salt', 'pepper', 'black pepper', 'cumin', 'coriander',
-    'turmeric', 'paprika', 'smoked paprika', 'chilli flakes', 'cayenne', 'cinnamon',
-    'nutmeg', 'cardamom', 'cloves', 'star anise', 'bay leaf', 'oregano', 'thyme',
-    'dried thyme', 'dried rosemary', 'dried basil', 'mixed herbs', 'curry powder',
-    'garam masala', 'five spice', 'mustard', 'dijon mustard', 'hot sauce', 'sriracha',
-    'ketchup', 'mayonnaise', 'ranch', 'caesar dressing', 'italian dressing',
-    'white pepper', 'msg', 'sesame seeds', 'chilli powder'],
-
-  frozen: ['frozen peas', 'frozen corn', 'frozen spinach', 'frozen edamame',
-    'frozen berries', 'ice cream', 'frozen prawns', 'frozen shrimp'],
+  produce: [
+    'onion','garlic','ginger','tomato','tomatoes','lemon','lime','spinach',
+    'carrot','carrots','celery','potato','potatoes','bell pepper','cucumber',
+    'zucchini','broccoli','cauliflower','mushroom','mushrooms','avocado',
+    'lettuce','kale','cabbage','spring onion','scallion','shallot','shallots',
+    'chilli','chili','jalapeño','capsicum','leek','asparagus','eggplant',
+    'aubergine','sweet potato','pumpkin','butternut squash','beetroot','radish',
+    'green beans','peas','corn','coriander','cilantro','parsley','basil',
+    'mint','thyme','rosemary','dill','chives','bay leaves','lemongrass',
+    'orange','lime leaves','thai basil','apple','banana','mango','berry',
+    'berries','strawberry','blueberry','peach','pear','grape','cherry',
+  ],
+  'meat & fish': [
+    'chicken','beef','pork','lamb','turkey','duck','bacon','sausage','mince',
+    'ground beef','ground pork','steak','salmon','tuna','shrimp','prawns',
+    'cod','tilapia','fish','crab','lobster','scallops','mussels','anchovies',
+    'ham','pancetta','prosciutto','chorizo','salami','veal','brisket','ribs',
+    'meatball','swordfish','trout','halibut','clams','oysters','squid','calamari',
+  ],
+  dairy: [
+    'egg','eggs','milk','butter','cream','heavy cream','double cream','sour cream',
+    'yogurt','greek yogurt','cheese','parmesan','cheddar','feta','mozzarella',
+    'ricotta','cream cheese','brie','gouda','halloumi','creme fraiche','ghee',
+    'buttermilk','condensed milk','coconut milk','coconut cream',
+  ],
+  sauces: [
+    'soy sauce','fish sauce','oyster sauce','hoisin sauce','worcestershire sauce',
+    'hot sauce','sriracha','ketchup','mayonnaise','ranch','caesar dressing',
+    'italian dressing','tomato paste','tomato sauce','passata','canned tomatoes',
+    'diced tomatoes','peanut butter','tahini','miso','mustard','dijon mustard',
+    'bbq sauce','teriyaki sauce','sambal','chilli sauce','aioli','pesto',
+    'hummus','vinaigrette','maple syrup','honey',
+  ],
+  spices: [
+    'salt','pepper','black pepper','cumin','coriander powder','turmeric','paprika',
+    'smoked paprika','chilli flakes','cayenne','cinnamon','nutmeg','cardamom',
+    'cloves','star anise','bay leaf','oregano','dried thyme','dried rosemary',
+    'dried basil','mixed herbs','curry powder','garam masala','five spice',
+    'white pepper','msg','sesame seeds','chilli powder','allspice',
+    'vanilla extract','baking powder','baking soda','yeast',
+  ],
+  alcohol: [
+    'wine','red wine','white wine','beer','vodka','rum','whiskey','bourbon',
+    'gin','tequila','brandy','sake','mirin','rice wine','sherry','port',
+    'champagne','prosecco','vermouth','kahlua',
+  ],
+  staples: [
+    'rice','pasta','noodles','flour','bread','breadcrumbs','panko','oats',
+    'quinoa','lentils','chickpeas','black beans','kidney beans','cannellini beans',
+    'split peas','couscous','polenta','cornmeal','tortilla','wrap','pita',
+    'stock','broth','chicken stock','beef stock','vegetable stock',
+    'oil','olive oil','sesame oil','vegetable oil','coconut oil',
+    'vinegar','balsamic vinegar','rice vinegar','apple cider vinegar',
+    'sugar','brown sugar','cornstarch','cornflour','chocolate','cocoa',
+    'dried pasta','udon','rice noodles','glass noodles','wonton wrappers',
+    'frozen peas','frozen corn','frozen spinach','frozen edamame',
+    'frozen berries','ice cream','frozen prawns','frozen shrimp',
+  ],
 };
 
 function categorise(ingredientName) {
@@ -83,13 +99,14 @@ function categorise(ingredientName) {
 }
 
 const CATEGORY_META = {
-  'produce':            { emoji: '🥦', order: 1 },
-  'meat & seafood':     { emoji: '🥩', order: 2 },
-  'dairy & eggs':       { emoji: '🥚', order: 3 },
-  'pantry & dry goods': { emoji: '🫙', order: 4 },
-  'spices & condiments':{ emoji: '🧂', order: 5 },
-  'frozen':             { emoji: '🧊', order: 6 },
-  'other':              { emoji: '🛒', order: 7 },
+  'produce':     { emoji: '🥦', order: 1 },
+  'meat & fish': { emoji: '🥩', order: 2 },
+  'dairy':       { emoji: '🥛', order: 3 },
+  'sauces':      { emoji: '🫙', order: 4 },
+  'spices':      { emoji: '🧂', order: 5 },
+  'alcohol':     { emoji: '🍷', order: 6 },
+  'staples':     { emoji: '🌾', order: 7 },
+  'other':       { emoji: '🛒', order: 8 },
 };
 
 // ─── GET /api/recipes ───────────────────────────────────────────────────────
