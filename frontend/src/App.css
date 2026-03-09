@@ -1130,6 +1130,7 @@ body {
   .rp2__body { padding: 0 16px; }
   .rp2__header { padding: 0 16px; }
   .rp2__notes-row { flex-direction: column; }
+  .rp2__cookbook { width: 100% !important; flex-shrink: unset; }
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
@@ -2381,15 +2382,22 @@ body {
 
 /* ─── Ingredient edit modal — mobile responsive ──────────────────────────── */
 .ing-flat-header--desktop {
-  display: grid;
-  grid-template-columns: 24px 1fr 1fr 28px;
-  gap: 8px;
-  padding: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 6px 8px;
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--warm-gray);
   border-bottom: 1.5px solid var(--border);
-  align-items: center;
 }
+.ing-flat-header__drag { width: 18px; flex-shrink: 0; }
+.ing-flat-header__col { }
+.ing-flat-header__qty-col  { width: 56px; flex-shrink: 0; }
+.ing-flat-header__unit-col { width: 76px; flex-shrink: 0; }
+.ing-flat-header__name-col { flex: 2; min-width: 100px; }
+.ing-flat-header__prep-col { flex: 3; min-width: 100px; }
+.ing-flat-header__opt-col  { width: 72px; flex-shrink: 0; }
+.ing-flat-header__rm       { width: 28px; flex-shrink: 0; }
 
 /* Redesigned flat row — one-line on desktop, stacked on mobile */
 .ing-flat-row {
@@ -2440,12 +2448,14 @@ body {
   .ing-modal-overlay { padding: 0; align-items: flex-end; }
   .ing-modal--wide {
     max-width: 100% !important;
-    max-height: 90vh;
+    max-height: 78vh;
     border-radius: 20px 20px 0 0;
     width: 100vw;
   }
-  .ing-modal__body { padding: 12px 12px 80px; }
+  .ing-modal__header { padding: 14px 16px 12px; position: sticky; top: 0; background: var(--warm-white); z-index: 10; border-bottom: 1px solid var(--border); }
+  .ing-modal__body { padding: 12px 12px 48px; }
   .ing-flat-header--desktop { display: none; }
+  .ing-modal__save-btn { min-width: 80px; }
 
   /* Stack the ingredient row fields on mobile */
   .ing-flat-row {
@@ -2474,10 +2484,6 @@ body {
   .ing-flat-row__unit-wrap { width: 72px; }
   .ing-flat-row__name-wrap { flex: 1 !important; width: auto !important; }
   .ing-flat-row__prep { flex: 1 !important; width: auto !important; }
-
-  /* Make header Save/Close buttons accessible */
-  .ing-modal__header { padding: 14px 16px 10px; }
-  .ing-modal__save-btn { min-width: 80px; }
 }
 
 /* ─── img popover — dark styled ─────────────────────────────────────────── */
@@ -2734,14 +2740,22 @@ body {
 
 /* ─── Cookbook text display ──────────────────────────────────────────────── */
 .rp2__cookbook-text {
-  font-size: 14px;
-  color: var(--charcoal);
-  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   padding: 4px 0;
 }
-.rp2__cookbook-text__book { font-weight: 600; }
-.rp2__cookbook-text__sep { color: var(--warm-gray); }
-.rp2__cookbook-text__page { color: var(--warm-gray); }
+.rp2__cookbook-text__book {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--charcoal);
+  line-height: 1.4;
+}
+.rp2__cookbook-text__page {
+  font-size: 13px;
+  color: var(--warm-gray);
+  font-style: italic;
+}
 
 /* ─── Grocery tab — new smart design ────────────────────────────────────── */
 .grocery-view { padding-bottom: 64px; }
@@ -2819,4 +2833,95 @@ body {
   .grocery-header { padding-top: 20px; }
   .grocery-header__actions { gap: 8px; }
   .cookbook-recipe-entry--editing { flex-wrap: wrap; }
+}
+
+/* ─── Grocery toggle — pill switch ──────────────────────────────────────── */
+.grocery-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--warm-gray); cursor: pointer;
+  user-select: none;
+}
+.grocery-toggle input[type="checkbox"] { display: none; }
+.grocery-toggle__switch {
+  position: relative; width: 38px; height: 22px;
+  background: var(--light-gray); border-radius: 999px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.grocery-toggle input:checked + .grocery-toggle__switch { background: var(--terracotta); }
+.grocery-toggle__switch::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%; background: white;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.grocery-toggle input:checked + .grocery-toggle__switch::after { transform: translateX(16px); }
+
+/* ─── Recipe Card — cooked button ────────────────────────────────────────── */
+.recipe-card__cooked-btn {
+  position: absolute; bottom: 8px; right: 8px;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(4px);
+  font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+  transition: transform 0.15s, background 0.15s;
+  z-index: 3;
+}
+.recipe-card__cooked-btn:hover { background: #e8f5e9; transform: scale(1.1); }
+
+/* ─── RecipePage hero — cooked button ───────────────────────────────────── */
+.rp2__hero-cooked-btn {
+  background: rgba(122,158,126,0.85) !important;
+  color: white !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 6px 12px !important;
+  border-radius: 999px !important;
+  letter-spacing: 0.02em;
+  gap: 4px;
+  display: flex; align-items: center;
+}
+.rp2__hero-cooked-btn:hover { background: rgba(90,140,95,0.95) !important; }
+
+/* ─── Mark Cooked Modal ──────────────────────────────────────────────────── */
+.cooked-modal { max-width: 440px !important; }
+.cooked-modal__body {
+  display: flex; flex-direction: column; gap: 20px;
+}
+.cooked-modal__recipe-name {
+  font-family: var(--font-display);
+  font-size: 18px; font-weight: 700; color: var(--charcoal);
+  margin: 0;
+}
+.cooked-modal__date { font-size: 13px; color: var(--warm-gray); margin-top: -12px; }
+.cooked-modal__label {
+  font-size: 13px; font-weight: 700; color: var(--charcoal);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.cooked-modal__rating-section, .cooked-modal__notes-section { }
+.cooked-modal__stars {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.cooked-modal__star {
+  font-size: 28px; background: none; border: none; cursor: pointer;
+  color: var(--light-gray); transition: color 0.1s, transform 0.1s;
+  line-height: 1; padding: 2px;
+}
+.cooked-modal__star--on { color: #f5a623; }
+.cooked-modal__star:hover { transform: scale(1.15); }
+.cooked-modal__rating-label {
+  font-size: 13px; color: var(--warm-gray); font-style: italic;
+  margin-left: 8px;
+}
+.cooked-modal__notes-input {
+  width: 100%; resize: vertical; min-height: 72px;
+}
+.cooked-modal__save-btn { min-width: 140px; }
+
+@media (max-width: 640px) {
+  .cooked-modal { max-width: 100% !important; }
 }

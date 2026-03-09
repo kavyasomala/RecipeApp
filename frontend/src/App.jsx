@@ -158,7 +158,7 @@ const Badge = ({ children, variant = 'default' }) => (
 // ─── Recipe Summary Card ───────────────────────────────────────────────────
 const toNum = (v) => { const n = Number(v); return (!isNaN(n) && v !== '' && v !== null && v !== undefined) ? n : null; };
 
-const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon }) => {
+const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon, onMarkCooked }) => {
   const { name, coverImage, cuisine, time } = recipe;
   const calories = toNum(recipe.calories);
   const protein  = toNum(recipe.protein);
@@ -190,6 +190,13 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
           onClick={e => { e.stopPropagation(); onToggleMakeSoon && onToggleMakeSoon(); }}
           title={isMakeSoon ? 'Remove from Make Soon' : 'Add to Make Soon'}
         >⏱</button>
+        {isMakeSoon && onMarkCooked && (
+          <button
+            className="recipe-card__cooked-btn"
+            onClick={e => { e.stopPropagation(); onMarkCooked(recipe); }}
+            title="Mark as Cooked"
+          >🍳</button>
+        )}
       </div>
       <div className="recipe-card__body">
         <div className="recipe-card__title-row">
@@ -280,12 +287,88 @@ const IngGroupRow = ({ ing, onLabelChange, onRemove, onAddIngredient }) => {
   );
 };
 
+// ─── Mark As Cooked Modal ──────────────────────────────────────────────────
+const MarkCookedModal = ({ recipe, onSave, onClose }) => {
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const save = async () => {
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch(`${API}/api/cook-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipe_id: recipe.id, rating: rating || null, notes: notes.trim() || null, cooked_at: new Date().toISOString() }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to save'); }
+      onSave();
+    } catch (e) { setError(e.message); setSaving(false); }
+  };
+
+  const displayRating = hoverRating || rating;
+
+  return (
+    <div className="create-modal-overlay" onClick={onClose}>
+      <div className="create-modal cooked-modal" onClick={e => e.stopPropagation()}>
+        <div className="create-modal__header">
+          <h2 className="create-modal__title">🍳 Marked as Cooked!</h2>
+          <button className="ing-modal__close" onClick={onClose}>✕</button>
+        </div>
+        <div className="create-modal__body cooked-modal__body">
+          <p className="cooked-modal__recipe-name">{recipe?.name}</p>
+          <p className="cooked-modal__date">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+
+          <div className="cooked-modal__rating-section">
+            <p className="cooked-modal__label">How did it turn out?</p>
+            <div className="cooked-modal__stars">
+              {[1,2,3,4,5].map(n => (
+                <button
+                  key={n}
+                  className={`cooked-modal__star ${n <= displayRating ? 'cooked-modal__star--on' : ''}`}
+                  onMouseEnter={() => setHoverRating(n)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={() => setRating(r => r === n ? 0 : n)}
+                  type="button"
+                >★</button>
+              ))}
+              {rating > 0 && <span className="cooked-modal__rating-label">{['','Didn\'t love it','It was okay','Pretty good!','Really good!','Perfect! ⭐'][rating]}</span>}
+            </div>
+          </div>
+
+          <div className="cooked-modal__notes-section">
+            <p className="cooked-modal__label">Any notes? <span style={{opacity:0.5,fontWeight:400}}>(optional)</span></p>
+            <textarea
+              className="editor-textarea cooked-modal__notes-input"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Added more garlic, served with salad, would do again…"
+              rows={3}
+            />
+          </div>
+
+          {error && <p className="editor-error">⚠️ {error}</p>}
+        </div>
+        <div className="create-modal__footer">
+          <button className="btn btn--ghost" onClick={onClose}>Skip</button>
+          <button className="btn btn--primary cooked-modal__save-btn" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : '✓ Save Cook Log'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Recipe Page ────────────────────────────────────────────────────────────
-const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved, onDelete, loading, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon, allIngredients = [], cookbooks = [] }) => {
+const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved, onDelete, loading, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon, allIngredients = [], cookbooks = [], onMarkCooked }) => {
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
   const [showIngredientsModal, setShowIngredientsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCookedModal, setShowCookedModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const ingDndSensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -584,6 +667,14 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
         </div>
       )}
 
+      {showCookedModal && recipe && (
+        <MarkCookedModal
+          recipe={recipe}
+          onSave={() => { setShowCookedModal(false); if (onMarkCooked) onMarkCooked(recipe.id); }}
+          onClose={() => setShowCookedModal(false)}
+        />
+      )}
+
       {/* ── Hero ── */}
       <div className="rp2__hero">
         {recipe.coverImage
@@ -595,6 +686,13 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
           <div className="rp2__hero-topbar">
             <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); onBack(); }}>← Back</button>
             <div className="rp2__hero-topbar-right">
+              {isMakeSoon && onMarkCooked && (
+                <button
+                  className="rp2__hero-btn rp2__hero-cooked-btn"
+                  onClick={e => { e.stopPropagation(); setShowCookedModal(true); }}
+                  title="Mark as Cooked"
+                >🍳 Cooked</button>
+              )}
               {onToggleHeart && (
                 <button
                   className={`rp2__hero-btn rp2__hero-heart ${isHearted ? 'rp2__hero-heart--on' : ''}`}
@@ -823,8 +921,11 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                       {/* Column headers — desktop only */}
                       <div className="ing-flat-header ing-flat-header--desktop">
                         <span className="ing-flat-header__drag" />
-                        <span style={{gridColumn:'2/5'}}>Qty · Unit · Ingredient</span>
-                        <span className="ing-flat-header__prep">Prep note · Status</span>
+                        <span className="ing-flat-header__col ing-flat-header__qty-col">Qty</span>
+                        <span className="ing-flat-header__col ing-flat-header__unit-col">Unit</span>
+                        <span className="ing-flat-header__col ing-flat-header__name-col">Ingredient</span>
+                        <span className="ing-flat-header__col ing-flat-header__prep-col">Prep note</span>
+                        <span className="ing-flat-header__col ing-flat-header__opt-col">Status</span>
                         <span className="ing-flat-header__rm" />
                       </div>
                       {draftIngs.map((ing) => {
@@ -835,10 +936,16 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                               onLabelChange={v => setDraftIngs(prev => prev.map(i => i._id === ing._id ? {...i, name: v} : i))}
                               onRemove={() => setDraftIngs(prev => prev.filter(i => i._id !== ing._id))}
                               onAddIngredient={() => setDraftIngs(prev => {
-                                const idx = prev.findIndex(i => i._id === ing._id);
-                                const newIng = { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: ing.name };
+                                const groupName = ing.name;
+                                // Find the last ingredient that belongs to this group
+                                let insertIdx = prev.findIndex(i => i._id === ing._id);
+                                for (let j = insertIdx + 1; j < prev.length; j++) {
+                                  if (prev[j]._isGroup) break; // hit next group
+                                  insertIdx = j; // last ingredient in this group
+                                }
+                                const newIng = { _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: groupName };
                                 const next = [...prev];
-                                next.splice(idx + 1, 0, newIng);
+                                next.splice(insertIdx + 1, 0, newIng);
                                 return next;
                               })}
                             />
@@ -986,9 +1093,8 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 </div>
               ) : (recipe.cookbook || recipe.page_number) ? (
                 <div className="rp2__cookbook-text">
-                  <span className="rp2__cookbook-text__book">{recipe.cookbook}</span>
-                  {recipe.cookbook && recipe.page_number && <span className="rp2__cookbook-text__sep">, </span>}
-                  {recipe.page_number && <span className="rp2__cookbook-text__page">page {recipe.page_number}</span>}
+                  {recipe.cookbook && <span className="rp2__cookbook-text__book">{recipe.cookbook}</span>}
+                  {recipe.page_number && <span className="rp2__cookbook-text__page">Page {recipe.page_number}</span>}
                 </div>
               ) : (
                 <p className="rp2__empty-hint">No reference yet. Click ✎ to add.</p>
@@ -1725,7 +1831,40 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to build list');
         if (!cancelled) {
-          setCategories(data.categories || []);
+          // Client-side: merge duplicate ingredient amounts across recipes
+          const rawCats = data.categories || [];
+          const mergedCats = rawCats.map(cat => {
+            const merged = {};
+            for (const item of cat.items) {
+              const key = item.name.toLowerCase().trim();
+              if (!merged[key]) {
+                merged[key] = { ...item, totalAmount: null, _amounts: [] };
+              }
+              const existing = merged[key];
+              // Try to sum numeric amounts
+              const n = parseFloat(item.amount);
+              if (!isNaN(n) && (existing.unit || '').toLowerCase() === (item.unit || '').toLowerCase()) {
+                existing._amounts.push(n);
+              }
+              // Merge recipe lists
+              if (item.recipes?.length) {
+                existing.recipes = [...new Set([...(existing.recipes || []), ...item.recipes])];
+              }
+            }
+            const items = Object.values(merged).map(item => {
+              if (item._amounts.length > 0) {
+                const total = item._amounts.reduce((a, b) => a + b, 0);
+                // Format nicely: avoid decimals if whole number
+                item.totalAmount = Number.isInteger(total) ? String(total) : total.toFixed(1).replace(/\.0$/, '');
+              } else {
+                item.totalAmount = item.amount;
+              }
+              delete item._amounts;
+              return item;
+            });
+            return { ...cat, items };
+          });
+          setCategories(mergedCats);
           setRecipeNames(data.recipeNames || []);
           setChecked(new Set());
         }
@@ -1775,6 +1914,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
           <div className="grocery-header__actions">
             <label className="grocery-toggle">
               <input type="checkbox" checked={hideInKitchen} onChange={e => setHideInKitchen(e.target.checked)} />
+              <span className="grocery-toggle__switch" />
               <span>Hide items in kitchen</span>
             </label>
             <button className="btn btn--ghost btn--sm" onClick={copyList}>📋 Copy</button>
@@ -2556,6 +2696,7 @@ function AppInner() {
   const [customCuisines, setCustomCuisines] = useState(() => LS.get('customCuisines', []));
   const [heartedIds, setHeartedIds] = useState(() => LS.get('heartedIds', []));
   const [makeSoonIds, setMakeSoonIds] = useState(() => LS.get('makeSoonIds', []));
+  const [cookingRecipe, setCookingRecipe] = useState(null); // recipe object to mark cooked
   const [libraryPage, setLibraryPage] = useState(1);
   const [lastSynced, setLastSynced] = useState(null);
 
@@ -2730,6 +2871,10 @@ function AppInner() {
           loading={recipeLoading} onBack={() => setView(lastView)}
           allIngredients={allIngredients.map(i => typeof i === 'string' ? i : i.name).filter(Boolean)}
           cookbooks={cookbooks}
+          onMarkCooked={(recipeId) => {
+            // RecipePage passes recipeId; open the full modal with rating
+            if (selectedRecipe) setCookingRecipe(selectedRecipe);
+          }}
           isHearted={selectedRecipe ? heartedIds.includes(selectedRecipe.id) : false}
           onToggleHeart={() => selectedRecipe && toggleHeart(selectedRecipe.id)}
           isMakeSoon={selectedRecipe ? makeSoonIds.includes(selectedRecipe.id) : false}
@@ -2811,7 +2956,8 @@ function AppInner() {
                         {makeSoonRecipes.map(r => (
                           <RecipeCard key={r.id} recipe={r} match={matchById.get(r.id)} onClick={openRecipe}
                             isHearted={heartedIds.includes(r.id)} onToggleHeart={() => toggleHeart(r.id)}
-                            isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)} />
+                            isMakeSoon={true} onToggleMakeSoon={() => toggleMakeSoon(r.id)}
+                            onMarkCooked={(recipe) => setCookingRecipe(recipe)} />
                         ))}
                     </HScrollRow>
                   )}
@@ -3211,6 +3357,17 @@ function AppInner() {
             </div>
           </div>
         </main>
+      )}
+
+      {cookingRecipe && (
+        <MarkCookedModal
+          recipe={cookingRecipe}
+          onSave={() => {
+            setMakeSoonIds(prev => prev.filter(id => id !== cookingRecipe.id));
+            setCookingRecipe(null);
+          }}
+          onClose={() => setCookingRecipe(null)}
+        />
       )}
 
       <SiteFooter onNav={setView} />
