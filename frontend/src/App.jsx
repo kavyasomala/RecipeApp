@@ -985,15 +985,13 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                   <input className="editor-input" value={draftCookbook.page_number} onChange={e => setDraftCookbook(p => ({...p, page_number: e.target.value}))} placeholder="Page number" style={{marginTop: 6}} />
                 </div>
               ) : (recipe.cookbook || recipe.page_number) ? (
-                <div className="rp2__cookbook-card">
-                  {recipe.cookbook && <p className="rp2__cookbook-name">{recipe.cookbook}</p>}
-                  {recipe.page_number && <p className="rp2__cookbook-page">p. {recipe.page_number}</p>}
+                <div className="rp2__cookbook-text">
+                  <span className="rp2__cookbook-text__book">{recipe.cookbook}</span>
+                  {recipe.cookbook && recipe.page_number && <span className="rp2__cookbook-text__sep">, </span>}
+                  {recipe.page_number && <span className="rp2__cookbook-text__page">page {recipe.page_number}</span>}
                 </div>
               ) : (
-                <div className="rp2__cookbook-empty">
-                  <p className="rp2__cookbook-prompt">No reference yet</p>
-                  <p className="rp2__cookbook-hint">Click ✎ to add a cookbook, page number, or URL.</p>
-                </div>
+                <p className="rp2__empty-hint">No reference yet. Click ✎ to add.</p>
               )}
             </div>
           </div>
@@ -1699,94 +1697,151 @@ const SettingsTab = ({ units, setUnits, dietaryFilters, setDietaryFilters }) => 
 };
 
 // ─── Grocery List Tab ────────────────────────────────────────────────────────
-const GroceryListTab = ({ recipes, matchById }) => {
-  const [selectedIds, setSelectedIds] = useState([]);
+const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
   const [categories, setCategories] = useState([]);
   const [recipeNames, setRecipeNames] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(new Set());
   const [error, setError] = useState(null);
+  const [hideInKitchen, setHideInKitchen] = useState(false);
 
-  const toggleRecipe = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const toggleChecked = (key) => setChecked(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+  const makeSoonRecipes = useMemo(() => recipes.filter(r => makeSoonIds.includes(r.id)), [recipes, makeSoonIds]);
+
+  const toggleChecked = (key) => setChecked(prev => {
+    const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next;
+  });
 
   useEffect(() => {
-    if (!selectedIds.length) { setCategories([]); setRecipeNames([]); return; }
+    if (!makeSoonIds.length) { setCategories([]); setRecipeNames([]); return; }
     let cancelled = false;
     const fetch_ = async () => {
       setLoading(true); setError(null);
       try {
-        const res = await fetch(`${API}/api/grocery-list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeIds: selectedIds }) });
+        const res = await fetch(`${API}/api/grocery-list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipeIds: makeSoonIds }),
+        });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to build list');
-        if (!cancelled) { setCategories(data.categories || []); setRecipeNames(data.recipeNames || []); setChecked(new Set()); }
-      } catch (e) { if (!cancelled) setError(e.message); } finally { if (!cancelled) setLoading(false); }
+        if (!cancelled) {
+          setCategories(data.categories || []);
+          setRecipeNames(data.recipeNames || []);
+          setChecked(new Set());
+        }
+      } catch (e) { if (!cancelled) setError(e.message); }
+      finally { if (!cancelled) setLoading(false); }
     };
     fetch_();
     return () => { cancelled = true; };
-  }, [selectedIds]);
+  }, [makeSoonIds]);
 
   const copyList = () => {
     const lines = [`Grocery List — ${recipeNames.join(', ')}\n`];
     categories.forEach(cat => {
+      const items = hideInKitchen
+        ? cat.items.filter(item => !allMyIngredients.has(item.name.toLowerCase().trim()))
+        : cat.items;
+      if (!items.length) return;
       lines.push(`\n${cat.emoji} ${cat.name}`);
-      cat.items.forEach(item => {
-        const tick = checked.has(`${cat.name}-${item.name}`) ? '✓' : '○';
-        const amount = [item.amount, item.unit].filter(Boolean).join(' ');
+      items.forEach(item => {
+        const inKitchen = allMyIngredients.has(item.name.toLowerCase().trim());
+        const tick = checked.has(`${cat.name}-${item.name}`) || inKitchen ? '✓' : '○';
+        const amount = [item.totalAmount, item.unit].filter(Boolean).join(' ');
         lines.push(`  ${tick} ${amount} ${item.name}${item.prep_note ? ` (${item.prep_note})` : ''}`);
       });
     });
     navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   };
 
+  const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0);
+  const inKitchenCount = categories.reduce((sum, cat) =>
+    sum + cat.items.filter(item => allMyIngredients.has(item.name.toLowerCase().trim())).length, 0);
+
   return (
-    <main className="view">
+    <main className="view grocery-view">
       <div className="grocery-header">
-        <h2 className="grocery-title">Grocery List</h2>
-        <p className="grocery-subtitle">Select recipes to build your shopping list</p>
+        <div>
+          <h2 className="grocery-title">Grocery List</h2>
+          {makeSoonRecipes.length > 0 ? (
+            <p className="grocery-subtitle">
+              Shopping for: <span className="grocery-subtitle__meals">{makeSoonRecipes.map(r => r.name).join(', ')}</span>
+            </p>
+          ) : (
+            <p className="grocery-subtitle">Add recipes to Make Soon to build your list</p>
+          )}
+        </div>
+        {categories.length > 0 && (
+          <div className="grocery-header__actions">
+            <label className="grocery-toggle">
+              <input type="checkbox" checked={hideInKitchen} onChange={e => setHideInKitchen(e.target.checked)} />
+              <span>Hide items in kitchen</span>
+            </label>
+            <button className="btn btn--ghost btn--sm" onClick={copyList}>📋 Copy</button>
+          </div>
+        )}
       </div>
-      <div className="grocery-recipe-picker">
-        {recipes.map(r => {
-          const m = matchById.get(r.id);
-          const isSelected = selectedIds.includes(r.id);
-          return (
-            <button key={r.id} className={`grocery-recipe-chip ${isSelected ? 'grocery-recipe-chip--on' : ''}`} onClick={() => toggleRecipe(r.id)}>
-              {isSelected && <span>✓ </span>}{r.name}{m?.canMake && <span className="grocery-recipe-chip__ready"> ✓</span>}
-            </button>
-          );
-        })}
-      </div>
+
+      {makeSoonRecipes.length === 0 && (
+        <div className="grocery-empty">
+          <div className="grocery-empty__icon">🛒</div>
+          <h3 className="grocery-empty__title">No recipes in Make Soon</h3>
+          <p className="grocery-empty__sub">Tap ⏱ on any recipe to add it to Make Soon — your grocery list will build automatically.</p>
+        </div>
+      )}
+
       {error && <p className="grocery-error">⚠️ {error}</p>}
       {loading && <div className="grocery-loading"><div className="loading-spinner" /><p>Building your list…</p></div>}
+
       {!loading && categories.length > 0 && (
-        <div className="grocery-list">
-          <div className="grocery-list-header">
-            <p className="grocery-list-for">For: {recipeNames.join(', ')}</p>
-            <button className="btn btn--ghost btn--sm" onClick={copyList}>📋 Copy list</button>
-          </div>
-          {categories.map(cat => (
-            <div key={cat.name} className="grocery-category">
-              <h3 className="grocery-category__title">{cat.emoji} {cat.name}</h3>
-              <div className="grocery-items">
-                {cat.items.map(item => {
-                  const key = `${cat.name}-${item.name}`;
-                  const isChecked = checked.has(key);
-                  const amountStr = [item.amount, item.unit].filter(Boolean).join(' ');
-                  return (
-                    <div key={key} className={`grocery-item ${isChecked ? 'grocery-item--checked' : ''}`} onClick={() => toggleChecked(key)}>
-                      <div className={`grocery-item__checkbox ${isChecked ? 'grocery-item__checkbox--checked' : ''}`}>{isChecked && '✓'}</div>
-                      <div className="grocery-item__body">
-                        <span className="grocery-item__name">{amountStr} {item.name}</span>
-                        {item.prep_note && <span className="grocery-item__note">{item.prep_note}</span>}
-                        {item.recipes?.length > 1 && <span className="grocery-item__recipes">used in {item.recipes.join(', ')}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <>
+          {inKitchenCount > 0 && (
+            <div className="grocery-kitchen-banner">
+              <span>✓ {inKitchenCount} of {totalItems} ingredients already in your kitchen</span>
             </div>
-          ))}
-        </div>
+          )}
+          <div className="grocery-list">
+            {categories.map(cat => {
+              const allItems = cat.items;
+              const visibleItems = hideInKitchen
+                ? allItems.filter(item => !allMyIngredients.has(item.name.toLowerCase().trim()))
+                : allItems;
+              if (!visibleItems.length) return null;
+              return (
+                <div key={cat.name} className="grocery-category">
+                  <h3 className="grocery-category__title">{cat.emoji} {cat.name}</h3>
+                  <div className="grocery-items">
+                    {visibleItems.map(item => {
+                      const key = `${cat.name}-${item.name}`;
+                      const inKitchen = allMyIngredients.has(item.name.toLowerCase().trim());
+                      const isChecked = checked.has(key) || inKitchen;
+                      const amountStr = [item.totalAmount ?? item.amount, item.unit].filter(Boolean).join(' ');
+                      return (
+                        <div
+                          key={key}
+                          className={`grocery-item ${isChecked ? 'grocery-item--checked' : ''} ${inKitchen ? 'grocery-item--in-kitchen' : ''}`}
+                          onClick={() => !inKitchen && toggleChecked(key)}
+                        >
+                          <div className={`grocery-item__checkbox ${isChecked ? 'grocery-item__checkbox--checked' : ''}`}>
+                            {isChecked && '✓'}
+                          </div>
+                          <div className="grocery-item__body">
+                            <span className="grocery-item__name">{amountStr} {item.name}</span>
+                            {item.prep_note && <span className="grocery-item__note">{item.prep_note}</span>}
+                            {inKitchen && <span className="grocery-item__kitchen-tag">in kitchen</span>}
+                            {item.recipes?.length > 1 && !inKitchen && (
+                              <span className="grocery-item__recipes">for {item.recipes.join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </main>
   );
@@ -2046,25 +2101,41 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
   const [newRecipeName, setNewRecipeName] = useState('');
   const [newRecipePage, setNewRecipePage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingEntryIdx, setEditingEntryIdx] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPage, setEditPage] = useState('');
+  const [search, setSearch] = useState('');
 
   const savedCount = useMemo(() => recipes.filter(r => r.cookbook && r.cookbook.toLowerCase().trim() === cookbook.title.toLowerCase().trim()).length, [recipes, cookbook]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!search.trim()) return cookbook.recipes;
+    const q = search.toLowerCase();
+    return cookbook.recipes.filter(e => e.name.toLowerCase().includes(q));
+  }, [cookbook.recipes, search]);
 
   const addRecipeEntry = () => {
     if (!newRecipeName.trim()) return;
     const matchedRecipe = recipes.find(r => r.name.toLowerCase() === newRecipeName.trim().toLowerCase());
-    const newEntry = {
-      name: newRecipeName.trim(),
-      page: newRecipePage.trim(),
-      recipeId: matchedRecipe?.id || null,
-    };
+    const newEntry = { name: newRecipeName.trim(), page: newRecipePage.trim(), recipeId: matchedRecipe?.id || null };
     onUpdateRecipes([...cookbook.recipes, newEntry]);
-    setNewRecipeName('');
-    setNewRecipePage('');
-    setShowAddRecipe(false);
+    setNewRecipeName(''); setNewRecipePage(''); setShowAddRecipe(false);
   };
 
-  const removeEntry = (idx) => {
-    onUpdateRecipes(cookbook.recipes.filter((_, i) => i !== idx));
+  const removeEntry = (idx) => onUpdateRecipes(cookbook.recipes.filter((_, i) => i !== idx));
+
+  const startEditEntry = (idx, entry) => {
+    setEditingEntryIdx(idx); setEditName(entry.name); setEditPage(entry.page || '');
+  };
+
+  const saveEditEntry = () => {
+    if (!editName.trim()) return;
+    const matchedRecipe = recipes.find(r => r.name.toLowerCase() === editName.trim().toLowerCase());
+    onUpdateRecipes(cookbook.recipes.map((e, i) => i === editingEntryIdx
+      ? { ...e, name: editName.trim(), page: editPage.trim(), recipeId: matchedRecipe?.id || e.recipeId }
+      : e
+    ));
+    setEditingEntryIdx(null);
   };
 
   return (
@@ -2095,9 +2166,7 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
         <div className="cookbook-detail__cover">
           {cookbook.coverImage
             ? <img src={cookbook.coverImage} alt={cookbook.title} />
-            : <div className="cookbook-detail__cover-placeholder" style={{ background: cookbook.spineColor || '#C65D3B' }}>
-                <span>📖</span>
-              </div>
+            : <div className="cookbook-detail__cover-placeholder" style={{ background: cookbook.spineColor || '#C65D3B' }}><span>📖</span></div>
           }
         </div>
         <div className="cookbook-detail__meta">
@@ -2117,6 +2186,13 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
           <button className="btn btn--primary btn--sm" onClick={() => setShowAddRecipe(v => !v)}>+ Add Recipe</button>
         </div>
 
+        {cookbook.recipes.length > 3 && (
+          <div className="cookbook-search-wrap">
+            <input className="editor-input cookbook-search-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search recipes in this book…" />
+            {search && <button className="cookbook-search-clear" onClick={() => setSearch('')}>✕</button>}
+          </div>
+        )}
+
         {showAddRecipe && (
           <div className="cookbook-add-recipe-row">
             <input className="editor-input" style={{ flex: 2 }} value={newRecipeName} onChange={e => setNewRecipeName(e.target.value)} placeholder="Recipe name" autoFocus onKeyDown={e => { if (e.key === 'Enter') addRecipeEntry(); }} />
@@ -2127,15 +2203,29 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
         )}
 
         {cookbook.recipes.length === 0 ? (
-          <div className="cookbook-detail__empty">
-            <p>No recipes listed yet. Add recipe names to track what's in this book.</p>
-          </div>
+          <div className="cookbook-detail__empty"><p>No recipes listed yet. Add recipe names to track what's in this book.</p></div>
+        ) : filteredRecipes.length === 0 ? (
+          <div className="cookbook-detail__empty"><p>No recipes match "{search}".</p></div>
         ) : (
           <div className="cookbook-recipe-list">
-            {cookbook.recipes.map((entry, idx) => {
+            {filteredRecipes.map((entry, idx) => {
+              const realIdx = cookbook.recipes.indexOf(entry);
               const linkedRecipe = entry.recipeId ? recipes.find(r => r.id === entry.recipeId) : null;
+              const isEditing = editingEntryIdx === realIdx;
+
+              if (isEditing) {
+                return (
+                  <div key={realIdx} className="cookbook-recipe-entry cookbook-recipe-entry--editing">
+                    <input className="editor-input" style={{ flex: 2 }} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Recipe name" autoFocus onKeyDown={e => { if (e.key === 'Enter') saveEditEntry(); if (e.key === 'Escape') setEditingEntryIdx(null); }} />
+                    <input className="editor-input" style={{ width: 90 }} value={editPage} onChange={e => setEditPage(e.target.value)} placeholder="Page #" onKeyDown={e => { if (e.key === 'Enter') saveEditEntry(); }} />
+                    <button className="btn btn--primary btn--sm" onClick={saveEditEntry}>Save</button>
+                    <button className="btn btn--ghost btn--sm" onClick={() => setEditingEntryIdx(null)}>Cancel</button>
+                  </div>
+                );
+              }
+
               return (
-                <div key={idx} className={`cookbook-recipe-entry ${linkedRecipe ? 'cookbook-recipe-entry--linked' : ''}`}>
+                <div key={realIdx} className={`cookbook-recipe-entry ${linkedRecipe ? 'cookbook-recipe-entry--linked' : ''}`}>
                   <div className="cookbook-recipe-entry__main">
                     {entry.page && <span className="cookbook-recipe-entry__page">p.{entry.page}</span>}
                     {linkedRecipe
@@ -2146,7 +2236,12 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
                       : <span className="cookbook-recipe-entry__name">{entry.name}</span>
                     }
                   </div>
-                  <button className="editor-remove-btn cookbook-recipe-entry__remove" onClick={() => removeEntry(idx)} title="Remove">✕</button>
+                  <div className="cookbook-recipe-entry__actions">
+                    {!linkedRecipe && (
+                      <button className="cookbook-recipe-entry__edit" onClick={() => startEditEntry(realIdx, entry)} title="Edit">✎</button>
+                    )}
+                    <button className="editor-remove-btn cookbook-recipe-entry__remove" onClick={() => removeEntry(realIdx)} title="Remove">✕</button>
+                  </div>
                 </div>
               );
             })}
@@ -2590,11 +2685,9 @@ function AppInner() {
               { key: 'recipes',   label: 'Recipes'      },
               { key: 'kitchen',   label: 'Kitchen'      },
               { key: 'grocery',   label: 'Grocery'      },
-              { key: 'log',       label: 'Cook Log'     },
               { key: 'cookbooks', label: 'Cookbooks'    },
               { key: 'profile',   label: 'Profile'      },
               { key: 'add',       label: 'Add'          },
-              { key: 'settings',  label: 'Settings'     },
             ].map(({ key, label }) => (
               <button key={key} className={`nav-tab ${view === key ? 'nav-tab--active' : ''}`} onClick={() => setView(key)} disabled={key === 'recipes' && recipes.length === 0}>
                 {label}
@@ -2616,11 +2709,9 @@ function AppInner() {
               { key: 'recipes',   label: '📖 Recipes'     },
               { key: 'kitchen',   label: '🧑‍🍳 Kitchen'    },
               { key: 'grocery',   label: '🛒 Grocery'     },
-              { key: 'log',       label: '📓 Cook Log'    },
               { key: 'cookbooks', label: '📚 Cookbooks'   },
               { key: 'profile',   label: '👤 Profile'     },
               { key: 'add',       label: '➕ Add'         },
-              { key: 'settings',  label: '⚙️ Settings'    },
             ].map(({ key, label }) => (
               <button key={key}
                 className={`mobile-nav-item ${view === key ? 'mobile-nav-item--active' : ''}`}
@@ -3083,7 +3174,7 @@ function AppInner() {
         );
       })()}
 
-      {view === 'grocery' && <GroceryListTab recipes={recipes} matchById={matchById} />}
+      {view === 'grocery' && <GroceryListTab recipes={recipes} makeSoonIds={makeSoonIds} allMyIngredients={allMyIngredients} />}
 
       {view === 'add' && (
         <AddRecipeTab
@@ -3095,22 +3186,6 @@ function AppInner() {
             openRecipe(newRecipe);
           }}
         />
-      )}
-
-      {view === 'log' && (
-        <main className="view">
-          <div className="placeholder-tab">
-            <div className="placeholder-tab__icon">📓</div>
-            <h2 className="placeholder-tab__title">Cook Log</h2>
-            <p className="placeholder-tab__sub">Track every meal you make — dates, notes, photos, and ratings. Coming soon.</p>
-            <div className="placeholder-tab__features">
-              <div className="placeholder-tab__feature">📅 Log by date</div>
-              <div className="placeholder-tab__feature">⭐ Rate your results</div>
-              <div className="placeholder-tab__feature">📸 Attach a photo</div>
-              <div className="placeholder-tab__feature">📝 Add cook notes</div>
-            </div>
-          </div>
-        </main>
       )}
 
       {view === 'cookbooks' && (
@@ -3137,8 +3212,6 @@ function AppInner() {
           </div>
         </main>
       )}
-
-      {view === 'settings' && <SettingsTab units={units} setUnits={setUnits} dietaryFilters={dietaryFilters} setDietaryFilters={setDietaryFilters} />}
 
       <SiteFooter onNav={setView} />
     </div>
