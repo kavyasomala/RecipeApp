@@ -2714,6 +2714,86 @@ const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
 };
 
 // ─── CookbookDetail ───────────────────────────────────────────────────────────
+// ─── CbEntry Row ─────────────────────────────────────────────────────────────
+const CbEntry = ({ entry, linked, entryTags, idx, onOpenRecipe, onMarkCooked, onConvert, onEdit, onRemove }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className={`cbentry ${linked ? 'cbentry--linked' : ''}`}>
+      {/* Thumbnail */}
+      <div className="cbentry__thumb-wrap">
+        {(entry.image || linked?.coverImage)
+          ? <img className="cbentry__thumb" src={entry.image || linked?.coverImage} alt={entry.name} />
+          : <div className="cbentry__thumb cbentry__thumb--empty">📖</div>}
+      </div>
+
+      {/* Name col — plain text, never a link */}
+      <div className="cbentry__name-col">
+        <span className="cbentry__name">{entry.name}</span>
+        {linked && <span className="cookbook-recipe-entry__saved-badge">✓ Saved</span>}
+      </div>
+
+      {/* Tags col */}
+      <div className="cbentry__tags-col">
+        {entryTags.slice(0, 4).map(t => <span key={t} className="cbentry__tag">{t}</span>)}
+      </div>
+
+      {/* Page col */}
+      <div className="cbentry__page-col">
+        {entry.page && <span className="cbentry__page">p. {entry.page}</span>}
+      </div>
+
+      {/* Actions col */}
+      <div className="cbentry__actions">
+        {/* Cook button — always visible */}
+        <button className="cbentry__action cbentry__action--cook" title="Mark as Cooked" onClick={onMarkCooked}>
+          🍳
+        </button>
+
+        {/* View button — for linked recipes */}
+        {linked && (
+          <button className="cbentry__action cbentry__action--view" onClick={() => onOpenRecipe(linked)} title="Open in Hearth">
+            View →
+          </button>
+        )}
+
+        {/* Actions menu — for unlinked recipes (edit / convert / remove) */}
+        {!linked && (
+          <div className="cbentry__menu-wrap" ref={menuRef}>
+            <button
+              className="cbentry__action cbentry__action--menu"
+              onClick={() => setMenuOpen(o => !o)}
+              title="More actions"
+            >
+              Actions ▾
+            </button>
+            {menuOpen && (
+              <div className="cbentry__menu-dropdown">
+                <button className="cbentry__menu-item" onClick={() => { onConvert(); setMenuOpen(false); }}>
+                  ✨ Convert
+                </button>
+                <button className="cbentry__menu-item" onClick={() => { onEdit(); setMenuOpen(false); }}>
+                  ✎ Edit
+                </button>
+                <button className="cbentry__menu-item cbentry__menu-item--danger" onClick={() => { onRemove(); setMenuOpen(false); }}>
+                  ✕ Remove
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, recipes, onUpdateRecipes, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddRef,   setShowAddRef]   = useState(false);
@@ -2851,41 +2931,14 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
               );
 
               return (
-                <div key={idx} className={`cbentry ${linked ? 'cbentry--linked' : ''}`}>
-                  {/* Thumbnail */}
-                  <div className="cbentry__thumb-wrap">
-                    {(entry.image || linked?.coverImage)
-                      ? <img className="cbentry__thumb" src={entry.image || linked?.coverImage} alt={entry.name} />
-                      : <div className="cbentry__thumb cbentry__thumb--empty">📖</div>}
-                  </div>
-                  {/* Name col */}
-                  <div className="cbentry__name-col">
-                    {linked
-                      ? <button className="cbentry__name cbentry__name--link" onClick={() => onOpenRecipe(linked)}>{entry.name}</button>
-                      : <span className="cbentry__name">{entry.name}</span>}
-                    {linked && <span className="cookbook-recipe-entry__saved-badge">✓ Saved</span>}
-                  </div>
-                  {/* Tags col */}
-                  <div className="cbentry__tags-col">
-                    {entryTags.slice(0, 4).map(t => <span key={t} className="cbentry__tag">{t}</span>)}
-                  </div>
-                  {/* Page col */}
-                  <div className="cbentry__page-col">
-                    {entry.page && <span className="cbentry__page">p. {entry.page}</span>}
-                  </div>
-                  {/* Actions col */}
-                  <div className="cbentry__actions">
-                    <button className="cbentry__action cbentry__action--cook" title="Mark as Cooked"
-                      onClick={() => setCookingRecipe({ id: entry.recipeId || `ref-${idx}`, name: entry.name, coverImage: entry.image || linked?.coverImage || null })}>
-                      🍳
-                    </button>
-                    {linked
-                      ? <button className="cbentry__action cbentry__action--view" onClick={() => onOpenRecipe(linked)} title="Open in Hearth">View →</button>
-                      : <button className="cbentry__action cbentry__action--convert" onClick={() => setConvertEntry(entry)} title="Convert to full recipe">✨ Convert</button>}
-                    {!linked && <button className="cbentry__action cbentry__action--edit" onClick={() => startEdit(entry)} title="Edit">✎</button>}
-                    {!linked && <button className="cbentry__action cbentry__action--remove" onClick={() => removeEntry(entry)} title="Remove">✕</button>}
-                  </div>
-                </div>
+                <CbEntry key={idx}
+                  entry={entry} linked={linked} entryTags={entryTags} idx={idx}
+                  onOpenRecipe={onOpenRecipe}
+                  onMarkCooked={() => setCookingRecipe({ id: entry.recipeId || `ref-${idx}`, name: entry.name, coverImage: entry.image || linked?.coverImage || null })}
+                  onConvert={() => setConvertEntry(entry)}
+                  onEdit={() => startEdit(entry)}
+                  onRemove={() => removeEntry(entry)}
+                />
               );
             })}
           </div>
