@@ -747,7 +747,7 @@ const StepItem = ({ step, done, isCurrent, enlarge, onToggle }) => {
       <div className="rp2__step-num">{done ? '✓' : step.step_number}</div>
       <div className="rp2__step-content">
         <p className="rp2__step-body">{step.body_text}</p>
-        {hasTimer && !done && (
+        {hasTimer && (
           <div className="rp2__step-timer" onClick={e => e.stopPropagation()}>
             {timerState === 'running' && (
               <div className="rp2__step-timer__bar"><div className="rp2__step-timer__fill" style={{ width: `${pct}%` }} /></div>
@@ -3422,7 +3422,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
   const updateNote = (id, v) => setNotesList(prev => prev.map(n => n._id === id ? { ...n, text: v } : n));
   const removeNote = (id) => setNotesList(prev => prev.filter(n => n._id !== id));
   const groupLabels = [...new Set(ings.filter(i => !i._isGroup).map(i => i.group_label).filter(Boolean))];
-  
+
   const calcNutrition = (ingredients) => {
     const NUTRITION_DB = {
       'chicken breast': { cal: 165, prot: 31, fiber: 0 }, 'chicken': { cal: 165, prot: 31, fiber: 0 },

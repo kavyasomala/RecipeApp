@@ -275,7 +275,7 @@ app.get('/api/recipes/:id', async (req, res) => {
     `, [id]);
 
     const { rows: instrRows } = await query(`
-      SELECT id, step_number, body_text
+      SELECT id, step_number, body_text, timer_seconds
       FROM instructions
       WHERE recipe_id = $1
       ORDER BY step_number ASC;
@@ -291,7 +291,7 @@ app.get('/api/recipes/:id', async (req, res) => {
     res.json({
       recipe,
       bodyIngredients: ingRows,
-      instructions: instrRows.map(r => ({ id: r.id, step_number: r.step_number, body_text: r.body_text })),
+      instructions: instrRows.map(r => ({ id: r.id, step_number: r.step_number, body_text: r.body_text, timer_seconds: r.timer_seconds ?? null })),
       notes: notesRows,
     });
   } catch (err) {
@@ -368,8 +368,8 @@ app.post('/api/recipes', async (req, res) => {
       for (const step of instructions) {
         if (!step.body_text?.trim()) continue;
         await client.query(
-          `INSERT INTO instructions (recipe_id, step_number, body_text) VALUES ($1,$2,$3)`,
-          [newId, step.step_number, step.body_text.trim()]
+          `INSERT INTO instructions (recipe_id, step_number, body_text, timer_seconds) VALUES ($1,$2,$3,$4)`,
+          [newId, step.step_number, step.body_text.trim(), step.timer_seconds ?? null]
         );
       }
     }
@@ -478,8 +478,8 @@ app.put('/api/recipes/:id', async (req, res) => {
       for (const step of instructions) {
         if (!step.body_text?.trim()) continue;
         await client.query(
-          `INSERT INTO instructions (recipe_id, step_number, body_text) VALUES ($1,$2,$3)`,
-          [id, step.step_number, step.body_text.trim()]
+          `INSERT INTO instructions (recipe_id, step_number, body_text, timer_seconds) VALUES ($1,$2,$3,$4)`,
+          [id, step.step_number, step.body_text.trim(), step.timer_seconds ?? null]
         );
       }
     }
