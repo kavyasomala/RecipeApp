@@ -174,7 +174,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
   const canMakeNow = Boolean(match?.canMake);
   const tags = recipe.tags || [];
   const progress = recipe.recipe_incomplete ? '🚧' : recipe.status === 'needs tweaking' ? '🔧' : recipe.status === 'complete' ? '✅' : recipe.status === 'to try' ? '🔖' : null;
-  const isCookbookRef = Boolean(recipe.cookbook && (!recipe.ingredients || recipe.ingredients.length === 0) && !recipe.status);
+  const isCookbookRef = Boolean(recipe.cookbook && (!recipe.ingredients || recipe.ingredients.length === 0));
 
   return (
     <article className={`recipe-card ${isCookbookRef ? 'recipe-card--cb-ref' : ''}`} onClick={() => onClick(recipe)}>
@@ -182,9 +182,6 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
         {coverImage
           ? <img src={coverImage} alt={name} loading="lazy" />
           : <div className="recipe-card__image-placeholder">No photo</div>}
-        {isCookbookRef && (
-          <div className="recipe-card__cb-badge">📖 Cookbook Ref</div>
-        )}
         {isCookbookRef && (
           <div className="recipe-card__book-corner" title="Cookbook reference">📖</div>
         )}
