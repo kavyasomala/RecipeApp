@@ -1,7 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
 
 const app = express();
 app.use(cors({
@@ -12,6 +15,11 @@ app.use(express.json());
 // ─── Postgres client ────────────────────────────────────────────────────────
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set in .env');
+  process.exit(1);
+}
+
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not set in .env');
   process.exit(1);
 }
 
@@ -26,9 +34,26 @@ async function query(sql, params) {
   }
 }
 
+// ─── Auth Middleware ─────────────────────────────────────────────────────────
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = user;
+    next();
+  } catch {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};
+
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  next();
+};
+
 // ─── Grocery category mapping ─────────────────────────────────────────────────
-// Categories intentionally mirror the Kitchen tab: Produce, Meat & Fish, Dairy,
-// Sauces, Spices, Alcohol, Staples, Other
 const CATEGORY_MAP = {
   produce: [
     'onion','garlic','ginger','tomato','tomatoes','lemon','lime','spinach',
@@ -109,6 +134,207 @@ const CATEGORY_META = {
   'other':       { emoji: '🛒', order: 8 },
 };
 
+// ─── POST /api/auth/register ─────────────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email?.trim() || !password) return res.status(400).json({ error: 'Email and password are required' });
+  try {
+    const existing = await query('SELECT id FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    if (existing.rows.length) return res.status(409).json({ error: 'Email already registered' });
+    const password_hash = await bcrypt.hash(password, 10);
+    const { rows } = await query(
+      `INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'guest') RETURNING id, email, role`,
+      [email.trim().toLowerCase(), password_hash]
+    );
+    const user = rows[0];
+    // Create default user_settings row
+    await query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [user.id]);
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    console.error('POST /api/auth/register error:', err);
+    res.status(500).json({ error: err.message || 'Failed to register' });
+  }
+});
+
+// ─── POST /api/auth/login ────────────────────────────────────────────────────
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email?.trim() || !password) return res.status(400).json({ error: 'Email and password are required' });
+  try {
+    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
+    if (!rows.length) return res.status(401).json({ error: 'Invalid email or password' });
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    console.error('POST /api/auth/login error:', err);
+    res.status(500).json({ error: err.message || 'Failed to login' });
+  }
+});
+
+// ─── GET /api/auth/me ────────────────────────────────────────────────────────
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await query('SELECT id, email, role FROM users WHERE id = $1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// ─── GET /api/user/settings ──────────────────────────────────────────────────
+app.get('/api/user/settings', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await query(
+      'SELECT hide_incompatible, dietary_filters FROM user_settings WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (!rows.length) {
+      // Create default settings if missing
+      await query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [req.user.id]);
+      return res.json({ hide_incompatible: false, dietary_filters: [] });
+    }
+    res.json({ hide_incompatible: rows[0].hide_incompatible, dietary_filters: rows[0].dietary_filters || [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+// ─── PUT /api/user/settings ──────────────────────────────────────────────────
+app.put('/api/user/settings', authenticateToken, async (req, res) => {
+  const { hide_incompatible, dietary_filters } = req.body;
+  try {
+    await query(
+      `INSERT INTO user_settings (user_id, hide_incompatible, dietary_filters)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE SET
+         hide_incompatible = EXCLUDED.hide_incompatible,
+         dietary_filters   = EXCLUDED.dietary_filters`,
+      [req.user.id, hide_incompatible ?? false, dietary_filters ?? []]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save settings' });
+  }
+});
+
+// ─── GET /api/user/kitchen ───────────────────────────────────────────────────
+app.get('/api/user/kitchen', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await query(
+      'SELECT ingredient_name, storage_type FROM user_kitchen WHERE user_id = $1',
+      [req.user.id]
+    );
+    res.json({ kitchen: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch kitchen' });
+  }
+});
+
+// ─── PUT /api/user/kitchen ───────────────────────────────────────────────────
+// Replaces the entire kitchen list for the user
+app.put('/api/user/kitchen', authenticateToken, async (req, res) => {
+  const { kitchen } = req.body; // [{ ingredient_name, storage_type }]
+  if (!Array.isArray(kitchen)) return res.status(400).json({ error: 'kitchen must be an array' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_kitchen WHERE user_id = $1', [req.user.id]);
+    for (const item of kitchen) {
+      if (!item.ingredient_name?.trim()) continue;
+      await client.query(
+        `INSERT INTO user_kitchen (user_id, ingredient_name, storage_type) VALUES ($1, $2, $3)`,
+        [req.user.id, item.ingredient_name.toLowerCase().trim(), item.storage_type || 'fridge']
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Failed to save kitchen' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─── GET /api/user/favorites ─────────────────────────────────────────────────
+app.get('/api/user/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await query(
+      'SELECT recipe_id FROM user_favorites WHERE user_id = $1',
+      [req.user.id]
+    );
+    res.json({ favorites: rows.map(r => r.recipe_id) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
+// ─── PUT /api/user/favorites ─────────────────────────────────────────────────
+app.put('/api/user/favorites', authenticateToken, async (req, res) => {
+  const { favorites } = req.body; // array of recipe UUIDs
+  if (!Array.isArray(favorites)) return res.status(400).json({ error: 'favorites must be an array' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_favorites WHERE user_id = $1', [req.user.id]);
+    for (const recipeId of favorites) {
+      await client.query(
+        `INSERT INTO user_favorites (user_id, recipe_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [req.user.id, recipeId]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Failed to save favorites' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─── GET /api/user/make-soon ─────────────────────────────────────────────────
+app.get('/api/user/make-soon', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await query(
+      'SELECT recipe_id FROM user_make_soon WHERE user_id = $1',
+      [req.user.id]
+    );
+    res.json({ makeSoon: rows.map(r => r.recipe_id) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch make soon' });
+  }
+});
+
+// ─── PUT /api/user/make-soon ─────────────────────────────────────────────────
+app.put('/api/user/make-soon', authenticateToken, async (req, res) => {
+  const { makeSoon } = req.body; // array of recipe UUIDs
+  if (!Array.isArray(makeSoon)) return res.status(400).json({ error: 'makeSoon must be an array' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_make_soon WHERE user_id = $1', [req.user.id]);
+    for (const recipeId of makeSoon) {
+      await client.query(
+        `INSERT INTO user_make_soon (user_id, recipe_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [req.user.id, recipeId]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Failed to save make soon' });
+  } finally {
+    client.release();
+  }
+});
+
 // ─── GET /api/recipes ───────────────────────────────────────────────────────
 app.get('/api/recipes', async (req, res) => {
   try {
@@ -117,18 +343,13 @@ app.get('/api/recipes', async (req, res) => {
         r.id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage", r.status,
         r.cookbook, r.reference,
+        COALESCE(r.tags, '{}') AS tags,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
            FROM recipe_body_ingredients rbi
            JOIN ingredients i ON i.id = rbi.ingredient_id
            WHERE rbi.recipe_id = r.id), '{}'
-        ) AS ingredients,
-        COALESCE(
-          (SELECT array_agg(t.name ORDER BY t.name)
-           FROM recipe_tags rt
-           JOIN tags t ON t.id = rt.tag_id
-           WHERE rt.recipe_id = r.id), '{}'
-        ) AS tags
+        ) AS ingredients
       FROM recipes r
       ORDER BY r.name;
     `;
@@ -154,7 +375,7 @@ app.get('/api/ingredients', async (req, res) => {
 });
 
 // ─── POST /api/ingredients ──────────────────────────────────────────────────
-app.post('/api/ingredients', async (req, res) => {
+app.post('/api/ingredients', authenticateToken, requireAdmin, async (req, res) => {
   const { name, type, calories, protein, fiber } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
   try {
@@ -177,7 +398,7 @@ app.post('/api/ingredients', async (req, res) => {
 });
 
 // ─── PUT /api/ingredients/:name ─────────────────────────────────────────────
-app.put('/api/ingredients/:name', async (req, res) => {
+app.put('/api/ingredients/:name', authenticateToken, requireAdmin, async (req, res) => {
   const oldName = decodeURIComponent(req.params.name).toLowerCase().trim();
   const { name, type, calories, protein, fiber } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
@@ -203,12 +424,11 @@ app.put('/api/ingredients/:name', async (req, res) => {
 });
 
 // ─── DELETE /api/ingredients/:name ──────────────────────────────────────────
-app.delete('/api/ingredients/:name', async (req, res) => {
+app.delete('/api/ingredients/:name', authenticateToken, requireAdmin, async (req, res) => {
   const name = decodeURIComponent(req.params.name).toLowerCase().trim();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Remove from all recipe body ingredients first (FK constraint)
     await client.query(
       `DELETE FROM recipe_body_ingredients
        WHERE ingredient_id = (SELECT id FROM ingredients WHERE name = $1)`,
@@ -235,19 +455,14 @@ app.get('/api/recipes/:id', async (req, res) => {
       SELECT
         r.id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage",
-        r.cookbook, r.reference,
+        r.status, r.cookbook, r.reference,
+        COALESCE(r.tags, '{}') AS tags,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
            FROM recipe_body_ingredients rbi
            JOIN ingredients i ON i.id = rbi.ingredient_id
            WHERE rbi.recipe_id = r.id), '{}'
-        ) AS ingredients,
-        COALESCE(
-          (SELECT array_agg(t.name ORDER BY t.name)
-           FROM recipe_tags rt
-           JOIN tags t ON t.id = rt.tag_id
-           WHERE rt.recipe_id = r.id), '{}'
-        ) AS tags
+        ) AS ingredients
       FROM recipes r
       WHERE r.id = $1
       LIMIT 1;
@@ -258,14 +473,8 @@ app.get('/api/recipes/:id', async (req, res) => {
 
     const { rows: ingRows } = await query(`
       SELECT
-        rbi.id,
-        i.name,
-        rbi.amount,
-        rbi.unit,
-        rbi.prep_note,
-        rbi.optional,
-        rbi.group_label,
-        rbi.order_index
+        rbi.id, i.name, rbi.amount, rbi.unit, rbi.prep_note,
+        rbi.optional, rbi.group_label, rbi.order_index
       FROM recipe_body_ingredients rbi
       JOIN ingredients i ON i.id = rbi.ingredient_id
       WHERE rbi.recipe_id = $1
@@ -299,7 +508,7 @@ app.get('/api/recipes/:id', async (req, res) => {
 });
 
 // ─── POST /api/recipes ──────────────────────────────────────────────────────
-app.post('/api/recipes', async (req, res) => {
+app.post('/api/recipes', authenticateToken, requireAdmin, async (req, res) => {
   const { details, ingredients, instructions, notes } = req.body;
   if (!details?.name?.trim()) return res.status(400).json({ error: 'Recipe name is required' });
 
@@ -310,8 +519,8 @@ app.post('/api/recipes', async (req, res) => {
     const { rows: recipeRows } = await client.query(`
       INSERT INTO recipes
         (name, cuisine, time, servings, calories, protein, fiber, cover_image_url,
-         status, cookbook, reference)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         status, cookbook, reference, tags)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING id
     `, [
       details.name.trim(),
@@ -325,22 +534,9 @@ app.post('/api/recipes', async (req, res) => {
       details.status || null,
       details.cookbook || null,
       details.reference || details.page_number || null,
+      Array.isArray(details.tags) ? details.tags : [],
     ]);
     const newId = recipeRows[0].id;
-
-    // Tags
-    if (Array.isArray(details.tags)) {
-      for (const tagName of details.tags) {
-        const { rows: tagRows } = await client.query(
-          `INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-          [tagName]
-        );
-        await client.query(
-          `INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [newId, tagRows[0].id]
-        );
-      }
-    }
 
     // Ingredients
     if (Array.isArray(ingredients)) {
@@ -400,7 +596,7 @@ app.post('/api/recipes', async (req, res) => {
 });
 
 // ─── PUT /api/recipes/:id ───────────────────────────────────────────────────
-app.put('/api/recipes/:id', async (req, res) => {
+app.put('/api/recipes/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { details, ingredients, instructions, notes } = req.body;
 
@@ -410,17 +606,18 @@ app.put('/api/recipes/:id', async (req, res) => {
 
     await client.query(`
       UPDATE recipes SET
-        name              = $1,
-        cuisine           = $2,
-        time              = $3,
-        servings          = $4,
-        calories          = $5,
-        protein           = $6,
-        cover_image_url   = $7,
-        status            = $8,
-        cookbook          = $9,
-        reference         = $10
-      WHERE id = $11
+        name            = $1,
+        cuisine         = $2,
+        time            = $3,
+        servings        = $4,
+        calories        = $5,
+        protein         = $6,
+        cover_image_url = $7,
+        status          = $8,
+        cookbook        = $9,
+        reference       = $10,
+        tags            = $11
+      WHERE id = $12
     `, [
       details.name,
       details.cuisine || null,
@@ -432,26 +629,10 @@ app.put('/api/recipes/:id', async (req, res) => {
       details.status || null,
       details.cookbook || null,
       details.reference || details.page_number || null,
+      Array.isArray(details.tags) ? details.tags : [],
       id,
     ]);
 
-    // Update tags if provided
-    const tagList = details.tags ?? req.body.tags;
-    if (Array.isArray(tagList)) {
-      await client.query('DELETE FROM recipe_tags WHERE recipe_id = $1', [id]);
-      for (const tagName of tagList) {
-        const { rows: tagRows } = await client.query(
-          `INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
-          [tagName]
-        );
-        await client.query(
-          `INSERT INTO recipe_tags (recipe_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [id, tagRows[0].id]
-        );
-      }
-    }
-
-    // Only update sections if explicitly provided
     if (ingredients !== null && ingredients !== undefined) {
       await client.query('DELETE FROM recipe_body_ingredients WHERE recipe_id = $1', [id]);
       for (const ing of ingredients) {
@@ -498,6 +679,7 @@ app.put('/api/recipes/:id', async (req, res) => {
 
     const { rows } = await client.query(`
       SELECT r.*, r.cover_image_url AS "coverImage",
+        COALESCE(r.tags, '{}') AS tags,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
            FROM recipe_body_ingredients rbi
@@ -518,16 +700,16 @@ app.put('/api/recipes/:id', async (req, res) => {
 });
 
 // ─── DELETE /api/recipes/:id ────────────────────────────────────────────────
-app.delete('/api/recipes/:id', async (req, res) => {
+app.delete('/api/recipes/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Delete child rows first to respect FK constraints
     await client.query('DELETE FROM notes                   WHERE recipe_id = $1', [id]);
     await client.query('DELETE FROM instructions            WHERE recipe_id = $1', [id]);
     await client.query('DELETE FROM recipe_body_ingredients WHERE recipe_id = $1', [id]);
-    await client.query('DELETE FROM recipe_tags             WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM user_favorites          WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM user_make_soon          WHERE recipe_id = $1', [id]);
     const { rowCount } = await client.query('DELETE FROM recipes WHERE id = $1', [id]);
     await client.query('COMMIT');
     if (!rowCount) return res.status(404).json({ error: 'Recipe not found' });
@@ -547,7 +729,6 @@ app.post('/api/match', async (req, res) => {
     const { fridgeIngredients, recipes } = req.body;
     if (!Array.isArray(fridgeIngredients) || !Array.isArray(recipes))
       return res.status(400).json({ error: 'Invalid payload' });
-
     const fridge = new Set(fridgeIngredients.map(i => i.toLowerCase().trim()));
     const matched = recipes.map(recipe => {
       const ings = recipe.ingredients || [];
@@ -580,10 +761,7 @@ app.post('/api/grocery-list', async (req, res) => {
         r.id   AS recipe_id,
         r.name AS recipe_name,
         i.name AS ingredient_name,
-        rbi.amount,
-        rbi.unit,
-        rbi.prep_note,
-        rbi.optional
+        rbi.amount, rbi.unit, rbi.prep_note, rbi.optional
       FROM recipes r
       JOIN recipe_body_ingredients rbi ON rbi.recipe_id = r.id
       JOIN ingredients i ON i.id = rbi.ingredient_id
@@ -597,16 +775,13 @@ app.post('/api/grocery-list', async (req, res) => {
     for (const row of rows) recipeNameMap.set(row.recipe_id, row.recipe_name);
     const recipeNames = Array.from(recipeNameMap.values());
 
-    // Aggregate: group by ingredient name + unit so we can sum numeric amounts
-    // Key: `${ingredient_name}||${unit}` to keep same-unit quantities together
     const itemMap = new Map();
     for (const row of rows) {
       const ingKey = `${row.ingredient_name.toLowerCase().trim()}||${(row.unit || '').toLowerCase().trim()}`;
       if (!itemMap.has(ingKey)) {
         itemMap.set(ingKey, {
           name: row.ingredient_name,
-          amounts: [],           // collect all numeric amounts
-          rawAmounts: [],        // collect all raw amount strings (for non-numeric)
+          amounts: [], rawAmounts: [],
           unit: row.unit || '',
           prep_note: row.prep_note || '',
           optional: Boolean(row.optional),
@@ -615,15 +790,10 @@ app.post('/api/grocery-list', async (req, res) => {
         });
       }
       const entry = itemMap.get(ingKey);
-      // Track recipe name
       if (!entry.recipes.includes(row.recipe_name)) entry.recipes.push(row.recipe_name);
-      // Accumulate amounts
       const n = row.amount ? parseFloat(row.amount) : NaN;
-      if (!isNaN(n)) {
-        entry.amounts.push(n);
-      } else if (row.amount) {
-        entry.rawAmounts.push(row.amount);
-      }
+      if (!isNaN(n)) entry.amounts.push(n);
+      else if (row.amount) entry.rawAmounts.push(row.amount);
     }
 
     const catMap = new Map();
@@ -631,22 +801,15 @@ app.post('/api/grocery-list', async (req, res) => {
       let displayAmount = '';
       if (item.amounts.length > 0) {
         const total = item.amounts.reduce((a, b) => a + b, 0);
-        // Format: integer if whole, otherwise 1 decimal
         displayAmount = Number.isInteger(total) ? String(total) : total.toFixed(1).replace(/\.0$/, '');
-        // If there were also non-numeric entries, append them
         if (item.rawAmounts.length > 0) displayAmount += ' + ' + item.rawAmounts.join(' + ');
       } else if (item.rawAmounts.length > 0) {
         displayAmount = item.rawAmounts.join(' + ');
       }
-
       if (!catMap.has(item.category)) catMap.set(item.category, []);
       catMap.get(item.category).push({
-        name: item.name,
-        amount: displayAmount,
-        unit: item.unit,
-        prep_note: item.prep_note,
-        optional: item.optional,
-        recipes: item.recipes,
+        name: item.name, amount: displayAmount, unit: item.unit,
+        prep_note: item.prep_note, optional: item.optional, recipes: item.recipes,
       });
     }
 
@@ -665,19 +828,15 @@ app.post('/api/grocery-list', async (req, res) => {
   }
 });
 
-// ─── POST /api/cook-log ─────────────────────────────────────────────────────
-// DATABASE MIGRATION REQUIRED:
-//   ALTER TABLE cook_log ALTER COLUMN recipe_id DROP NOT NULL;
-// This allows cookbook-only references (no recipe_id) to be logged.
-app.post('/api/cook-log', async (req, res) => {
+// ─── POST /api/user/cook-log ─────────────────────────────────────────────────
+app.post('/api/user/cook-log', authenticateToken, async (req, res) => {
   const { recipe_id, recipe_name, rating, notes, cooked_at } = req.body;
-  // Allow either a real recipe_id (UUID) or just a recipe_name for cookbook/reference entries
   const hasRealId = recipe_id && typeof recipe_id === 'string' && !recipe_id.startsWith('ref-') && recipe_id.length > 10;
   if (!hasRealId && !recipe_name?.trim()) return res.status(400).json({ error: 'recipe_id or recipe_name is required' });
   try {
     const { rows } = await query(`
-      INSERT INTO cook_log (recipe_id, recipe_name, rating, notes, cooked_at)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO user_cook_log (recipe_id, recipe_name, rating, notes, cooked_at, user_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `, [
       hasRealId ? recipe_id : null,
@@ -685,39 +844,33 @@ app.post('/api/cook-log', async (req, res) => {
       rating ?? null,
       notes?.trim() || null,
       cooked_at ? new Date(cooked_at) : new Date(),
+      req.user.id,
     ]);
     res.json({ entry: rows[0] });
   } catch (err) {
-    console.error('POST /api/cook-log error:', err);
+    console.error('POST /api/user/cook-log error:', err);
     res.status(500).json({ error: err.message || 'Failed to save cook log' });
   }
 });
 
-// ─── GET /api/cook-log ──────────────────────────────────────────────────────
-app.get('/api/cook-log', async (req, res) => {
+// ─── GET /api/user/cook-log ──────────────────────────────────────────────────
+app.get('/api/user/cook-log', authenticateToken, async (req, res) => {
   try {
-    let sql = 'SELECT * FROM cook_log';
-    const params = [];
+    let sql = 'SELECT * FROM user_cook_log WHERE user_id = $1';
+    const params = [req.user.id];
     if (req.query.recipe_id) {
-      sql += ' WHERE recipe_id = $1';
+      sql += ` AND recipe_id = $2`;
       params.push(req.query.recipe_id);
     }
     sql += ' ORDER BY cooked_at DESC';
     const { rows } = await query(sql, params);
     res.json({ entries: rows });
   } catch (err) {
-    console.error('GET /api/cook-log error:', err);
+    console.error('GET /api/user/cook-log error:', err);
     res.status(500).json({ error: err.message || 'Failed to fetch cook log' });
   }
 });
 
-// ─── Stubs ──────────────────────────────────────────────────────────────────
-app.post('/api/parse-ingredients', (_req, res) =>
-  res.status(501).json({ error: 'Not implemented.' }));
-
-app.post('/api/save-ingredients', (_req, res) =>
-  res.status(501).json({ error: 'Not implemented.' }));
-
 // ─── Start ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🍳 Recipe API running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🍳 Hearth API running on http://localhost:${PORT}`));
