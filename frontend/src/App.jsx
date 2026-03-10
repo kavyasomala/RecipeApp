@@ -2279,6 +2279,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
   const [historyLoading, setHistoryLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const [historyView, setHistoryView] = useState('timeline'); // 'timeline' | 'calendar'
   const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
 
@@ -2363,93 +2364,100 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
       </div>
 
       {/* ── 1. Cooking History ── */}
-      <section className="profile-section">
-        <div className="profile-section__titlebar">
-          <h3 className="profile-section__title">📅 Cooking History</h3>
-          {cookHistory.length > 0 && (
-            <div className="history-view-toggle">
-              <button className={`history-view-toggle__btn ${historyView==='timeline'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('timeline')} title="Timeline view">☰</button>
-              <button className={`history-view-toggle__btn ${historyView==='calendar'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('calendar')} title="Calendar view">▦</button>
-            </div>
-          )}
-        </div>
-
-        {historyLoading ? (
-          <div className="grocery-loading"><div className="loading-spinner" /><p>Loading history…</p></div>
-        ) : cookHistory.length === 0 ? (
-          <div className="profile-empty">
-            <span className="profile-empty__icon">🍳</span>
-            <p className="profile-empty__text">No cooking history yet. Mark a recipe as cooked to start your log!</p>
+      <section className="profile-section profile-section--collapsible">
+        <button className="profile-settings-toggle" onClick={() => setHistoryOpen(o => !o)}>
+          <span className="profile-settings-toggle__title">📅 Cooking History</span>
+          <div className="profile-settings-toggle__right">
+            {cookHistory.length > 0 && historyOpen && (
+              <div className="history-view-toggle" onClick={e => e.stopPropagation()}>
+                <button className={`history-view-toggle__btn ${historyView==='timeline'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('timeline')} title="Timeline view">☰</button>
+                <button className={`history-view-toggle__btn ${historyView==='calendar'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('calendar')} title="Calendar view">▦</button>
+              </div>
+            )}
+            <span className={`profile-settings-toggle__arrow ${historyOpen ? 'profile-settings-toggle__arrow--open' : ''}`}>▾</span>
           </div>
-        ) : historyView === 'timeline' ? (
-          <div className="cook-timeline cook-timeline--scrollable">
-            {groupedHistory.map(([month, entries]) => (
-              <div key={month} className="cook-timeline__month-group">
-                <div className="cook-timeline__month-label">{month}</div>
-                {entries.map((entry, i) => {
-                  const d = new Date(entry.cooked_at);
-                  const recipeName = getRecipeName(entry);
-                  const recipe = recipes.find(r => r.id === entry.recipe_id);
-                  return (
-                    <div key={entry.id || i} className="cook-timeline__entry">
-                      <div className="cook-timeline__dot" />
-                      <div className="cook-timeline__line" />
-                      <div className="cook-timeline__card">
-                        <div className="cook-timeline__card-top">
-                          {recipe?.coverImage ? (
-                            <img className="cook-timeline__thumb" src={recipe.coverImage} alt={recipeName} />
-                          ) : (
-                            <div className="cook-timeline__thumb cook-timeline__thumb--placeholder">🍳</div>
-                          )}
-                          <div className="cook-timeline__info">
-                            <p className="cook-timeline__recipe-name">{recipeName}</p>
-                            <p className="cook-timeline__date">{d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                            {entry.rating > 0 && (
-                              <div className="cook-timeline__rating">
-                                {'★'.repeat(entry.rating)}<span className="cook-timeline__rating-empty">{'★'.repeat(5 - entry.rating)}</span>
-                                <span className="cook-timeline__rating-label">{STAR_LABELS[entry.rating]}</span>
+        </button>
+
+        {historyOpen && (
+          <div className="profile-settings-body">
+            {historyLoading ? (
+              <div className="grocery-loading"><div className="loading-spinner" /><p>Loading history…</p></div>
+            ) : cookHistory.length === 0 ? (
+              <div className="profile-empty">
+                <span className="profile-empty__icon">🍳</span>
+                <p className="profile-empty__text">No cooking history yet. Mark a recipe as cooked to start your log!</p>
+              </div>
+            ) : historyView === 'timeline' ? (
+              <div className="cook-timeline cook-timeline--scrollable">
+                {groupedHistory.map(([month, entries]) => (
+                  <div key={month} className="cook-timeline__month-group">
+                    <div className="cook-timeline__month-label">{month}</div>
+                    {entries.map((entry, i) => {
+                      const d = new Date(entry.cooked_at);
+                      const recipeName = getRecipeName(entry);
+                      const recipe = recipes.find(r => r.id === entry.recipe_id);
+                      return (
+                        <div key={entry.id || i} className="cook-timeline__entry">
+                          <div className="cook-timeline__dot" />
+                          <div className="cook-timeline__line" />
+                          <div className="cook-timeline__card">
+                            <div className="cook-timeline__card-top">
+                              {recipe?.coverImage ? (
+                                <img className="cook-timeline__thumb" src={recipe.coverImage} alt={recipeName} />
+                              ) : (
+                                <div className="cook-timeline__thumb cook-timeline__thumb--placeholder">🍳</div>
+                              )}
+                              <div className="cook-timeline__info">
+                                <p className="cook-timeline__recipe-name">{recipeName}</p>
+                                <p className="cook-timeline__date">{d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                {entry.rating > 0 && (
+                                  <div className="cook-timeline__rating">
+                                    {'★'.repeat(entry.rating)}<span className="cook-timeline__rating-empty">{'★'.repeat(5 - entry.rating)}</span>
+                                    <span className="cook-timeline__rating-label">{STAR_LABELS[entry.rating]}</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
+                            {entry.notes && <p className="cook-timeline__notes">"{entry.notes}"</p>}
                           </div>
                         </div>
-                        {entry.notes && <p className="cook-timeline__notes">"{entry.notes}"</p>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* Calendar view — Google Calendar style */
-          <div className="cook-calendar cook-calendar--gcal">
-            <div className="cook-calendar__nav">
-              <button className="cook-calendar__nav-btn" onClick={prevMonth}>‹</button>
-              <span className="cook-calendar__month-label">{MONTH_NAMES[calendarDate.month]} {calendarDate.year}</span>
-              <button className="cook-calendar__nav-btn" onClick={nextMonth}>›</button>
-            </div>
-            <div className="cook-calendar__gcal-grid">
-              {DAY_NAMES.map(d => <div key={d} className="cook-calendar__gcal-day-header">{d}</div>)}
-              {Array.from({ length: getFirstDayOfMonth(calendarDate.year, calendarDate.month) }).map((_, i) => (
-                <div key={`empty-${i}`} className="cook-calendar__gcal-cell cook-calendar__gcal-cell--empty" />
-              ))}
-              {Array.from({ length: getDaysInMonth(calendarDate.year, calendarDate.month) }).map((_, i) => {
-                const day = i + 1;
-                const cooked = cookDatesInMonth[day];
-                const isToday = (() => { const t = new Date(); return t.getFullYear() === calendarDate.year && t.getMonth() === calendarDate.month && t.getDate() === day; })();
-                return (
-                  <div key={day} className={`cook-calendar__gcal-cell ${cooked ? 'cook-calendar__gcal-cell--cooked' : ''} ${isToday ? 'cook-calendar__gcal-cell--today' : ''}`}>
-                    <span className={`cook-calendar__gcal-date ${isToday ? 'cook-calendar__gcal-date--today' : ''}`}>{day}</span>
-                    {cooked && cooked.map((name, j) => (
-                      <div key={j} className="cook-calendar__gcal-event" title={name}>
-                        <span className="cook-calendar__gcal-event-dot">🍳</span>
-                        <span className="cook-calendar__gcal-event-name">{name}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              /* Calendar view — Google Calendar style */
+              <div className="cook-calendar cook-calendar--gcal">
+                <div className="cook-calendar__nav">
+                  <button className="cook-calendar__nav-btn" onClick={prevMonth}>‹</button>
+                  <span className="cook-calendar__month-label">{MONTH_NAMES[calendarDate.month]} {calendarDate.year}</span>
+                  <button className="cook-calendar__nav-btn" onClick={nextMonth}>›</button>
+                </div>
+                <div className="cook-calendar__gcal-grid">
+                  {DAY_NAMES.map(d => <div key={d} className="cook-calendar__gcal-day-header">{d}</div>)}
+                  {Array.from({ length: getFirstDayOfMonth(calendarDate.year, calendarDate.month) }).map((_, i) => (
+                    <div key={`empty-${i}`} className="cook-calendar__gcal-cell cook-calendar__gcal-cell--empty" />
+                  ))}
+                  {Array.from({ length: getDaysInMonth(calendarDate.year, calendarDate.month) }).map((_, i) => {
+                    const day = i + 1;
+                    const cooked = cookDatesInMonth[day];
+                    const isToday = (() => { const t = new Date(); return t.getFullYear() === calendarDate.year && t.getMonth() === calendarDate.month && t.getDate() === day; })();
+                    return (
+                      <div key={day} className={`cook-calendar__gcal-cell ${cooked ? 'cook-calendar__gcal-cell--cooked' : ''} ${isToday ? 'cook-calendar__gcal-cell--today' : ''}`}>
+                        <span className={`cook-calendar__gcal-date ${isToday ? 'cook-calendar__gcal-date--today' : ''}`}>{day}</span>
+                        {cooked && cooked.map((name, j) => (
+                          <div key={j} className="cook-calendar__gcal-event" title={name}>
+                            <span className="cook-calendar__gcal-event-dot">🍳</span>
+                            <span className="cook-calendar__gcal-event-name">{name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -2511,7 +2519,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
               {dietaryFilters.length > 0 && (
                 <label className="dietary-hide-toggle" style={{ display:'flex', alignItems:'center', gap:8, marginTop:12, cursor:'pointer', fontSize:13 }}>
                   <input type="checkbox" checked={hideIncompatible} onChange={e => setHideIncompatible(e.target.checked)} style={{ width:16, height:16, cursor:'pointer' }} />
-                  <span>☑ Hide incompatible recipes from library</span>
+                  <span>Hide incompatible recipes from library</span>
                 </label>
               )}
             </div>

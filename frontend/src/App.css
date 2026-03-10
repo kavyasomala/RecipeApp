@@ -3088,11 +3088,13 @@ body {
   border-top: 1px solid var(--border); line-height: 1.5;
 }
 
-/* ── Settings collapsible ── */
+/* ── Settings collapsible — shared by all three profile sections ── */
+.profile-section--collapsible,
 .profile-section--settings {
   border: 1.5px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  margin-bottom: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
 }
 .profile-settings-toggle {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -3102,6 +3104,9 @@ body {
 .profile-settings-toggle:hover { background: var(--parchment); }
 .profile-settings-toggle__title {
   font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--charcoal);
+}
+.profile-settings-toggle__right {
+  display: flex; align-items: center; gap: 10px;
 }
 .profile-settings-toggle__arrow {
   font-size: 18px; color: var(--warm-gray);
@@ -3733,16 +3738,7 @@ body {
   white-space: nowrap;
 }
 
-/* ── Profile: history section titlebar with view toggle ─────────────────── */
-.profile-section__titlebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-.profile-section__titlebar .profile-section__title {
-  margin-bottom: 0;
-}
+/* ── Profile: history view toggle (timeline / calendar) ─────────────────── */
 .history-view-toggle {
   display: flex;
   gap: 2px;
