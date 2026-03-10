@@ -311,9 +311,9 @@ app.post('/api/recipes', async (req, res) => {
 
     const { rows: recipeRows } = await client.query(`
       INSERT INTO recipes
-        (name, cuisine, time, servings, calories, protein, cover_image_url,
+        (name, cuisine, time, servings, calories, protein, fiber, cover_image_url,
          status, cookbook, reference)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING id
     `, [
       details.name.trim(),
@@ -322,6 +322,7 @@ app.post('/api/recipes', async (req, res) => {
       details.servings || null,
       details.calories !== '' && details.calories != null ? Number(details.calories) : null,
       details.protein  !== '' && details.protein  != null ? Number(details.protein)  : null,
+      details.fiber    !== '' && details.fiber    != null ? Number(details.fiber)    : null,
       details.cover_image_url || null,
       details.status || null,
       details.cookbook || null,
@@ -667,11 +668,14 @@ app.post('/api/grocery-list', async (req, res) => {
 });
 
 // ─── POST /api/cook-log ─────────────────────────────────────────────────────
+// DATABASE MIGRATION REQUIRED:
+//   ALTER TABLE cook_log ALTER COLUMN recipe_id DROP NOT NULL;
+// This allows cookbook-only references (no recipe_id) to be logged.
 app.post('/api/cook-log', async (req, res) => {
   const { recipe_id, recipe_name, rating, notes, cooked_at } = req.body;
-  // Allow either a real recipe_id (UUID) or just a recipe_name for cookbook-only entries
-  const hasRealId = recipe_id && !String(recipe_id).startsWith('ref-');
-  if (!hasRealId && !recipe_name) return res.status(400).json({ error: 'recipe_id or recipe_name is required' });
+  // Allow either a real recipe_id (UUID) or just a recipe_name for cookbook/reference entries
+  const hasRealId = recipe_id && typeof recipe_id === 'string' && !recipe_id.startsWith('ref-') && recipe_id.length > 10;
+  if (!hasRealId && !recipe_name?.trim()) return res.status(400).json({ error: 'recipe_id or recipe_name is required' });
   try {
     const { rows } = await query(`
       INSERT INTO cook_log (recipe_id, recipe_name, rating, notes, cooked_at)
