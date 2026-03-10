@@ -116,7 +116,6 @@ app.get('/api/recipes', async (req, res) => {
       SELECT
         r.id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage", r.status,
-        r.mealpreppable, r.make_soon, r.link,
         r.cookbook, r.reference,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
@@ -234,9 +233,8 @@ app.get('/api/recipes/:id', async (req, res) => {
   try {
     const { rows: recipeRows } = await query(`
       SELECT
-        r.id, r.notion_id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
+        r.id, r.name, r.cuisine, r.calories, r.protein, r.fiber,
         r.time, r.servings, r.cover_image_url AS "coverImage",
-        r.status, r.mealpreppable, r.make_soon, r.link,
         r.cookbook, r.reference,
         COALESCE(
           (SELECT array_agg(i.name ORDER BY i.name)
