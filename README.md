@@ -2,7 +2,7 @@
 
 A personal recipe management web app. Store, browse, and cook from your recipe collection — with ingredient tracking, grocery lists, cook logging, and cookbook references.
 
-**Live at:** `https://hearth-z2lo.onrender.com`
+**Live at:** https://hearth-z2lo.onrender.com
 
 ---
 
@@ -20,66 +20,45 @@ A personal recipe management web app. Store, browse, and cook from your recipe c
 ## Project Structure
 
 ```
-hearth/
+RecipeApp/
 ├── backend/
 │   ├── server.js          # Express API — all routes and DB logic
 │   ├── package.json
-│   └── .env               # DATABASE_URL, PORT (not committed)
+│   ├── .env               # DATABASE_URL, PORT (not committed)
+│   └── .env.example
 │
-└── frontend/
-    ├── src/
-    │   ├── App.jsx        # Entire React app
-    │   └── App.css        # All styles
-    ├── public/
-    │   └── index.html
-    └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx        # Entire React app
+│   │   └── App.css        # All styles
+│   ├── public/
+│   │   ├── index.html
+│   │   └── hearth-logo.png
+│   ├── package.json
+│   ├── .env               # REACT_APP_API_URL (not committed)
+│   └── .env.example
+│
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## Local Setup
+## Development Workflow
 
-### Prerequisites
-- Node.js 18+
-- A PostgreSQL database (Supabase free tier works)
+This app runs fully on Render — there's no local dev server. The workflow for making changes is:
 
-### Backend
-
-```bash
-cd backend
-npm install
-cp .env.example .env   # then fill in your DATABASE_URL
-npm run dev
+```
+Edit files locally (App.jsx, App.css, server.js)
+    ↓
+Push to GitHub
+    ↓
+Render auto-deploys (~1–2 minutes)
+    ↓
+Check the live site
 ```
 
-The server starts at `http://localhost:3001`. You should see:
-```
-🍳 Recipe API running on http://localhost:3001
-```
-
-**`.env` values needed:**
-```env
-DATABASE_URL=postgresql://user:password@host:5432/dbname
-PORT=3001
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-Create `frontend/.env`:
-```env
-REACT_APP_API_URL=http://localhost:3001
-```
-
-```bash
-npm start
-```
-
-Opens at `http://localhost:3000`.
+No `npm install` or `npm start` needed locally. `node_modules` is not committed and doesn't need to exist on your machine.
 
 ---
 
