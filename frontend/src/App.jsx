@@ -310,14 +310,54 @@ const IngGroupRow = ({ ing, onLabelChange, onRemove, onAddIngredient }) => {
 };
 
 // ─── Mark As Cooked Modal ──────────────────────────────────────────────────
-const MarkCookedModal = ({ recipe, onSave, onClose }) => {
+// PERISHABLE_TYPES: categories where "use up / remove" makes sense after cooking
+const PERISHABLE_TYPES = new Set(['produce', 'meat & fish', 'dairy']);
+
+const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpdateKitchen }) => {
+  const [step, setStep] = useState(1); // 1 = rate/notes, 2 = ingredient cleanup
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const save = async () => {
+  // Ingredient actions: 'remove' | 'keep' | null (undecided)
+  const [ingActions, setIngActions] = useState({});
+
+  // Perishable ingredients used in this recipe
+  const perishableIngs = useMemo(() => {
+    if (!bodyIngredients?.length) return [];
+    const CATEGORY_MAP = {
+      produce: ['onion','garlic','ginger','tomato','lemon','lime','spinach','carrot','celery',
+        'potato','bell pepper','cucumber','zucchini','broccoli','cauliflower','mushroom','avocado',
+        'lettuce','kale','cabbage','spring onion','scallion','shallot','chilli','chili','jalapeño',
+        'leek','asparagus','eggplant','sweet potato','pumpkin','butternut squash','beetroot','radish',
+        'green beans','peas','corn','coriander','cilantro','parsley','basil','mint','thyme','rosemary',
+        'dill','chives','bay leaves','lemongrass','orange','apple','banana','mango','berry','strawberry',
+        'blueberry','peach','pear','grape','cherry'],
+      'meat & fish': ['chicken','beef','pork','lamb','turkey','duck','bacon','sausage','mince',
+        'ground beef','steak','salmon','tuna','shrimp','prawns','cod','tilapia','fish','crab',
+        'lobster','scallops','mussels','anchovies','ham','pancetta','prosciutto','chorizo','salami'],
+      dairy: ['egg','eggs','milk','butter','cream','heavy cream','sour cream','yogurt','greek yogurt',
+        'cheese','parmesan','cheddar','feta','mozzarella','ricotta','cream cheese','brie','gouda',
+        'halloumi','creme fraiche','ghee','buttermilk','condensed milk','coconut milk','coconut cream'],
+    };
+    const catOf = (name) => {
+      const lower = name.toLowerCase().trim();
+      for (const [cat, kws] of Object.entries(CATEGORY_MAP)) {
+        if (kws.some(k => lower.includes(k) || k.includes(lower))) return cat;
+      }
+      return null;
+    };
+    return bodyIngredients
+      .filter(i => !i._isGroup)
+      .map(i => ({ ...i, _cat: catOf(i.name) }))
+      .filter(i => i._cat !== null);
+  }, [bodyIngredients]);
+
+  const setAction = (name, action) => setIngActions(p => ({ ...p, [name]: p[name] === action ? null : action }));
+
+  const saveLog = async () => {
     setSaving(true); setError(null);
     try {
       const isRealRecipe = recipe.id && !String(recipe.id).startsWith('ref-');
@@ -338,58 +378,272 @@ const MarkCookedModal = ({ recipe, onSave, onClose }) => {
         try { const d = await res.json(); msg = d.error || msg; } catch {}
         throw new Error(msg);
       }
-      onSave();
+      // If we have perishables to handle, go to step 2; else done
+      if (perishableIngs.length > 0) {
+        setStep(2);
+        setSaving(false);
+      } else {
+        onSave({ toRemove: [] });
+      }
     } catch (e) { setError(e.message); setSaving(false); }
+  };
+
+  const finishCleanup = () => {
+    const toRemove = Object.entries(ingActions).filter(([, v]) => v === 'remove').map(([k]) => k);
+    onSave({ toRemove });
   };
 
   const displayRating = hoverRating || rating;
   const RATING_LABELS = ['', "Didn't love it", 'It was okay', 'Pretty good!', 'Really good!', 'Perfect! ⭐'];
+  const CAT_EMOJI = { produce: '🥦', 'meat & fish': '🥩', dairy: '🥛' };
+  const CAT_LABEL = { produce: 'Produce', 'meat & fish': 'Meat & Fish', dairy: 'Dairy' };
+
+  // Group perishables by category
+  const grouped = useMemo(() => {
+    const g = {};
+    for (const i of perishableIngs) {
+      if (!g[i._cat]) g[i._cat] = [];
+      g[i._cat].push(i);
+    }
+    return g;
+  }, [perishableIngs]);
 
   return (
     <div className="create-modal-overlay" onClick={onClose}>
       <div className="create-modal cooked-modal" onClick={e => e.stopPropagation()}>
-        <div className="create-modal__header">
-          <h2 className="create-modal__title">🍳 Cooked it!</h2>
-        </div>
-        <div className="create-modal__body cooked-modal__body">
-          <p className="cooked-modal__recipe-name">{recipe?.name}</p>
-          <p className="cooked-modal__date">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
 
-          <div className="cooked-modal__rating-section">
-            <p className="cooked-modal__label">How did it turn out? <span className="cooked-modal__optional">(optional)</span></p>
-            <div className="cooked-modal__stars">
-              {[1,2,3,4,5].map(n => (
-                <button
-                  key={n}
-                  className={`cooked-modal__star ${n <= displayRating ? 'cooked-modal__star--on' : ''}`}
-                  onMouseEnter={() => setHoverRating(n)}
-                  onMouseLeave={() => setHoverRating(0)}
-                  onClick={() => setRating(r => r === n ? 0 : n)}
-                  type="button"
-                >★</button>
-              ))}
-              {displayRating > 0 && <span className="cooked-modal__rating-label">{RATING_LABELS[displayRating]}</span>}
+        {step === 1 && (<>
+          <div className="create-modal__header">
+            <h2 className="create-modal__title">🍳 Cooked it!</h2>
+          </div>
+          <div className="create-modal__body cooked-modal__body">
+            {recipe?.coverImage && (
+              <div className="cooked-modal__hero-img">
+                <img src={recipe.coverImage} alt={recipe.name} />
+              </div>
+            )}
+            <p className="cooked-modal__recipe-name">{recipe?.name}</p>
+            <p className="cooked-modal__date">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+
+            <div className="cooked-modal__rating-section">
+              <p className="cooked-modal__label">How did it turn out? <span className="cooked-modal__optional">(optional)</span></p>
+              <div className="cooked-modal__stars">
+                {[1,2,3,4,5].map(n => (
+                  <button key={n}
+                    className={`cooked-modal__star ${n <= displayRating ? 'cooked-modal__star--on' : ''}`}
+                    onMouseEnter={() => setHoverRating(n)} onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(r => r === n ? 0 : n)} type="button">★</button>
+                ))}
+                {displayRating > 0 && <span className="cooked-modal__rating-label">{RATING_LABELS[displayRating]}</span>}
+              </div>
+            </div>
+
+            <div className="cooked-modal__notes-section">
+              <p className="cooked-modal__label">Notes <span className="cooked-modal__optional">(optional)</span></p>
+              <textarea className="editor-textarea cooked-modal__notes-input" value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. Added more garlic, served with salad, would do again…" rows={3} />
+            </div>
+
+            {error && <p className="editor-error">⚠️ {error}</p>}
+          </div>
+          <div className="create-modal__footer">
+            <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
+            <button className="btn btn--primary cooked-modal__save-btn" onClick={saveLog} disabled={saving}>
+              {saving ? 'Saving…' : perishableIngs.length > 0 ? 'Next →' : '✓ Save'}
+            </button>
+          </div>
+        </>)}
+
+        {step === 2 && (<>
+          <div className="create-modal__header">
+            <h2 className="create-modal__title">🧹 Update Your Kitchen</h2>
+          </div>
+          <div className="create-modal__body cooked-modal__body">
+            <p className="cooked-modal__cleanup-intro">
+              You used these perishables — what do you still have left?
+            </p>
+            {Object.entries(grouped).map(([cat, items]) => (
+              <div key={cat} className="cooked-cleanup__group">
+                <div className="cooked-cleanup__group-label">
+                  {CAT_EMOJI[cat]} {CAT_LABEL[cat]}
+                </div>
+                <div className="cooked-cleanup__items">
+                  {items.map(ing => {
+                    const action = ingActions[ing.name] ?? null;
+                    return (
+                      <div key={ing.name} className="cooked-cleanup__item">
+                        <span className="cooked-cleanup__item-name">
+                          {[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}
+                        </span>
+                        <div className="cooked-cleanup__btns">
+                          <button
+                            className={`cooked-cleanup__btn cooked-cleanup__btn--keep ${action === 'keep' ? 'cooked-cleanup__btn--active' : ''}`}
+                            onClick={() => setAction(ing.name, 'keep')} type="button">
+                            ✓ Keep
+                          </button>
+                          <button
+                            className={`cooked-cleanup__btn cooked-cleanup__btn--remove ${action === 'remove' ? 'cooked-cleanup__btn--active' : ''}`}
+                            onClick={() => setAction(ing.name, 'remove')} type="button">
+                            ✕ Used up
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="create-modal__footer">
+            <button className="btn btn--ghost" onClick={() => onSave({ toRemove: [] })}>Skip</button>
+            <button className="btn btn--primary" onClick={finishCleanup}>✓ Update Kitchen</button>
+          </div>
+        </>)}
+
+      </div>
+    </div>
+  );
+};
+
+// ─── Convert Reference Button (inline on RecipePage for cookbook refs) ────────
+const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted }) => {
+  const [showModal, setShowModal] = useState(false);
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const [details, setDetails] = useState({
+    name: recipe?.name || '', cuisine: recipe?.cuisine || '', time: recipe?.time || '',
+    servings: recipe?.servings || '', cover_image_url: recipe?.coverImage || '',
+    cookbook: recipe?.cookbook || '', reference: recipe?.reference || '',
+    status: recipe?.status || 'to try', recipe_incomplete: false, tags: recipe?.tags || [],
+  });
+  const [ings, setIngs] = useState([{ _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '' }]);
+  const [steps, setSteps] = useState([{ _id: `step-${Date.now()}`, step_number: 1, body_text: '' }]);
+  const [notesList, setNotesList] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const setDetail = (k, v) => setDetails(prev => ({ ...prev, [k]: v }));
+  const toggleTag = (tag) => setDetails(prev => ({ ...prev, tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag] }));
+  const updateIng = (id, k, v) => setIngs(prev => prev.map(i => i._id === id ? { ...i, [k]: v } : i));
+  const removeIng = (id) => setIngs(prev => prev.filter(i => i._id !== id));
+  const onIngDragEnd = ({ active, over }) => { if (over && active.id !== over.id) setIngs(prev => { const o = prev.findIndex(i => i._id === active.id); const n = prev.findIndex(i => i._id === over.id); return arrayMove(prev, o, n); }); };
+  const updateStep = (id, v) => setSteps(prev => prev.map(s => s._id === id ? { ...s, body_text: v } : s));
+  const removeStep = (id) => setSteps(prev => prev.filter(s => s._id !== id));
+  const onStepDragEnd = ({ active, over }) => { if (over && active.id !== over.id) setSteps(prev => { const o = prev.findIndex(s => s._id === active.id); const n = prev.findIndex(s => s._id === over.id); return arrayMove(prev, o, n); }); };
+  const updateNote = (id, v) => setNotesList(prev => prev.map(n => n._id === id ? { ...n, text: v } : n));
+  const removeNote = (id) => setNotesList(prev => prev.filter(n => n._id !== id));
+
+  const save = async () => {
+    if (!details.name.trim()) { setSaveError('Recipe name is required.'); return; }
+    setSaving(true); setSaveError(null);
+    try {
+      let grp = '';
+      const flatIngs = ings.map(i => { if (i._isGroup) { grp = i.name || ''; return null; } return { ...i, group_label: grp }; }).filter(Boolean);
+      const payload = {
+        details: { ...details, calories: null, protein: null, fiber: null },
+        ingredients: flatIngs.map((i, idx) => ({ ...i, order_index: idx })),
+        instructions: steps.map((s, idx) => ({ ...s, step_number: idx + 1 })),
+        notes: notesList.map((n, idx) => ({ ...n, order_index: idx })),
+      };
+      // Update the existing recipe record
+      const res = await fetch(`${API}/api/recipes/${recipe.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      setShowModal(false);
+      if (onConverted) onConverted(data.recipe);
+    } catch (e) { setSaveError(e.message); } finally { setSaving(false); }
+  };
+
+  if (!showModal) return (
+    <button className="btn btn--primary rp2__cb-convert-btn" onClick={() => setShowModal(true)}>
+      ✨ Convert to Full Recipe
+    </button>
+  );
+
+  return (
+    <div className="create-modal-overlay" onClick={() => setShowModal(false)}>
+      <div className="create-modal" onClick={e => e.stopPropagation()}>
+        <div className="create-modal__header">
+          <h2 className="create-modal__title">✨ Convert to Full Recipe</h2>
+          <button className="ing-modal__close" onClick={() => setShowModal(false)}>✕</button>
+        </div>
+        <div className="create-modal__body">
+          {/* Name */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Recipe name <span className="create-modal__required">*</span></label>
+            <input className="editor-input create-modal__name-input" value={details.name} onChange={e => setDetail('name', e.target.value)} autoFocus />
+          </div>
+          {/* Time + Servings */}
+          <div className="create-modal__meta-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <div className="create-modal__field"><label className="create-modal__field-label">⏱ Time</label><input className="editor-input" value={details.time} onChange={e => setDetail('time', e.target.value)} placeholder="45 mins" /></div>
+            <div className="create-modal__field"><label className="create-modal__field-label">🍽 Servings</label><input className="editor-input" value={details.servings} onChange={e => setDetail('servings', e.target.value)} placeholder="4" /></div>
+          </div>
+          {/* Cuisine */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">🌍 Cuisine</label>
+            <div className="picker__chips" style={{ marginTop:6 }}>
+              {ALL_CUISINES.map(c => <button key={c} className={`chip ${details.cuisine===c?'chip--selected':''}`} onClick={() => setDetail('cuisine', details.cuisine===c?'':c)} type="button">{details.cuisine===c&&<span className="chip__check">✓</span>}{CUISINE_EMOJI[c]||''} {c}</button>)}
             </div>
           </div>
-
-          <div className="cooked-modal__notes-section">
-            <p className="cooked-modal__label">Notes <span className="cooked-modal__optional">(optional)</span></p>
-            <textarea
-              className="editor-textarea cooked-modal__notes-input"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="e.g. Added more garlic, served with salad, would do again…"
-              rows={3}
-            />
+          {/* Tags */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">🏷 Tags</label>
+            <div className="picker__chips" style={{ marginTop:6 }}>
+              {TAG_FILTERS.map(({ key, label }) => <button key={key} className={`chip ${details.tags.includes(key)?'chip--selected':''}`} onClick={() => toggleTag(key)} type="button">{details.tags.includes(key)&&<span className="chip__check">✓</span>}{label}</button>)}
+            </div>
           </div>
-
-          {error && <p className="editor-error">⚠️ {error}</p>}
+          <p className="create-modal__field-hint">💡 Calories, protein &amp; fiber auto-calculated from ingredients</p>
+          {/* Ingredients */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Ingredients</label>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onIngDragEnd}>
+              <SortableContext items={ings.map(i => i._id)} strategy={verticalListSortingStrategy}>
+                <div className="ing-flat-list">
+                  {ings.map(ing => ing._isGroup
+                    ? <IngGroupRow key={ing._id} ing={ing} onLabelChange={v => setIngs(prev => prev.map(i => i._id===ing._id?{...i,name:v}:i))} onRemove={() => removeIng(ing._id)} onAddIngredient={() => setIngs(prev => { const idx=prev.findIndex(i=>i._id===ing._id); const n={_id:`ing-new-${Date.now()}`,name:'',amount:'',unit:'',prep_note:'',optional:false,group_label:ing.name}; const nx=[...prev]; nx.splice(idx+1,0,n); return nx; })} />
+                    : <IngFlatRow key={ing._id} ing={ing} onUpdate={(k,v) => updateIng(ing._id,k,v)} onRemove={() => removeIng(ing._id)} allIngredients={(allIngredients||[]).filter(Boolean)} />
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
+            <div className="ing-flat-add-row">
+              <button className="btn btn--ghost editor-add-btn" onClick={() => setIngs(prev => [...prev, { _id:`ing-new-${Date.now()}`,name:'',amount:'',unit:'',prep_note:'',optional:false,group_label:'' }])}>+ Add Ingredient</button>
+              <button className="btn btn--ghost editor-add-btn" onClick={() => setIngs(prev => [...prev, { _id:`grp-${Date.now()}`,_isGroup:true,name:'New Group' }])}>+ Add Group</button>
+            </div>
+          </div>
+          {/* Instructions */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Instructions</label>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStepDragEnd}>
+              <SortableContext items={steps.map(s => s._id)} strategy={verticalListSortingStrategy}>
+                {steps.map((step, idx) => (
+                  <SortableItem key={step._id} id={step._id}>
+                    <div className="editor-step-row">
+                      <span className="editor-step-num">{idx+1}</span>
+                      <textarea className="editor-textarea" value={step.body_text} onChange={e => updateStep(step._id, e.target.value)} placeholder="Describe this step…" rows={2} />
+                      <button className="editor-remove-btn" onClick={() => removeStep(step._id)}>✕</button>
+                    </div>
+                  </SortableItem>
+                ))}
+              </SortableContext>
+            </DndContext>
+            <button className="btn btn--ghost editor-add-btn" onClick={() => setSteps(prev => [...prev, { _id:`step-${Date.now()}`,step_number:prev.length+1,body_text:'' }])}>+ Add Step</button>
+          </div>
+          {/* Notes */}
+          <div className="create-modal__field">
+            <label className="create-modal__field-label">Notes &amp; Modifications</label>
+            {notesList.map(note => (
+              <div key={note._id} className="editor-note-row">
+                <input className="editor-input" value={note.text||''} onChange={e => updateNote(note._id, e.target.value)} placeholder="e.g. Great with oat milk instead of dairy" />
+                <button className="editor-remove-btn" onClick={() => removeNote(note._id)}>✕</button>
+              </div>
+            ))}
+            <button className="btn btn--ghost editor-add-btn" onClick={() => setNotesList(prev => [...prev, { _id:`note-${Date.now()}`,text:'' }])}>+ Add Note</button>
+          </div>
+          {saveError && <p className="editor-error">⚠️ {saveError}</p>}
         </div>
         <div className="create-modal__footer">
-          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn--primary cooked-modal__save-btn" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : '✓ Save'}
-          </button>
+          <button className="btn btn--ghost" onClick={() => setShowModal(false)}>Cancel</button>
+          <button className="btn btn--primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : '✨ Convert Recipe'}</button>
         </div>
       </div>
     </div>
@@ -705,7 +959,11 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       {showCookedModal && recipe && (
         <MarkCookedModal
           recipe={recipe}
-          onSave={() => { setShowCookedModal(false); if (onMarkCooked) onMarkCooked(recipe.id); }}
+          bodyIngredients={bodyIngredients}
+          onSave={({ toRemove }) => {
+            setShowCookedModal(false);
+            if (onMarkCooked) onMarkCooked(recipe.id, toRemove);
+          }}
           onClose={() => setShowCookedModal(false)}
         />
       )}
@@ -923,7 +1181,25 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       {/* ── Two-column body ── */}
       <div className="rp2__body">
 
-        {/* ── Ingredients Edit Modal (opens only when pencil clicked) ── */}
+        {/* ── Cookbook Reference Card — shown instead of ingredients/instructions for refs ── */}
+        {recipe.cookbook && (!bodyIngredients?.length) && (!instructions?.length) ? (
+          <div className="rp2__cb-ref-view">
+            <div className="rp2__cb-ref-card">
+              <div className="rp2__cb-ref-card__icon">📖</div>
+              <div className="rp2__cb-ref-card__content">
+                <p className="rp2__cb-ref-card__label">Find this recipe in</p>
+                <h3 className="rp2__cb-ref-card__book">{recipe.cookbook}</h3>
+                {recipe.reference && (
+                  <p className="rp2__cb-ref-card__page">Page {recipe.reference}</p>
+                )}
+              </div>
+            </div>
+            <div className="rp2__cb-ref-convert">
+              <p className="rp2__cb-ref-convert__hint">Ready to save the full recipe?</p>
+              <ConvertRefButton recipe={recipe} allIngredients={allIngredients} cookbooks={cookbooks} onConverted={onSaved} />
+            </div>
+          </div>
+        ) : (<>
         {showIngredientsModal && (
           <div className="ing-modal-overlay" onClick={() => { setShowIngredientsModal(false); cancelEdit(); }}>
             <div className="ing-modal ing-modal--wide" onClick={e => e.stopPropagation()}>
@@ -1137,6 +1413,8 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             </div>
           </div>
         </div>
+      </div>
+      </>)}
       </div>
     </main>
   );
@@ -1881,46 +2159,38 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
         )}
       </div>
 
-      {/* ── ON HAND + RECENTLY USED ── */}
-      <div className="kitchen-split">
-        <div className="kitchen-split__section kitchen-split__section--have">
-          <div className="kitchen-split__header">
-            <h2 className="kitchen-split__title">✅ On Hand <span className="kitchen-split__count">{haveList.length}</span></h2>
-          </div>
-          <div className="fridge-groups">
-            {ALL_TYPES.filter(t => haveGrouped[t]?.length > 0).map(t => renderGroup(t, haveGrouped[t], 'have'))}
-            {haveList.length === 0 && (
-              <div className="fridge-empty"><p>Nothing added yet. Use quick-add above or tap ingredients below.</p></div>
-            )}
-          </div>
-        </div>
-
-        {/* Recently Used — small card, right-aligned */}
-        {recentIngredients.length > 0 && (
-          <div className="kitchen-split__section kitchen-split__section--recent">
-            <div className="kitchen-split__header">
-              <h2 className="kitchen-split__title">🕐 Recently Used</h2>
-            </div>
-            <div className="fridge-chips fridge-chips--compact">
-              {recentIngredients.map(ing => {
-                const isOn = allSelected.has(ing.name.toLowerCase());
-                return (
-                  <div key={ing.name} className="fridge-ing-wrap">
-                    <button className={`chip chip--sm ${isOn ? 'chip--selected' : ''}`} onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}>
-                      {isOn && <span className="chip__check">✓</span>}
-                      {ing.name}
+      {/* ── ON HAND area (full width) with Recently Used floating right ── */}
+      <div className="kitchen-onhand-area">
+        <div className="kitchen-onhand-header">
+          <h2 className="kitchen-split__title">✅ On Hand <span className="kitchen-split__count">{haveList.length}</span></h2>
+          {recentIngredients.length > 0 && (
+            <div className="kitchen-recent-panel">
+              <div className="kitchen-recent-panel__label">🕐 Recently Used</div>
+              <div className="kitchen-recent-panel__chips">
+                {recentIngredients.map(ing => {
+                  const isOn = allSelected.has(ing.name.toLowerCase());
+                  return (
+                    <button key={ing.name} className={`chip chip--sm ${isOn ? 'chip--selected' : ''}`}
+                      onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}>
+                      {isOn && <span className="chip__check">✓</span>}{ing.name}
                     </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+        <div className="fridge-groups kitchen-onhand-groups">
+          {ALL_TYPES.filter(t => haveGrouped[t]?.length > 0).map(t => renderGroup(t, haveGrouped[t], 'have'))}
+          {haveList.length === 0 && (
+            <div className="fridge-empty"><p>Nothing added yet. Use quick-add above or tap ingredients below.</p></div>
+          )}
+        </div>
       </div>
 
-      {/* ── MISSING ── */}
+      {/* ── MISSING — full width bar ── */}
       <div className="kitchen-missing-section">
-        <button className="kitchen-split__header kitchen-split__header--btn" onClick={() => setMissingCollapsed(p => !p)}>
+        <button className="kitchen-missing-header" onClick={() => setMissingCollapsed(p => !p)}>
           <h2 className="kitchen-split__title">❌ Missing <span className="kitchen-split__count">{missingList.length}</span></h2>
           <span className={`fridge-group__arrow ${missingCollapsed ? '' : 'fridge-group__arrow--open'}`}>▾</span>
         </button>
@@ -2026,8 +2296,10 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                       <div className="cook-timeline__line" />
                       <div className="cook-timeline__card">
                         <div className="cook-timeline__card-top">
-                          {recipe?.coverImage && (
+                          {(recipe?.coverImage) ? (
                             <img className="cook-timeline__thumb" src={recipe.coverImage} alt={recipeName} />
+                          ) : (
+                            <div className="cook-timeline__thumb cook-timeline__thumb--placeholder">🍳</div>
                           )}
                           <div className="cook-timeline__info">
                             <p className="cook-timeline__recipe-name">{recipeName}</p>
@@ -3870,8 +4142,14 @@ function AppInner() {
           loading={recipeLoading} onBack={() => setView(lastView)}
           allIngredients={allIngredients.map(i => typeof i === 'string' ? i : i.name).filter(Boolean)}
           cookbooks={cookbooks}
-          onMarkCooked={(recipeId) => {
+          onMarkCooked={(recipeId, toRemove) => {
             setMakeSoonIds(prev => prev.filter(id => id !== recipeId));
+            if (toRemove?.length) {
+              const lower = toRemove.map(n => n.toLowerCase().trim());
+              setFridgeIngredients(prev => prev.filter(x => !lower.includes(x.toLowerCase().trim())));
+              setPantryStaples(prev => prev.filter(x => !lower.includes(x.toLowerCase().trim())));
+            }
+            fetch(`${API}/api/cook-log`).then(r => r.json()).then(d => setCookLog(d.entries || [])).catch(() => {});
           }}
           isHearted={selectedRecipe ? heartedIds.includes(selectedRecipe.id) : false}
           onToggleHeart={() => selectedRecipe && toggleHeart(selectedRecipe.id)}
@@ -4351,8 +4629,15 @@ function AppInner() {
       {cookingRecipe && (
         <MarkCookedModal
           recipe={cookingRecipe}
-          onSave={() => {
+          bodyIngredients={cookingRecipe._bodyIngredients || []}
+          onSave={({ toRemove }) => {
             setMakeSoonIds(prev => prev.filter(id => id !== cookingRecipe.id));
+            // Remove "used up" ingredients from kitchen
+            if (toRemove?.length) {
+              const lower = toRemove.map(n => n.toLowerCase().trim());
+              setFridgeIngredients(prev => prev.filter(x => !lower.includes(x.toLowerCase().trim())));
+              setPantryStaples(prev => prev.filter(x => !lower.includes(x.toLowerCase().trim())));
+            }
             setCookingRecipe(null);
             fetch(`${API}/api/cook-log`).then(r => r.json()).then(d => setCookLog(d.entries || [])).catch(() => {});
           }}
