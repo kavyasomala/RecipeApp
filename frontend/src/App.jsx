@@ -138,23 +138,41 @@ const ALL_CUISINES = [...GEO_CUISINES].sort();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const pct = (score) => Math.round(score * 100);
-// Auto-pluralize ingredient names based on numeric amount
+// Auto-pluralize ingredient names — only for clearly countable nouns
 const pluralizeIng = (name, amount) => {
   if (!name) return name;
   const n = parseFloat(amount);
   if (isNaN(n) || n <= 1) return name;
-  // Already plural heuristics
-  const lower = name.toLowerCase();
-  if (lower.endsWith('s') || lower.endsWith('rice') || lower.endsWith('flour') ||
-      lower.endsWith('milk') || lower.endsWith('water') || lower.endsWith('oil') ||
-      lower.endsWith('vinegar') || lower.endsWith('sauce') || lower.endsWith('cheese') ||
-      lower.endsWith('butter') || lower.endsWith('sugar') || lower.endsWith('salt') ||
-      lower.endsWith('pepper') || lower.endsWith('broth') || lower.endsWith('stock') ||
-      lower.endsWith('juice') || lower.endsWith('paste') || lower.endsWith('powder') ||
-      lower.endsWith('flakes') || lower.endsWith('leaves') || lower.endsWith('zest') ||
-      lower.endsWith('cream') || lower.endsWith('honey') || lower.endsWith('bread')) return name;
+  const lower = name.toLowerCase().trim();
+
+  // Never pluralize: mass nouns, liquids, powders, abstract quantities, and already-plural forms
+  const NO_PLURALIZE = [
+    // liquids & oils
+    'water','milk','cream','oil','olive oil','coconut oil','sesame oil','vegetable oil','broth','stock',
+    'juice','wine','beer','vinegar','coconut milk','coconut cream','buttermilk','condensed milk',
+    // powders, salts, sugars
+    'salt','pepper','sugar','flour','cornstarch','baking powder','baking soda','yeast','cocoa',
+    'cumin','turmeric','paprika','cinnamon','nutmeg','cardamom','cayenne','oregano','thyme',
+    // sauces & pastes
+    'sauce','paste','honey','syrup','miso','tahini','butter','ghee','lard',
+    // cheese & dairy
+    'cheese','parmesan','cheddar','feta','mozzarella','ricotta','cream cheese','brie','gouda',
+    'halloumi','creme fraiche','sour cream','yogurt','greek yogurt',
+    // grains & starches
+    'rice','pasta','bread','oats','quinoa','couscous','polenta',
+    // already plural or invariant
+    'beef','pork','lamb','turkey','duck','fish','salmon','tuna','cod','chicken','bacon',
+    'spinach','kale','lettuce','basil','parsley','coriander','cilantro','dill','chives',
+    'ginger','garlic','zest',
+  ];
+  if (NO_PLURALIZE.some(w => lower === w || lower.endsWith(' ' + w))) return name;
+
+  // Already ends in s, es, ies — don't double-pluralize
+  if (lower.endsWith('s')) return name;
+
+  // Standard English pluralization for countable nouns
   if (lower.endsWith('ch') || lower.endsWith('sh') || lower.endsWith('x') || lower.endsWith('z')) return name + 'es';
-  if (lower.endsWith('y') && !/[aeiou]y$/.test(lower)) return name.slice(0, -1) + 'ies';
+  if (lower.endsWith('y') && !/[aeiou]y$/i.test(lower)) return name.slice(0, -1) + 'ies';
   if (lower.endsWith('fe')) return name.slice(0, -2) + 'ves';
   if (lower.endsWith('f') && !lower.endsWith('ff')) return name.slice(0, -1) + 'ves';
   return name + 's';
@@ -640,7 +658,114 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted }) =>
   );
 };
 
-// ─── Recipe Page ────────────────────────────────────────────────────────────
+// ─── Step Item with integrated timer ──────────────────────────────────────
+const StepItem = ({ step, done, isCurrent, enlarge, isCookingMode, onToggle }) => {
+  const hasTimer = step.timer_seconds && step.timer_seconds > 0;
+  const [timerState, setTimerState] = useState('idle'); // 'idle' | 'running' | 'paused' | 'done'
+  const [remaining, setRemaining] = useState(step.timer_seconds || 0);
+  const intervalRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // Reset timer if step changes
+  useEffect(() => {
+    setRemaining(step.timer_seconds || 0);
+    setTimerState('idle');
+  }, [step.timer_seconds]);
+
+  const startTimer = (e) => {
+    e.stopPropagation();
+    if (timerState === 'idle' || timerState === 'paused') {
+      setTimerState('running');
+    }
+  };
+  const pauseTimer = (e) => { e.stopPropagation(); setTimerState('paused'); };
+  const resetTimer = (e) => { e.stopPropagation(); setTimerState('idle'); setRemaining(step.timer_seconds || 0); };
+
+  useEffect(() => {
+    if (timerState === 'running') {
+      intervalRef.current = setInterval(() => {
+        setRemaining(r => {
+          if (r <= 1) {
+            clearInterval(intervalRef.current);
+            setTimerState('done');
+            // Ring: Web Audio API beep
+            try {
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              const playBeep = (time, freq) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = freq; osc.type = 'sine';
+                gain.gain.setValueAtTime(0.4, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+                osc.start(time); osc.stop(time + 0.4);
+              };
+              playBeep(ctx.currentTime, 880);
+              playBeep(ctx.currentTime + 0.45, 1100);
+              playBeep(ctx.currentTime + 0.9, 1320);
+            } catch {}
+            // Browser notification if permitted
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`⏱ Timer done!`, { body: `Step ${step.step_number}: ${step.body_text.slice(0, 60)}…`, icon: '🍳' });
+            }
+            return 0;
+          }
+          return r - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(intervalRef.current);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [timerState]);
+
+  const fmtTime = (s) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
+
+  const pct = hasTimer ? ((step.timer_seconds - remaining) / step.timer_seconds) * 100 : 0;
+
+  return (
+    <li className={`rp2__step ${done ? 'rp2__step--done' : ''} ${isCurrent ? 'rp2__step--current' : ''} ${enlarge ? 'rp2__step--enlarged' : ''}`} onClick={onToggle}>
+      <div className="rp2__step-num">{done ? '✓' : step.step_number}</div>
+      <div className="rp2__step-content">
+        <p className="rp2__step-body">{step.body_text}</p>
+        {hasTimer && !done && (
+          <div className="rp2__step-timer" onClick={e => e.stopPropagation()}>
+            {timerState === 'running' && (
+              <div className="rp2__step-timer__bar">
+                <div className="rp2__step-timer__fill" style={{ width: `${pct}%` }} />
+              </div>
+            )}
+            <div className="rp2__step-timer__controls">
+              <span className={`rp2__step-timer__display ${timerState === 'done' ? 'rp2__step-timer__display--done' : ''}`}>
+                {timerState === 'done' ? '✓ Done!' : fmtTime(remaining)}
+              </span>
+              {timerState === 'idle' && (
+                <button className="rp2__step-timer__btn rp2__step-timer__btn--start" onClick={startTimer} title="Start timer">▶ Start</button>
+              )}
+              {timerState === 'running' && (
+                <button className="rp2__step-timer__btn rp2__step-timer__btn--pause" onClick={pauseTimer} title="Pause timer">⏸ Pause</button>
+              )}
+              {timerState === 'paused' && (
+                <button className="rp2__step-timer__btn rp2__step-timer__btn--start" onClick={startTimer} title="Resume timer">▶ Resume</button>
+              )}
+              {timerState !== 'idle' && (
+                <button className="rp2__step-timer__btn rp2__step-timer__btn--reset" onClick={resetTimer} title="Reset timer">↺</button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+};
+
+// ─── Recipe Page ─────────────────────────────────────────────────────────────
 const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSaved, onDelete, loading, isHearted, onToggleHeart, isMakeSoon, onToggleMakeSoon, allIngredients = [], cookbooks = [], onMarkCooked, dietaryFilters = [] }) => {
   const [checkedIngredients, setCheckedIngredients] = useState(new Set());
   const [doneSteps, setDoneSteps] = useState(new Set());
@@ -649,7 +774,26 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const [showCookedModal, setShowCookedModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [isCookingMode, setIsCookingMode] = useState(false);
+  const wakeLockRef = useRef(null);
+  const firstStepRef = useRef(null);
   const ingDndSensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
+  // ── Wake Lock & scroll on cooking mode toggle ──
+  useEffect(() => {
+    if (isCookingMode) {
+      // Request wake lock to keep screen on
+      if ('wakeLock' in navigator) {
+        navigator.wakeLock.request('screen').then(lock => { wakeLockRef.current = lock; }).catch(() => {});
+      }
+      // Scroll to first step
+      setTimeout(() => { firstStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+    } else {
+      // Release wake lock
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
+    }
+    return () => { if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; } };
+  }, [isCookingMode]);
 
   // ── Per-section edit state ──
   const [editingSection, setEditingSection] = useState(null);
@@ -687,7 +831,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       }
       setDraftIngs(flat);
     }
-    if (section === 'instructions') setDraftSteps((instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}` })));
+    if (section === 'instructions') setDraftSteps((instructions || []).map((s, idx) => ({ ...s, _id: `step-${idx}`, timer_seconds: s.timer_seconds ?? null })));
     if (section === 'notes')        setDraftNotes((notes || []).map((n, idx) => ({ ...n, _id: `note-${idx}`, text: n.text ?? n.body_text ?? '' })));
     if (section === 'cookbook')      setDraftCookbook({ cookbook: recipe.cookbook || '', reference: recipe.reference || '' });
     if (['meta','meta-cuisine','meta-tags','meta-progress','meta-time','meta-servings'].includes(section)) setDraftMeta({
@@ -814,7 +958,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
   const removeDraftIng = (id) => setDraftIngs(prev => prev.filter(i => i._id !== id));
 
   // ── Step draft helpers ──
-  const addDraftStep    = () => setDraftSteps(prev => [...prev, { _id: `step-new-${Date.now()}`, step_number: prev.length + 1, body_text: '' }]);
+  const addDraftStep    = () => setDraftSteps(prev => [...prev, { _id: `step-new-${Date.now()}`, step_number: prev.length + 1, body_text: '', timer_seconds: null }]);
   const updateDraftStep = (id, v) => setDraftSteps(prev => prev.map(s => s._id === id ? { ...s, body_text: v } : s));
   const removeDraftStep = (id) => setDraftSteps(prev => prev.filter(s => s._id !== id));
 
@@ -1191,6 +1335,13 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             <h1 className="rp2__title">{recipe.name}</h1>
           )}
           <SectionPencil isEditing={isEdit('title')} onEdit={() => startEdit('title')} onSave={() => saveSection('title')} onCancel={cancelEdit} saving={saving} />
+          <button
+            className={`rp2__cooking-mode-btn ${isCookingMode ? 'rp2__cooking-mode-btn--on' : ''}`}
+            onClick={() => setIsCookingMode(m => !m)}
+            title={isCookingMode ? 'Exit cooking mode' : 'Enter cooking mode'}
+          >
+            {isCookingMode ? '🍳 Cooking…' : '👨‍🍳 Cook'}
+          </button>
           <button className="rp2__title-delete-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe">🗑</button>
         </div>
 
@@ -1379,7 +1530,37 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               {draftSteps.map((step, idx) => (
                 <div key={step._id} className="rp2__ed-step-row">
                   <span className="editor-step-num">{idx + 1}</span>
-                  <textarea className="editor-textarea" value={step.body_text} onChange={e => updateDraftStep(step._id, e.target.value)} placeholder="Describe this step…" rows={2} />
+                  <div className="rp2__ed-step-fields">
+                    <textarea className="editor-textarea" value={step.body_text} onChange={e => updateDraftStep(step._id, e.target.value)} placeholder="Describe this step…" rows={2} />
+                    <div className="rp2__ed-step-timer">
+                      <span className="rp2__ed-step-timer__label">⏱ Timer</span>
+                      <select
+                        className="editor-input editor-input--sm rp2__ed-step-timer__select"
+                        value={step.timer_seconds ?? ''}
+                        onChange={e => setDraftSteps(prev => prev.map(s => s._id === step._id ? { ...s, timer_seconds: e.target.value === '' ? null : Number(e.target.value) } : s))}
+                      >
+                        <option value="">None</option>
+                        <option value="60">1 min</option>
+                        <option value="120">2 min</option>
+                        <option value="180">3 min</option>
+                        <option value="300">5 min</option>
+                        <option value="600">10 min</option>
+                        <option value="900">15 min</option>
+                        <option value="1200">20 min</option>
+                        <option value="1800">30 min</option>
+                        <option value="2700">45 min</option>
+                        <option value="3600">1 hr</option>
+                        <option value="custom">Custom…</option>
+                      </select>
+                      {step.timer_seconds !== null && step.timer_seconds !== undefined && (
+                        <span className="rp2__ed-step-timer__preview">
+                          {step.timer_seconds >= 3600
+                            ? `${Math.floor(step.timer_seconds/3600)}h ${Math.round((step.timer_seconds%3600)/60)}m`
+                            : `${Math.round(step.timer_seconds/60)} min`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <button className="editor-remove-btn" onClick={() => removeDraftStep(step._id)}>✕</button>
                 </div>
               ))}
@@ -1387,16 +1568,23 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             </div>
           ) : (
             instructions?.length > 0
-              ? <ol className="rp2__steps">
-                  {[...instructions].sort((a, b) => a.step_number - b.step_number).map(step => {
+              ? <ol className="rp2__steps" ref={firstStepRef}>
+                  {[...instructions].sort((a, b) => a.step_number - b.step_number).map((step, listIdx) => {
                     const done = doneSteps.has(step.step_number);
                     const sortedUndone = [...instructions].sort((a, b) => a.step_number - b.step_number).filter(s => !doneSteps.has(s.step_number));
-                    const isCurrent = !done && sortedUndone[0]?.step_number === step.step_number && doneCount > 0;
+                    const isCurrent = !done && sortedUndone[0]?.step_number === step.step_number;
+                    const isFirst = listIdx === 0;
+                    const enlarge = isCookingMode && (isFirst && doneCount === 0 ? true : isCurrent);
                     return (
-                      <li key={step.step_number} className={`rp2__step ${done ? 'rp2__step--done' : ''} ${isCurrent ? 'rp2__step--current' : ''}`} onClick={() => toggleStep(step.step_number)}>
-                        <div className="rp2__step-num">{done ? '✓' : step.step_number}</div>
-                        <p className="rp2__step-body">{step.body_text}</p>
-                      </li>
+                      <StepItem
+                        key={step.step_number}
+                        step={step}
+                        done={done}
+                        isCurrent={isCurrent}
+                        enlarge={enlarge}
+                        isCookingMode={isCookingMode}
+                        onToggle={() => toggleStep(step.step_number)}
+                      />
                     );
                   })}
                 </ol>
