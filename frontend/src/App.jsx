@@ -185,6 +185,9 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
         {isCookbookRef && (
           <div className="recipe-card__cb-badge">📖 Cookbook Ref</div>
         )}
+        {isCookbookRef && (
+          <div className="recipe-card__book-corner" title="Cookbook reference">📖</div>
+        )}
         {showScore && matchScore !== null && (
           <div className={`recipe-card__score ${canMakeNow ? 'recipe-card__score--ready' : ''}`}>
             {pct(matchScore)}%
@@ -474,7 +477,7 @@ const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpda
                     return (
                       <div key={ing.name} className="cooked-cleanup__item">
                         <span className="cooked-cleanup__item-name">
-                          {[ing.amount, ing.unit, ing.name].filter(Boolean).join(' ')}
+                          {ing.name}
                         </span>
                         <div className="cooked-cleanup__btns">
                           <button
@@ -2161,26 +2164,10 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
         )}
       </div>
 
-      {/* ── ON HAND area (full width) with Recently Used floating right ── */}
+      {/* ── ON HAND area (full width) ── */}
       <div className="kitchen-onhand-area">
         <div className="kitchen-onhand-header">
           <h2 className="kitchen-split__title">✅ On Hand <span className="kitchen-split__count">{haveList.length}</span></h2>
-          {recentIngredients.length > 0 && (
-            <div className="kitchen-recent-panel">
-              <div className="kitchen-recent-panel__label">🕐 Recently Used</div>
-              <div className="kitchen-recent-panel__chips">
-                {recentIngredients.map(ing => {
-                  const isOn = allSelected.has(ing.name.toLowerCase());
-                  return (
-                    <button key={ing.name} className={`chip chip--sm ${isOn ? 'chip--selected' : ''}`}
-                      onClick={() => toggle(ing.name, typeOverrides[ing.name] ?? ing.type)}>
-                      {isOn && <span className="chip__check">✓</span>}{ing.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
         <div className="fridge-groups kitchen-onhand-groups">
           {ALL_TYPES.filter(t => haveGrouped[t]?.length > 0).map(t => renderGroup(t, haveGrouped[t], 'have'))}
@@ -2216,19 +2203,22 @@ const THEME_OPTIONS = [
 ];
 const STAR_LABELS = ['', "Didn't love it", 'It was okay', 'Pretty good!', 'Really good!', 'Perfect!'];
 
+// ── Calendar helpers
+const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
 const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnits, totalRecipes }) => {
   const [cookHistory, setCookHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [attemptsOpen, setAttemptsOpen] = useState(false);
+  const [historyView, setHistoryView] = useState('timeline'); // 'timeline' | 'calendar'
+  const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [theme, setTheme] = useState(() => localStorage.getItem('hearth-theme') || 'default');
-  const [sharedUsers] = useState([]); // placeholder
+  const [sharedUsers] = useState([]);
 
   const toggleDiet = (d) => setDietaryFilters(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
-
-  const setThemeAndSave = (key) => {
-    setTheme(key);
-    localStorage.setItem('hearth-theme', key);
-  };
+  const setThemeAndSave = (key) => { setTheme(key); localStorage.setItem('hearth-theme', key); };
 
   useEffect(() => {
     let cancelled = false;
@@ -2246,7 +2236,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
     return () => { cancelled = true; };
   }, []);
 
-  // Group history by month
+  // Group history by month for timeline
   const groupedHistory = useMemo(() => {
     const groups = {};
     for (const entry of cookHistory) {
@@ -2258,10 +2248,45 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
     return Object.entries(groups);
   }, [cookHistory]);
 
+  // Recipe attempts: count per recipe
+  const recipeCounts = useMemo(() => {
+    const counts = {};
+    for (const entry of cookHistory) {
+      const key = entry.recipe_id || entry.recipe_name;
+      if (!key) continue;
+      if (!counts[key]) counts[key] = { name: entry.recipe_name, id: entry.recipe_id, count: 0, lastCooked: null };
+      counts[key].count++;
+      const d = new Date(entry.cooked_at);
+      if (!counts[key].lastCooked || d > counts[key].lastCooked) counts[key].lastCooked = d;
+    }
+    return Object.values(counts).sort((a, b) => b.count - a.count);
+  }, [cookHistory]);
+
+  // Calendar: cook dates for current month
+  const cookDatesInMonth = useMemo(() => {
+    const { year, month } = calendarDate;
+    const set = {};
+    for (const entry of cookHistory) {
+      const d = new Date(entry.cooked_at);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const day = d.getDate();
+        if (!set[day]) set[day] = [];
+        const r = recipes.find(r => r.id === entry.recipe_id);
+        set[day].push(r?.name || entry.recipe_name || 'Unknown');
+      }
+    }
+    return set;
+  }, [cookHistory, calendarDate, recipes]);
+
   const getRecipeName = (entry) => {
     const r = recipes.find(r => r.id === entry.recipe_id);
     return r?.name || entry.recipe_name || 'Unknown Recipe';
   };
+
+  const prevMonth = () => setCalendarDate(p => p.month === 0 ? { year: p.year-1, month: 11 } : { ...p, month: p.month-1 });
+  const nextMonth = () => setCalendarDate(p => p.month === 11 ? { year: p.year+1, month: 0 } : { ...p, month: p.month+1 });
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   return (
     <main className="view profile-view">
@@ -2273,9 +2298,18 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
         </div>
       </div>
 
-      {/* ── Cooking History ── */}
+      {/* ── 1. Cooking History ── */}
       <section className="profile-section">
-        <h3 className="profile-section__title">📅 Cooking History</h3>
+        <div className="profile-section__titlebar">
+          <h3 className="profile-section__title">📅 Cooking History</h3>
+          {cookHistory.length > 0 && (
+            <div className="history-view-toggle">
+              <button className={`history-view-toggle__btn ${historyView==='timeline'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('timeline')} title="Timeline view">☰</button>
+              <button className={`history-view-toggle__btn ${historyView==='calendar'?'history-view-toggle__btn--on':''}`} onClick={() => setHistoryView('calendar')} title="Calendar view">▦</button>
+            </div>
+          )}
+        </div>
+
         {historyLoading ? (
           <div className="grocery-loading"><div className="loading-spinner" /><p>Loading history…</p></div>
         ) : cookHistory.length === 0 ? (
@@ -2283,8 +2317,8 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
             <span className="profile-empty__icon">🍳</span>
             <p className="profile-empty__text">No cooking history yet. Mark a recipe as cooked to start your log!</p>
           </div>
-        ) : (
-          <div className="cook-timeline">
+        ) : historyView === 'timeline' ? (
+          <div className="cook-timeline cook-timeline--scrollable">
             {groupedHistory.map(([month, entries]) => (
               <div key={month} className="cook-timeline__month-group">
                 <div className="cook-timeline__month-label">{month}</div>
@@ -2298,16 +2332,14 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                       <div className="cook-timeline__line" />
                       <div className="cook-timeline__card">
                         <div className="cook-timeline__card-top">
-                          {(recipe?.coverImage) ? (
+                          {recipe?.coverImage ? (
                             <img className="cook-timeline__thumb" src={recipe.coverImage} alt={recipeName} />
                           ) : (
                             <div className="cook-timeline__thumb cook-timeline__thumb--placeholder">🍳</div>
                           )}
                           <div className="cook-timeline__info">
                             <p className="cook-timeline__recipe-name">{recipeName}</p>
-                            <p className="cook-timeline__date">
-                              {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </p>
+                            <p className="cook-timeline__date">{d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
                             {entry.rating > 0 && (
                               <div className="cook-timeline__rating">
                                 {'★'.repeat(entry.rating)}<span className="cook-timeline__rating-empty">{'★'.repeat(5 - entry.rating)}</span>
@@ -2324,10 +2356,69 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
               </div>
             ))}
           </div>
+        ) : (
+          /* Calendar view */
+          <div className="cook-calendar">
+            <div className="cook-calendar__nav">
+              <button className="cook-calendar__nav-btn" onClick={prevMonth}>‹</button>
+              <span className="cook-calendar__month-label">{MONTH_NAMES[calendarDate.month]} {calendarDate.year}</span>
+              <button className="cook-calendar__nav-btn" onClick={nextMonth}>›</button>
+            </div>
+            <div className="cook-calendar__grid">
+              {DAY_NAMES.map(d => <div key={d} className="cook-calendar__day-name">{d}</div>)}
+              {Array.from({ length: getFirstDayOfMonth(calendarDate.year, calendarDate.month) }).map((_, i) => (
+                <div key={`empty-${i}`} className="cook-calendar__cell cook-calendar__cell--empty" />
+              ))}
+              {Array.from({ length: getDaysInMonth(calendarDate.year, calendarDate.month) }).map((_, i) => {
+                const day = i + 1;
+                const cooked = cookDatesInMonth[day];
+                return (
+                  <div key={day} className={`cook-calendar__cell ${cooked ? 'cook-calendar__cell--cooked' : ''}`} title={cooked?.join(', ')}>
+                    <span className="cook-calendar__cell-day">{day}</span>
+                    {cooked && <span className="cook-calendar__cell-dot" title={cooked.join(', ')}>🍳</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </section>
 
-      {/* ── Settings (collapsible) ── */}
+      {/* ── 2. Recipe Attempts ── */}
+      <section className="profile-section profile-section--collapsible">
+        <button className="profile-settings-toggle" onClick={() => setAttemptsOpen(o => !o)}>
+          <span className="profile-settings-toggle__title">🔁 Recipe Attempts</span>
+          <span className={`profile-settings-toggle__arrow ${attemptsOpen ? 'profile-settings-toggle__arrow--open' : ''}`}>▾</span>
+        </button>
+        {attemptsOpen && (
+          <div className="profile-attempts">
+            {recipeCounts.length === 0 ? (
+              <p className="profile-empty__text" style={{ padding: '12px 0' }}>No cooking history yet.</p>
+            ) : (
+              <div className="attempts-list">
+                {recipeCounts.map((item, i) => {
+                  const recipe = recipes.find(r => r.id === item.id);
+                  return (
+                    <div key={item.id || i} className="attempts-row">
+                      {recipe?.coverImage && <img className="attempts-row__thumb" src={recipe.coverImage} alt={item.name} />}
+                      <div className="attempts-row__info">
+                        <span className="attempts-row__name">{item.name}</span>
+                        {item.lastCooked && <span className="attempts-row__last">Last: {item.lastCooked.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                      </div>
+                      <div className="attempts-row__count">
+                        <span className="attempts-row__num">{item.count}</span>
+                        <span className="attempts-row__label">{item.count === 1 ? 'time' : 'times'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── 3. Settings (with About inside) ── */}
       <section className="profile-section profile-section--settings">
         <button className="profile-settings-toggle" onClick={() => setSettingsOpen(o => !o)}>
           <span className="profile-settings-toggle__title">⚙️ Settings</span>
@@ -2354,42 +2445,66 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
               <h4 className="settings-section__title">🎨 Theme</h4>
               <div className="profile-theme-picker">
                 {THEME_OPTIONS.map(t => (
-                  <button
-                    key={t.key}
+                  <button key={t.key}
                     className={`profile-theme-swatch ${theme === t.key ? 'profile-theme-swatch--active' : ''}`}
                     style={{ background: t.color }}
                     onClick={() => setThemeAndSave(t.key)}
-                    title={t.label}
-                  >
+                    title={t.label}>
                     {theme === t.key && <span className="profile-theme-swatch__check">✓</span>}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="settings-section">
-              <h4 className="settings-section__title">👥 Shared Access</h4>
-              <p className="settings-section__hint">Users who can view your recipe collection</p>
-              {sharedUsers.length === 0
-                ? <p className="profile-no-users">No shared users yet. Sharing coming soon.</p>
-                : sharedUsers.map((u, i) => (
-                  <div key={i} className="profile-shared-user">
-                    <span>{u.email}</span>
-                    <button className="btn btn--ghost btn--sm" style={{ color: 'var(--terracotta)' }}>Revoke</button>
+            {/* About */}
+            <div className="settings-section settings-section--about">
+              <h4 className="settings-section__title">ℹ️ About Hearth</h4>
+              <div className="about-cards">
+                <div className="about-card">
+                  <span className="about-card__icon">📊</span>
+                  <div>
+                    <div className="about-card__value">{totalRecipes}</div>
+                    <div className="about-card__label">Recipes</div>
                   </div>
-                ))
-              }
-            </div>
-
-            <div className="settings-section">
-              <h4 className="settings-section__title">ℹ️ About</h4>
-              <div className="profile-about-grid">
-                <div className="profile-about-item"><span className="profile-about-item__label">Version</span><span className="profile-about-item__value">Hearth v1.0</span></div>
-                <div className="profile-about-item"><span className="profile-about-item__label">Total Recipes</span><span className="profile-about-item__value">{totalRecipes}</span></div>
-                <div className="profile-about-item"><span className="profile-about-item__label">Times Cooked</span><span className="profile-about-item__value">{cookHistory.length}</span></div>
-                <div className="profile-about-item"><span className="profile-about-item__label">Data</span><span className="profile-about-item__value">Supabase · PostgreSQL</span></div>
-                <div className="profile-about-item"><span className="profile-about-item__label">Built with</span><span className="profile-about-item__value">React · Node.js</span></div>
+                </div>
+                <div className="about-card">
+                  <span className="about-card__icon">🍳</span>
+                  <div>
+                    <div className="about-card__value">{cookHistory.length}</div>
+                    <div className="about-card__label">Times Cooked</div>
+                  </div>
+                </div>
+                <div className="about-card">
+                  <span className="about-card__icon">⚡</span>
+                  <div>
+                    <div className="about-card__value">v1.0</div>
+                    <div className="about-card__label">Version</div>
+                  </div>
+                </div>
+                <div className="about-card">
+                  <span className="about-card__icon">🗄️</span>
+                  <div>
+                    <div className="about-card__value">Supabase</div>
+                    <div className="about-card__label">Database</div>
+                  </div>
+                </div>
               </div>
+              <div className="about-stack">
+                <span className="about-stack__badge">React</span>
+                <span className="about-stack__badge">Node.js</span>
+                <span className="about-stack__badge">PostgreSQL</span>
+              </div>
+              <a
+                className="about-github-btn"
+                href="https://github.com/kavyasomala/Hearth"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg className="about-github-btn__icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                View on GitHub
+              </a>
             </div>
 
           </div>
@@ -2400,7 +2515,79 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
 };
 
 // ─── Grocery List Tab ────────────────────────────────────────────────────────
-const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
+
+// Unit conversion to a common base (grams for weight, ml for volume)
+const UNIT_CONVERSIONS = {
+  // weight → grams
+  g: 1, gram: 1, grams: 1,
+  kg: 1000, kilogram: 1000, kilograms: 1000,
+  oz: 28.3495, ounce: 28.3495, ounces: 28.3495,
+  lb: 453.592, pound: 453.592, pounds: 453.592,
+  // volume → ml
+  ml: 1, milliliter: 1, milliliters: 1,
+  l: 1000, liter: 1000, liters: 1000, litre: 1000, litres: 1000,
+  tsp: 4.92892, teaspoon: 4.92892, teaspoons: 4.92892,
+  tbsp: 14.7868, tablespoon: 14.7868, tablespoons: 14.7868,
+  cup: 236.588, cups: 236.588,
+  'fl oz': 29.5735, 'fluid oz': 29.5735,
+};
+const WEIGHT_UNITS = new Set(['g','gram','grams','kg','kilogram','kilograms','oz','ounce','ounces','lb','pound','pounds']);
+const VOLUME_UNITS = new Set(['ml','milliliter','milliliters','l','liter','liters','litre','litres','tsp','teaspoon','teaspoons','tbsp','tablespoon','tablespoons','cup','cups','fl oz','fluid oz']);
+
+const unitType = (u) => {
+  const l = (u||'').toLowerCase().trim();
+  if (WEIGHT_UNITS.has(l)) return 'weight';
+  if (VOLUME_UNITS.has(l)) return 'volume';
+  return 'other';
+};
+
+// Format grams back to a readable unit
+const formatWeight = (g) => {
+  if (g >= 900) return `${(g/1000).toFixed(2).replace(/\.?0+$/,'')} kg`;
+  return `${Math.round(g)} g`;
+};
+const formatVolume = (ml) => {
+  if (ml >= 900) return `${(ml/1000).toFixed(2).replace(/\.?0+$/,'')} L`;
+  if (ml >= 14) return `${(ml/236.588).toFixed(2).replace(/\.?0+$/,'')} cups`;
+  if (ml >= 5) return `${(ml/14.7868).toFixed(2).replace(/\.?0+$/,'')} tbsp`;
+  return `${(ml/4.92892).toFixed(2).replace(/\.?0+$/,'')} tsp`;
+};
+
+// Consolidate items with same name, merging amounts where possible
+const consolidateItems = (items) => {
+  const map = {};
+  for (const item of items) {
+    const key = item.name.toLowerCase().trim();
+    if (!map[key]) { map[key] = { ...item, _sources: [...(item._sources||[item])] }; continue; }
+    const existing = map[key];
+    const amt1 = parseFloat(existing.amount) || 0;
+    const amt2 = parseFloat(item.amount) || 0;
+    const t1 = unitType(existing.unit);
+    const t2 = unitType(item.unit);
+    if (t1 === t2 && t1 !== 'other' && t1 !== '') {
+      // Convert both to base unit and sum
+      const base1 = amt1 * (UNIT_CONVERSIONS[(existing.unit||'').toLowerCase().trim()] || 1);
+      const base2 = amt2 * (UNIT_CONVERSIONS[(item.unit||'').toLowerCase().trim()] || 1);
+      const total = base1 + base2;
+      const formatted = t1 === 'weight' ? formatWeight(total) : formatVolume(total);
+      const parts = formatted.split(' ');
+      existing.amount = parts[0];
+      existing.unit = parts.slice(1).join(' ');
+      existing._sources.push(item);
+    } else if (!existing.unit && !item.unit && amt1 && amt2) {
+      existing.amount = String(amt1 + amt2);
+      existing._sources.push(item);
+    } else {
+      // Can't merge — append note
+      const extra = [item.amount, item.unit].filter(Boolean).join(' ');
+      existing._extra = existing._extra ? `${existing._extra} + ${extra}` : extra;
+      existing._sources.push(item);
+    }
+  }
+  return Object.values(map);
+};
+
+const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients, setFridgeIngredients, setPantryStaples }) => {
   const [categories, setCategories] = useState([]);
   const [recipeNames, setRecipeNames] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -2410,9 +2597,31 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
 
   const makeSoonRecipes = useMemo(() => recipes.filter(r => makeSoonIds.includes(r.id)), [recipes, makeSoonIds]);
 
-  const toggleChecked = (key) => setChecked(prev => {
-    const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next;
-  });
+  // Consolidate items per category
+  const consolidatedCategories = useMemo(() =>
+    categories.map(cat => ({ ...cat, items: consolidateItems(cat.items) })),
+  [categories]);
+
+  const toggleChecked = (key, itemName) => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        // Auto-add to kitchen
+        const lower = itemName.toLowerCase().trim();
+        const known = allIngredients?.find(i => (typeof i === 'string' ? i : i.name).toLowerCase() === lower);
+        const isFridgeType = known && typeof known === 'object' && ['produce','meat & fish','dairy'].includes(known.type);
+        if (isFridgeType) {
+          setFridgeIngredients(prev2 => prev2.includes(lower) ? prev2 : [...prev2, lower]);
+        } else {
+          setPantryStaples(prev2 => prev2.includes(lower) ? prev2 : [...prev2, lower]);
+        }
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!makeSoonIds.length) { setCategories([]); setRecipeNames([]); return; }
@@ -2441,7 +2650,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
 
   const copyList = () => {
     const lines = [`Grocery List — ${recipeNames.join(', ')}\n`];
-    categories.forEach(cat => {
+    consolidatedCategories.forEach(cat => {
       const items = hideInKitchen
         ? cat.items.filter(item => !allMyIngredients.has(item.name.toLowerCase().trim()))
         : cat.items;
@@ -2451,15 +2660,17 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
         const inKitchen = allMyIngredients.has(item.name.toLowerCase().trim());
         const tick = checked.has(`${cat.name}-${item.name}`) || inKitchen ? '✓' : '○';
         const amount = [item.amount, item.unit].filter(Boolean).join(' ');
-        lines.push(`  ${tick} ${amount} ${item.name}${item.prep_note ? ` (${item.prep_note})` : ''}`);
+        const extra = item._extra ? ` + ${item._extra}` : '';
+        lines.push(`  ${tick} ${amount}${extra} ${item.name}${item.prep_note ? ` (${item.prep_note})` : ''}`);
       });
     });
     navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   };
 
-  const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0);
-  const inKitchenCount = categories.reduce((sum, cat) =>
+  const totalItems = consolidatedCategories.reduce((sum, cat) => sum + cat.items.length, 0);
+  const inKitchenCount = consolidatedCategories.reduce((sum, cat) =>
     sum + cat.items.filter(item => allMyIngredients.has(item.name.toLowerCase().trim())).length, 0);
+  const checkedCount = checked.size;
 
   return (
     <main className="view grocery-view">
@@ -2474,7 +2685,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
             <p className="fridge-subtitle">Add recipes to Make Soon to build your list</p>
           )}
         </div>
-        {categories.length > 0 && (
+        {consolidatedCategories.length > 0 && (
           <div className="grocery-header__actions">
             <label className="grocery-toggle">
               <input type="checkbox" checked={hideInKitchen} onChange={e => setHideInKitchen(e.target.checked)} />
@@ -2497,15 +2708,21 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
       {error && <p className="grocery-error">⚠️ {error}</p>}
       {loading && <div className="grocery-loading"><div className="loading-spinner" /><p>Building your list…</p></div>}
 
-      {!loading && categories.length > 0 && (
+      {!loading && consolidatedCategories.length > 0 && (
         <>
+          <div className="grocery-progress-bar-wrap">
+            <div className="grocery-progress-bar">
+              <div className="grocery-progress-fill" style={{ width: totalItems ? `${((checkedCount + inKitchenCount) / totalItems) * 100}%` : '0%' }} />
+            </div>
+            <span className="grocery-progress-label">{checkedCount + inKitchenCount}/{totalItems} got</span>
+          </div>
           {inKitchenCount > 0 && (
             <div className="grocery-kitchen-banner">
               <span>✓ {inKitchenCount} of {totalItems} ingredients already in your kitchen</span>
             </div>
           )}
           <div className="grocery-list">
-            {categories.map(cat => {
+            {consolidatedCategories.map(cat => {
               const allItems = cat.items;
               const visibleItems = hideInKitchen
                 ? allItems.filter(item => !allMyIngredients.has(item.name.toLowerCase().trim()))
@@ -2524,15 +2741,20 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients }) => {
                         <div
                           key={key}
                           className={`grocery-item ${isChecked ? 'grocery-item--checked' : ''} ${inKitchen ? 'grocery-item--in-kitchen' : ''}`}
-                          onClick={() => !inKitchen && toggleChecked(key)}
+                          onClick={() => !inKitchen && toggleChecked(key, item.name)}
                         >
                           <div className={`grocery-item__checkbox ${isChecked ? 'grocery-item__checkbox--checked' : ''}`}>
                             {isChecked && '✓'}
                           </div>
                           <div className="grocery-item__body">
-                            <span className="grocery-item__name">{amountStr} {item.name}</span>
+                            <span className="grocery-item__name">
+                              {amountStr && <span className="grocery-item__amount">{amountStr}</span>}
+                              {item._extra && <span className="grocery-item__extra"> + {item._extra}</span>}
+                              {' '}{item.name}
+                            </span>
                             {item.prep_note && <span className="grocery-item__note">{item.prep_note}</span>}
                             {inKitchen && <span className="grocery-item__kitchen-tag">in kitchen</span>}
+                            {!inKitchen && !isChecked && <span className="grocery-item__tap-hint">tap to check off → adds to kitchen</span>}
                             {item.recipes?.length > 1 && !inKitchen && (
                               <span className="grocery-item__recipes">for {item.recipes.join(', ')}</span>
                             )}
@@ -4589,7 +4811,7 @@ function AppInner() {
         );
       })()}
 
-      {view === 'grocery' && <GroceryListTab recipes={recipes} makeSoonIds={makeSoonIds} allMyIngredients={allMyIngredients} />}
+      {view === 'grocery' && <GroceryListTab recipes={recipes} makeSoonIds={makeSoonIds} allMyIngredients={allMyIngredients} allIngredients={allIngredients} setFridgeIngredients={setFridgeIngredients} setPantryStaples={setPantryStaples} />}
 
       {view === 'add' && (
         <AddRecipeTab
