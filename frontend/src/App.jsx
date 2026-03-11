@@ -2701,6 +2701,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
   const [historyOpen, setHistoryOpen] = useState(true);
   const [sharingOpen, setSharingOpen] = useState(false);
   const [adminToolsOpen, setAdminToolsOpen] = useState(false);
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcResult, setRecalcResult] = useState(null);
   const [historyView, setHistoryView] = useState('timeline');
@@ -3229,6 +3230,86 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
           </div>
         )}
       </section>
+
+      {/* ── Coming Soon ──────────────────────────────────────────────────── */}
+      <section className="profile-section profile-section--collapsible">
+        <button className="profile-settings-toggle" onClick={() => setRoadmapOpen(o => !o)}>
+          <span className="profile-settings-toggle__title">🚀 Coming Soon</span>
+          <span className={`profile-settings-toggle__arrow ${roadmapOpen ? 'profile-settings-toggle__arrow--open' : ''}`}>▾</span>
+        </button>
+
+        {roadmapOpen && (
+          <div className="profile-settings-body">
+
+            {/* ── Recipe Proportions ── */}
+            <div className="settings-section">
+              <h4 className="settings-section__title">⚖️ Smart Recipe Scaling</h4>
+              <p className="settings-section__hint">
+                Adjust any one ingredient's amount and the rest of the recipe scales automatically —
+                while keeping whole-unit ingredients (like eggs) sensibly rounded.
+                Calorie and nutrition totals will recalculate in real time as amounts change.
+              </p>
+              {/* DEV NOTE: Two parts to build —
+                  1) Proportion engine: when any ingredient `amount` changes, compute a scale factor
+                     (newAmount / originalAmount) and apply it to all other ingredient amounts.
+                     Whole-count ingredients (eggs, cloves, etc. — no weight/volume unit) should
+                     round to nearest whole number, minimum 1.
+                  2) Live nutrition: wire the same scale factor into calcNutrition() so calories/
+                     protein/fiber shown in the recipe header update without a save/reload. */}
+              <span className="roadmap-badge">Planned</span>
+            </div>
+
+            {/* ── Ingredient Reasoning Tooltips ── */}
+            <div className="settings-section">
+              <h4 className="settings-section__title">💬 Ingredient Reasoning on Hover</h4>
+              <p className="settings-section__hint">
+                Hover over any ingredient in a recipe to see a short cooking note explaining why
+                that quantity or ratio was chosen — things like "balances acidity" or "adds depth
+                without overpowering." Purely culinary context, no dietary or allergy info.
+              </p>
+              {/* DEV NOTE: Store a `hover_note` string alongside each ingredient row (new DB column
+                  or JSON field). On the recipe view, wrap each ingredient in a tooltip that shows
+                  hover_note when present. The add/edit form gets an optional "Cooking note" input
+                  per ingredient. Keep it cooking-context only (ratios, technique, flavour balance)
+                  — not warnings or substitutions. */}
+              <span className="roadmap-badge">Planned</span>
+            </div>
+
+            {/* ── Accurate Calorie Tracking ── */}
+            <div className="settings-section">
+              <h4 className="settings-section__title">🔢 Accurate Calorie Tracking</h4>
+              <p className="settings-section__hint">
+                After cooking, log exactly how much of each high-calorie ingredient you actually
+                used and get an adjusted nutrition breakdown for the batch — useful when you deviate
+                from the recipe (e.g. used less oil, added extra cheese).
+              </p>
+              {/* DEV NOTE: Add a "Log actual amounts" button on the recipe page (visible after
+                  marking as cooked, or as a standalone action). Opens a modal listing only the
+                  high-calorie ingredients (calories > threshold per 100g, e.g. oils, cheese, nuts).
+                  User enters real amounts used; a one-off recalc runs via calcNutrition() with the
+                  overridden values and displays adjusted totals — does NOT overwrite the saved recipe. */}
+              <span className="roadmap-badge">Planned</span>
+            </div>
+
+            {/* ── Image Upload as Embedded String ── */}
+            <div className="settings-section">
+              <h4 className="settings-section__title">🖼️ Local Image Upload</h4>
+              <p className="settings-section__hint">
+                Upload a photo directly from your device to use as a recipe cover image, stored as
+                a base-64 string in the database — no external hosting or URL required.
+              </p>
+              {/* DEV NOTE: Add a file <input accept="image/*"> alongside the existing cover_image_url
+                  field in the recipe editor. On change, read the file with FileReader.readAsDataURL(),
+                  compress/resize client-side (e.g. canvas drawImage → toDataURL at ~800px wide,
+                  quality 0.75), then store the resulting data-URI string in cover_image_url just like
+                  a normal URL — no schema changes needed. Warn the user if the result exceeds ~300 KB. */}
+              <span className="roadmap-badge">Planned</span>
+            </div>
+
+          </div>
+        )}
+      </section>
+
     </main>
   );
 };

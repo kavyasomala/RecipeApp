@@ -4178,6 +4178,21 @@ body {
 
 /* ── About section redesign ──────────────────────────────────────────────── */
 .settings-section--about { }
+
+/* ── Coming Soon roadmap badge ── */
+.roadmap-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--parchment);
+  color: var(--warm-gray);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1.5px solid var(--border);
+}
 .about-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
