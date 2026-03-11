@@ -563,7 +563,8 @@ const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpda
 };
 
 // ─── Convert Reference Button (inline on RecipePage for cookbook refs) ────────
-const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted }) => {
+const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const [showModal, setShowModal] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const [details, setDetails] = useState({
@@ -610,7 +611,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted }) =>
         notes: notesList.map((n, idx) => ({ ...n, order_index: idx })),
       };
       // Update the existing recipe record
-      const res = await fetch(`${API}/api/recipes/${recipe.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`${API}/api/recipes/${recipe.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
       setShowModal(false);
@@ -962,7 +963,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
         })() : (instructions || []),
         notes:        section === 'notes'        ? draftNotes.map((n, idx) => ({ ...n, order_index: idx }))  : (notes || []),
       };
-      const res = await fetch(`${API}/api/recipes/${recipe.id}`, {
+      const res = await apiFetch(`${API}/api/recipes/${recipe.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       let data = {};
@@ -1377,7 +1378,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             </div>
             <div className="rp2__cb-ref-convert">
               <p className="rp2__cb-ref-convert__hint">Ready to save the full recipe?</p>
-              <ConvertRefButton recipe={recipe} allIngredients={allIngredients} cookbooks={cookbooks} onConverted={onSaved} />
+              <ConvertRefButton recipe={recipe} allIngredients={allIngredients} cookbooks={cookbooks} onConverted={onSaved} authFetch={apiFetch} />
             </div>
           </div>
         </div>
@@ -2114,7 +2115,8 @@ const TYPE_META = {
   staple:   { label: 'Staples',     emoji: '🌾', group: 'pantry'  },
 };
 
-const IngredientEditModal = ({ ing, onSave, onClose }) => {
+const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const isNew = !ing;
   const [form, setForm] = useState({
     name:           ing?.name           || '',
@@ -2178,7 +2180,7 @@ const IngredientEditModal = ({ ing, onSave, onClose }) => {
       };
       const url = isNew ? `${API}/api/ingredients` : `${API}/api/ingredients/${encodeURIComponent(ing.name)}`;
       const method = isNew ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
       onSave(data.ingredient || payload);
@@ -2260,7 +2262,8 @@ const IngredientEditModal = ({ ing, onSave, onClose }) => {
 // ─── Always-expanded types ───────────────────────────────────────────────────
 const ALWAYS_OPEN_TYPES = new Set(['produce', 'meat']);
 
-const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFridgeIngredients, pantryStaples, setPantryStaples }) => {
+const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFridgeIngredients, pantryStaples, setPantryStaples, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const [typeOverrides, setTypeOverrides] = useState(() => LS.get('ingredientTypeOverrides', {}));
   const [editingIng, setEditingIng] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -2362,7 +2365,7 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
 
   const handleDeleteIng = async (ing) => {
     try {
-      const res = await fetch(`${API}/api/ingredients/${encodeURIComponent(ing.name)}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API}/api/ingredients/${encodeURIComponent(ing.name)}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Delete failed'); }
       setAllIngredients(prev => prev.filter(i => i.name !== ing.name));
       setFridgeIngredients(prev => prev.filter(x => x !== ing.name.toLowerCase()));
@@ -2433,6 +2436,7 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
           ing={editingIng === false ? null : editingIng}
           onSave={handleSaveIng}
           onClose={() => setEditingIng(null)}
+          authFetch={apiFetch}
         />
       )}
       {deleteTarget && (
@@ -3484,7 +3488,8 @@ const COOKBOOK_SORTS = [
 ];
 
 // ─── Add Reference Modal ─────────────────────────────────────────────────────
-const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '' }) => {
+const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const [name, setName]       = useState('');
   const [page, setPage]       = useState('');
   const [image, setImage]     = useState('');
@@ -3526,7 +3531,7 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '' }) => 
         instructions: [],
         notes: [],
       };
-      const res = await fetch(`${API}/api/recipes`, {
+      const res = await apiFetch(`${API}/api/recipes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -3682,7 +3687,8 @@ const QuickAddModal = ({ onSave, onClose }) => {
 // ─── Convert to Full Recipe Modal ─────────────────────────────────────────────
 // ─── Convert to Full Recipe Modal ─────────────────────────────────────────────
 // Identical form to AddRecipeTab's create modal, pre-filled with cookbook entry data
-const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConverted, onClose }) => {
+const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConverted, onClose, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const [details, setDetails] = useState({
@@ -3766,7 +3772,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
         })(),
         notes: notesList.map((n, idx) => ({ ...n, order_index: idx })),
       };
-      const res = await fetch(`${API}/api/recipes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`${API}/api/recipes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
       onConverted(data.recipe);
@@ -4109,7 +4115,8 @@ const CbEntry = ({ entry, linked, entryTags, idx, onOpenRecipe, onMarkCooked, on
   );
 };
 
-const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, recipes, onUpdateRecipes, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted }) => {
+const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, recipes, onUpdateRecipes, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddRef,   setShowAddRef]   = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -4151,11 +4158,11 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
 
   return (
     <main className="view cookbook-detail">
-      {showAddRef   && <AddReferenceModal onSave={e => addEntries([e])} onClose={() => setShowAddRef(false)} allTags={allTags} cookbookTitle={cookbook.title} />}
+      {showAddRef   && <AddReferenceModal onSave={e => addEntries([e])} onClose={() => setShowAddRef(false)} allTags={allTags} cookbookTitle={cookbook.title} authFetch={apiFetch} />}
       {showQuickAdd && <QuickAddModal onSave={addEntries} onClose={() => setShowQuickAdd(false)} />}
       {convertEntry && (
         <ConvertRecipeModal
-          entry={convertEntry} cookbookTitle={cookbook.title} allIngredients={allIngredients}
+          entry={convertEntry} cookbookTitle={cookbook.title} allIngredients={allIngredients} authFetch={apiFetch}
           onConverted={(newRecipe) => {
             onUpdateRecipes(cookbook.recipes.map(e => e === convertEntry ? {...e, recipeId:newRecipe.id, page: newRecipe.reference || e.page} : e));
             onRecipeConverted && onRecipeConverted(newRecipe);
@@ -4264,7 +4271,7 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
 };
 
 // ─── CookbooksTab ─────────────────────────────────────────────────────────────
-const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted, isAdmin }) => {
+const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted, isAdmin, authFetch }) => {
   const [selectedCookbook, setSelectedCookbook] = useState(null);
   const [showAddModal,     setShowAddModal]     = useState(false);
   const [editingCookbook,  setEditingCookbook]  = useState(null);
@@ -4328,6 +4335,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
       setCookingRecipe={setCookingRecipe}
       cookLog={cookLog}
       onRecipeConverted={onRecipeConverted}
+      authFetch={authFetch}
     />;
   }
 
@@ -5270,7 +5278,7 @@ function AppInner() {
       )}
 
       {view === 'kitchen' && (
-        <FridgeTab allIngredients={allIngredients} setAllIngredients={setAllIngredients} fridgeIngredients={fridgeIngredients} setFridgeIngredients={setFridgeIngredients} pantryStaples={pantryStaples} setPantryStaples={setPantryStaples} />
+        <FridgeTab allIngredients={allIngredients} setAllIngredients={setAllIngredients} fridgeIngredients={fridgeIngredients} setFridgeIngredients={setFridgeIngredients} pantryStaples={pantryStaples} setPantryStaples={setPantryStaples} authFetch={authFetch} />
       )}
 
       {/* ══════════════════════════════════════════════════════
@@ -5768,6 +5776,7 @@ function AppInner() {
           allTags={allTags}
           allIngredients={allIngredients}
           setCookingRecipe={setCookingRecipe}
+          authFetch={authFetch}
           cookLog={cookLog}
           onRecipeConverted={(newRecipe) => { loadData(); openRecipe(newRecipe); }}
           isAdmin={isAdmin}
