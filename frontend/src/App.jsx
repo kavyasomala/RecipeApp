@@ -3117,7 +3117,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
       )}
 
       {isAdmin && (
-        <section className="profile-section profile-section--collapsible" style={{ marginBottom: 40 }}>
+        <section className="profile-section profile-section--collapsible">
           <button className="profile-settings-toggle" onClick={() => setAdminToolsOpen(o => !o)}>
             <span className="profile-settings-toggle__title">🔧 Admin Tools</span>
             <span className={`profile-settings-toggle__arrow ${adminToolsOpen ? 'profile-settings-toggle__arrow--open' : ''}`}>▾</span>
@@ -3306,6 +3306,17 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
               <span className="roadmap-badge">Planned</span>
             </div>
 
+            {/* ── Better Text Import ── */}
+            <div className="settings-section" style={{ marginBottom: 8 }}>
+              <h4 className="settings-section__title">📋 Smarter Add from Text</h4>
+              <p className="settings-section__hint">
+                Improve text paste parsing to handle messier formats — Instagram captions, informal
+                recipe notes, TikTok descriptions, and more. Might require an AI integration to
+                reliably extract structure from freeform text.
+              </p>
+              <span className="roadmap-badge">Planned</span>
+            </div>
+
           </div>
         )}
       </section>
@@ -3407,6 +3418,10 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
+        // Remove from kitchen when unchecked
+        const lower = itemName.toLowerCase().trim();
+        setFridgeIngredients(prev2 => prev2.filter(x => x.toLowerCase().trim() !== lower));
+        setPantryStaples(prev2 => prev2.filter(x => x.toLowerCase().trim() !== lower));
       } else {
         next.add(key);
         // Auto-add to kitchen
@@ -3555,6 +3570,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
                             {item.prep_note && <span className="grocery-item__note">{item.prep_note}</span>}
                             {inKitchen && <span className="grocery-item__kitchen-tag">in kitchen</span>}
                             {!inKitchen && !isChecked && <span className="grocery-item__tap-hint">tap to check off → adds to kitchen</span>}
+                            {!inKitchen && isChecked && <span className="grocery-item__tap-hint">tap to uncheck → removes from kitchen</span>}
                             {item.recipes?.length > 1 && !inKitchen && (
                               <span className="grocery-item__recipes">for {item.recipes.join(', ')}</span>
                             )}
