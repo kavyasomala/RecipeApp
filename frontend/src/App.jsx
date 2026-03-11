@@ -3412,7 +3412,6 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
   const preExistingKitchen = useRef(null);
   useEffect(() => {
     preExistingKitchen.current = new Set(allMyIngredients);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally only runs once on mount
 
   const makeSoonRecipes = useMemo(() => recipes.filter(r => makeSoonIds.includes(r.id)), [recipes, makeSoonIds]);
