@@ -3307,7 +3307,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
             </div>
 
             {/* ── Better Text Import ── */}
-            <div className="settings-section" style={{ marginBottom: 8 }}>
+            <div className="settings-section" style={{ marginBottom: 20 }}>
               <h4 className="settings-section__title">📋 Smarter Add from Text</h4>
               <p className="settings-section__hint">
                 Improve text paste parsing to handle messier formats — Instagram captions, informal
@@ -3406,6 +3406,15 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
   const [error, setError] = useState(null);
   const [hideInKitchen, setHideInKitchen] = useState(false);
 
+  // Snapshot of kitchen contents at the time the list loaded — used to determine
+  // which items were ALREADY in the kitchen (locked, non-clickable) vs items the
+  // user checked during this session (clickable, unchecable).
+  const preExistingKitchen = useRef(null);
+  useEffect(() => {
+    preExistingKitchen.current = new Set(allMyIngredients);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally only runs once on mount
+
   const makeSoonRecipes = useMemo(() => recipes.filter(r => makeSoonIds.includes(r.id)), [recipes, makeSoonIds]);
 
   // Consolidate items per category
@@ -3484,7 +3493,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
 
   const totalItems = consolidatedCategories.reduce((sum, cat) => sum + cat.items.length, 0);
   const inKitchenCount = consolidatedCategories.reduce((sum, cat) =>
-    sum + cat.items.filter(item => allMyIngredients.has(item.name.toLowerCase().trim())).length, 0);
+    sum + cat.items.filter(item => (preExistingKitchen.current || allMyIngredients).has(item.name.toLowerCase().trim())).length, 0);
   const checkedCount = checked.size;
 
   return (
@@ -3549,7 +3558,11 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
                   <div className="grocery-items">
                     {visibleItems.map(item => {
                       const key = `${cat.name}-${item.name}`;
-                      const inKitchen = allMyIngredients.has(item.name.toLowerCase().trim());
+                      const itemKey = item.name.toLowerCase().trim();
+                      // inKitchen = was already in kitchen BEFORE this session (locked, non-clickable)
+                      const inKitchen = preExistingKitchen.current
+                        ? preExistingKitchen.current.has(itemKey)
+                        : allMyIngredients.has(itemKey);
                       const isChecked = checked.has(key) || inKitchen;
                       const amountStr = [item.amount, item.unit].filter(Boolean).join(' ');
                       return (
