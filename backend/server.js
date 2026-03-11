@@ -1403,6 +1403,107 @@ app.post('/api/scrape-recipe', authenticateToken, requireAdmin, async (req, res)
   });
 });
 
+// ─── Cookbooks ───────────────────────────────────────────────────────────────
+// Cookbooks are shared/global (not per-user). Any authenticated user can read;
+// only admins can create/edit/delete.
+
+// GET /api/cookbooks — list all cookbooks with their recipe entries
+app.get('/api/cookbooks', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, title, author, cover_image, spine_color, notes,
+              COALESCE(recipes, '[]'::jsonb) AS recipes,
+              created_at, updated_at
+       FROM cookbooks ORDER BY title ASC`
+    );
+    res.json({ cookbooks: rows.map(r => ({
+      id:         r.id,
+      title:      r.title,
+      author:     r.author || '',
+      coverImage: r.cover_image || '',
+      spineColor: r.spine_color || '#C65D3B',
+      notes:      r.notes || '',
+      recipes:    r.recipes || [],
+    }))});
+  } catch (e) {
+    console.error('GET /api/cookbooks error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/cookbooks — create a new cookbook (admin only)
+app.post('/api/cookbooks', authenticateToken, requireAdmin, async (req, res) => {
+  const { title, author, coverImage, spineColor, notes } = req.body;
+  if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+  try {
+    const { rows } = await query(
+      `INSERT INTO cookbooks (title, author, cover_image, spine_color, notes, recipes)
+       VALUES ($1, $2, $3, $4, $5, '[]'::jsonb)
+       RETURNING id, title, author, cover_image, spine_color, notes, recipes`,
+      [title.trim(), author||'', coverImage||'', spineColor||'#C65D3B', notes||'']
+    );
+    const r = rows[0];
+    res.status(201).json({ cookbook: {
+      id: r.id, title: r.title, author: r.author||'',
+      coverImage: r.cover_image||'', spineColor: r.spine_color||'#C65D3B',
+      notes: r.notes||'', recipes: [],
+    }});
+  } catch (e) {
+    console.error('POST /api/cookbooks error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/cookbooks/:id — update metadata or recipes array (admin only)
+app.put('/api/cookbooks/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { title, author, coverImage, spineColor, notes, recipes } = req.body;
+  try {
+    const { rows } = await query(
+      `UPDATE cookbooks
+       SET title       = COALESCE($1, title),
+           author      = COALESCE($2, author),
+           cover_image = COALESCE($3, cover_image),
+           spine_color = COALESCE($4, spine_color),
+           notes       = COALESCE($5, notes),
+           recipes     = COALESCE($6::jsonb, recipes),
+           updated_at  = NOW()
+       WHERE id = $7
+       RETURNING id, title, author, cover_image, spine_color, notes, recipes`,
+      [
+        title ?? null,
+        author ?? null,
+        coverImage ?? null,
+        spineColor ?? null,
+        notes ?? null,
+        recipes !== undefined ? JSON.stringify(recipes) : null,
+        id,
+      ]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Cookbook not found' });
+    const r = rows[0];
+    res.json({ cookbook: {
+      id: r.id, title: r.title, author: r.author||'',
+      coverImage: r.cover_image||'', spineColor: r.spine_color||'#C65D3B',
+      notes: r.notes||'', recipes: r.recipes||[],
+    }});
+  } catch (e) {
+    console.error('PUT /api/cookbooks/:id error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/cookbooks/:id (admin only)
+app.delete('/api/cookbooks/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM cookbooks WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /api/cookbooks/:id error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Start ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`🍳 Hearth API running on http://localhost:${PORT}`));

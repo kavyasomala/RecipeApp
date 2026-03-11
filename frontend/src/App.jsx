@@ -4421,13 +4421,13 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
 };
 
 // ─── CookbookEditModal ────────────────────────────────────────────────────────
-const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
+const CookbookEditModal = ({ cookbook, onSave, onClose, saving }) => {
   const isNew = !cookbook;
   const [form, setForm] = useState({ title:cookbook?.title||'', author:cookbook?.author||'', coverImage:cookbook?.coverImage||'', spineColor:cookbook?.spineColor||'#C65D3B', notes:cookbook?.notes||'' });
   const [imgError, setImgError] = useState(false);
   const SPINE_COLORS = ['#C65D3B','#2E2A27','#7a9e7e','#4a6fa5','#8B4513','#6B3FA0','#B5451B','#2C5F2E'];
   const set = (k,v) => setForm(p => ({...p,[k]:v}));
-  const save = () => { if (!form.title.trim()) return; onSave({...form, title:form.title.trim()}); };
+  const save = () => { if (!form.title.trim() || saving) return; onSave({...form, title:form.title.trim()}); };
   return (
     <div className="create-modal-overlay" onClick={onClose}>
       <div className="create-modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
@@ -4466,8 +4466,8 @@ const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
           </div>
         </div>
         <div className="create-modal__footer">
-          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn--primary" onClick={save} disabled={!form.title.trim()}>{isNew ? '+ Add Cookbook' : '✓ Save Changes'}</button>
+          <button className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn--primary" onClick={save} disabled={!form.title.trim() || saving}>{saving ? 'Saving…' : isNew ? '+ Add Cookbook' : '✓ Save Changes'}</button>
         </div>
       </div>
     </div>
@@ -4712,20 +4712,69 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
 
 // ─── CookbooksTab ─────────────────────────────────────────────────────────────
 const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags, allIngredients, setCookingRecipe, cookLog, onRecipeConverted, isAdmin, authFetch }) => {
+  const apiFetch = authFetch || fetch;
   const [selectedCookbook, setSelectedCookbook] = useState(null);
   const [showAddModal,     setShowAddModal]     = useState(false);
   const [editingCookbook,  setEditingCookbook]  = useState(null);
   const [globalSearch,     setGlobalSearch]     = useState('');
+  const [saving,           setSaving]           = useState(false);
 
-  const handleSaveCookbook = (data) => {
-    if (editingCookbook) setCookbooks(prev => prev.map(c => c.id===editingCookbook.id ? {...c,...data} : c));
-    else setCookbooks(prev => [...prev, { id:`cb-${Date.now()}`, recipes:[], ...data }]);
-    setShowAddModal(false); setEditingCookbook(null);
+  const handleSaveCookbook = async (data) => {
+    setSaving(true);
+    try {
+      if (editingCookbook) {
+        const res = await apiFetch(`${API}/api/cookbooks/${editingCookbook.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Save failed');
+        setCookbooks(prev => prev.map(c => c.id === editingCookbook.id ? json.cookbook : c));
+      } else {
+        const res = await apiFetch(`${API}/api/cookbooks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Save failed');
+        setCookbooks(prev => [...prev, json.cookbook]);
+      }
+      setShowAddModal(false); setEditingCookbook(null);
+    } catch (e) { alert(`Failed to save cookbook: ${e.message}`); }
+    finally { setSaving(false); }
   };
 
-  const handleDeleteCookbook = (id) => {
-    setCookbooks(prev => prev.filter(c => c.id !== id));
-    if (selectedCookbook?.id === id) setSelectedCookbook(null);
+  const handleDeleteCookbook = async (id) => {
+    try {
+      const res = await apiFetch(`${API}/api/cookbooks/${id}`, { method: 'DELETE' });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Delete failed'); }
+      setCookbooks(prev => prev.filter(c => c.id !== id));
+      if (selectedCookbook?.id === id) setSelectedCookbook(null);
+    } catch (e) { alert(`Failed to delete cookbook: ${e.message}`); }
+  };
+
+  // Called when a cookbook's recipe entries change (add/remove/edit/reorder)
+  const handleUpdateRecipes = async (cookbookId, newRecipes) => {
+    // Optimistic update
+    setCookbooks(prev => prev.map(c => c.id === cookbookId ? { ...c, recipes: newRecipes } : c));
+    try {
+      const res = await apiFetch(`${API}/api/cookbooks/${cookbookId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipes: newRecipes }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Save failed');
+      // Reconcile with server response
+      setCookbooks(prev => prev.map(c => c.id === cookbookId ? json.cookbook : c));
+    } catch (e) {
+      alert(`Failed to save cookbook entries: ${e.message}`);
+      // Reload from server to recover
+      const res2 = await fetch(`${API}/api/cookbooks`);
+      if (res2.ok) { const d = await res2.json(); setCookbooks(d.cookbooks || []); }
+    }
   };
 
   const enrichedCookbooks = useMemo(() => cookbooks.map(cb => {
@@ -4770,7 +4819,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
       onOpenRecipe={onOpenRecipe}
       recipes={recipes}
       allIngredients={allIngredients}
-      onUpdateRecipes={(newRecipes) => setCookbooks(prev => prev.map(c => c.id===currentCb.id ? {...c, recipes:newRecipes} : c))}
+      onUpdateRecipes={(newRecipes) => handleUpdateRecipes(currentCb.id, newRecipes)}
       allTags={allTags}
       setCookingRecipe={setCookingRecipe}
       cookLog={cookLog}
@@ -4782,7 +4831,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
   return (
     <main className="view cookbooks-tab">
       {(showAddModal||editingCookbook) && (
-        <CookbookEditModal cookbook={editingCookbook} onSave={handleSaveCookbook} onClose={() => { setShowAddModal(false); setEditingCookbook(null); }} />
+        <CookbookEditModal cookbook={editingCookbook} onSave={handleSaveCookbook} onClose={() => { setShowAddModal(false); setEditingCookbook(null); }} saving={saving} />
       )}
 
       <div className="cookbooks-header">
@@ -5738,7 +5787,7 @@ function AppInner() {
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
   const [hideIncompatible, setHideIncompatibleRaw] = useState(() => LS.get('hideIncompatible', false));
   const setHideIncompatible = (v) => { setHideIncompatibleRaw(v); LS.set('hideIncompatible', v); };
-  const [cookbooks, setCookbooks] = useState(() => LS.get('cookbooks', []));
+  const [cookbooks, setCookbooks] = useState([]);
   const [cookLog, setCookLog] = useState([]);
   const [cookingNotes, setCookingNotes] = useState([]);
   const setUnits = (v) => { setUnitsRaw(v); LS.set('units', v); };
@@ -5746,19 +5795,20 @@ function AppInner() {
 
   useEffect(() => { LS.set('fridgeIngredients', fridgeIngredients); }, [fridgeIngredients]);
   useEffect(() => { LS.set('pantryStaples', pantryStaples); }, [pantryStaples]);
-  useEffect(() => { LS.set('cookbooks', cookbooks); }, [cookbooks]);
 
   const loadData = useCallback(async () => {
     try {
-      const [ingRes, recipeRes, notesRes] = await Promise.all([
+      const [ingRes, recipeRes, notesRes, cookbooksRes] = await Promise.all([
         fetch(`${API}/api/ingredients`),
         fetch(`${API}/api/recipes`),
         fetch(`${API}/api/cooking-notes`),
+        fetch(`${API}/api/cookbooks`),
       ]);
       if (!ingRes.ok || !recipeRes.ok) throw new Error('Failed to load data');
       const { ingredients } = await ingRes.json();
       const { recipes: recipeData } = await recipeRes.json();
       if (notesRes.ok) { const d = await notesRes.json(); setCookingNotes(d.notes || []); }
+      if (cookbooksRes.ok) { const d = await cookbooksRes.json(); setCookbooks(d.cookbooks || []); }
       setAllIngredients(ingredients.sort((a, b) => a.name.localeCompare(b.name)));
       setRecipes(recipeData);
 
