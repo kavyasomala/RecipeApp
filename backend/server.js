@@ -1159,7 +1159,76 @@ app.get('/api/user/cook-log', authenticateToken, async (req, res) => {
   }
 });
 
-// ─── POST /api/scrape-recipe ─────────────────────────────────────────────────
+// ─── POST /api/parse-recipe-text ─────────────────────────────────────────────
+// Uses Claude to parse free-form pasted recipe text into structured data
+app.post('/api/parse-recipe-text', authenticateToken, requireAdmin, async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'text is required' });
+
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+
+  try {
+    const prompt = `You are a recipe parser. Extract structured recipe data from the following text and return ONLY a valid JSON object with no other text, markdown, or explanation.
+
+The JSON must have these fields (use null or empty array if not found):
+{
+  "name": "Recipe name",
+  "time": "Total time as a string e.g. '30 mins' or '1 hr 20 mins'",
+  "servings": "Number of servings as a string e.g. '4'",
+  "cuisine": "Cuisine type if mentioned e.g. 'Italian', 'Thai'",
+  "image": null,
+  "description": "Brief description or notes if present",
+  "ingredients": [
+    { "amount": "1", "unit": "cup", "name": "flour" }
+  ],
+  "steps": [
+    "Step 1 text",
+    "Step 2 text"
+  ]
+}
+
+Rules:
+- For ingredients, parse the amount (number), unit (tsp/tbsp/cup/g/oz/etc or empty string), and name separately
+- For steps, each step should be a complete sentence/instruction as a plain string
+- If the text is an Instagram or TikTok caption with informal formatting, still extract what you can
+- If a field is truly not present, use null for strings or [] for arrays
+
+Recipe text to parse:
+---
+${text.slice(0, 8000)}
+---`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    const aiData = await response.json();
+    if (!response.ok) throw new Error(aiData.error?.message || 'AI parse failed');
+
+    const rawText = aiData.content?.[0]?.text || '';
+    // Strip any accidental markdown fences
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    return res.json(parsed);
+  } catch (err) {
+    console.error('POST /api/parse-recipe-text error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to parse recipe text' });
+  }
+});
+
+
 // Fetches a URL and extracts Recipe structured data (JSON-LD first, then meta fallback)
 app.post('/api/scrape-recipe', authenticateToken, requireAdmin, async (req, res) => {
   const { url } = req.body;

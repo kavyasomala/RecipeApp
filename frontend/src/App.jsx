@@ -2691,6 +2691,137 @@ const AddFriendModal = ({ onClose, onCreated, authFetch }) => {
   );
 };
 
+// ─── Ingredient Nutrition Filler (admin tool) ──────────────────────────────
+const IngredientNutritionFiller = ({ authFetch }) => {
+  const apiFetch = authFetch || fetch;
+  const [allIngs, setAllIngs] = useState([]);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ calories: '', protein: '', fiber: '', grams_per_unit: '' });
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/ingredients`)
+      .then(r => r.json())
+      .then(d => setAllIngs(d.ingredients || []))
+      .catch(() => {});
+  }, []); // eslint-disable-line
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return [];
+    return allIngs.filter(i => i.name.toLowerCase().includes(q)).slice(0, 12);
+  }, [search, allIngs]);
+
+  const selectIng = (ing) => {
+    setSelected(ing);
+    setSearch(ing.name);
+    setShowDropdown(false);
+    setForm({
+      calories: ing.calories ?? '',
+      protein: ing.protein ?? '',
+      fiber: ing.fiber ?? '',
+      grams_per_unit: ing.grams_per_unit ?? '',
+    });
+    setSaveMsg(null);
+  };
+
+  const save = async () => {
+    if (!selected) return;
+    setSaving(true); setSaveMsg(null);
+    try {
+      const res = await apiFetch(`${API}/api/ingredients/${encodeURIComponent(selected.name)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selected.name,
+          type: selected.type || 'staple',
+          calories: form.calories !== '' ? Number(form.calories) : null,
+          protein: form.protein !== '' ? Number(form.protein) : null,
+          fiber: form.fiber !== '' ? Number(form.fiber) : null,
+          grams_per_unit: form.grams_per_unit !== '' ? Number(form.grams_per_unit) : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      setAllIngs(prev => prev.map(i => i.name === selected.name ? data.ingredient : i));
+      setSelected(data.ingredient);
+      setSaveMsg('✓ Saved!');
+    } catch (e) { setSaveMsg(`⚠️ ${e.message}`); }
+    setSaving(false);
+  };
+
+  const missingCount = allIngs.filter(i => i.calories == null).length;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p style={{ fontSize: '0.8rem', color: 'var(--warm-gray)', marginBottom: 10 }}>
+        {missingCount} of {allIngs.length} ingredients missing nutrition data
+      </p>
+      <div style={{ position: 'relative', marginBottom: 12 }}>
+        <input
+          className="editor-input"
+          placeholder="Search ingredient…"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setShowDropdown(true); setSelected(null); setSaveMsg(null); }}
+          onFocus={() => setShowDropdown(true)}
+          onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+        />
+        {showDropdown && filtered.length > 0 && (
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--warm-white)', border: '1.5px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+            {filtered.map(ing => (
+              <button
+                key={ing.name}
+                onMouseDown={() => selectIng(ing)}
+                style={{ width: '100%', padding: '8px 14px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>{ing.name}</span>
+                <span style={{ fontSize: '0.75rem', color: ing.calories != null ? 'var(--sage)' : 'var(--warm-gray)' }}>
+                  {ing.calories != null ? `${ing.calories} kcal` : 'no data'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selected && (
+        <div style={{ background: 'var(--cream)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>{selected.name} <span style={{ fontWeight: 400, color: 'var(--warm-gray)', fontSize: '0.8rem' }}>— per 100g</span></p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {[
+              { key: 'calories', label: '🔥 Calories (kcal)', placeholder: 'e.g. 89' },
+              { key: 'protein', label: '💪 Protein (g)', placeholder: 'e.g. 1.1' },
+              { key: 'fiber', label: '🌿 Fiber (g)', placeholder: 'e.g. 2.6' },
+              { key: 'grams_per_unit', label: '⚖️ Grams per piece', placeholder: 'e.g. 60 for 1 egg' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key} className="create-modal__field" style={{ margin: 0 }}>
+                <label className="create-modal__field-label" style={{ fontSize: '0.78rem' }}>{label}</label>
+                <input
+                  className="editor-input"
+                  type="number"
+                  step="0.1"
+                  value={form[key]}
+                  onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="btn btn--primary btn--sm" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : '✓ Save'}
+            </button>
+            {saveMsg && <span style={{ fontSize: '0.85rem', color: saveMsg.startsWith('✓') ? 'var(--sage)' : 'var(--terracotta)' }}>{saveMsg}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnits, totalRecipes, hideIncompatible, setHideIncompatible, authFetch, authUser, onLogout, onAuthUserUpdate }) => {
   const apiFetch = authFetch || fetch;
   const isAdmin = authUser?.role === 'admin';
@@ -3116,18 +3247,20 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
       )}
 
       {isAdmin && (
-        <section className="profile-section">
+        <section className="profile-section profile-section--collapsible" style={{ marginBottom: 40 }}>
           <button className="profile-settings-toggle" onClick={() => setAdminToolsOpen(o => !o)}>
             <span className="profile-settings-toggle__title">🔧 Admin Tools</span>
             <span className={`profile-settings-toggle__arrow ${adminToolsOpen ? 'profile-settings-toggle__arrow--open' : ''}`}>▾</span>
           </button>
           {adminToolsOpen && (
             <div className="profile-settings-body">
+
               <div className="settings-section">
-                <h4 className="settings-section__title">🔄 Nutrition Data</h4>
-                <p className="settings-section__hint" style={{ marginBottom: 12 }}>Clears all pre-populated calories/protein/fiber from the database and recalculates them from each recipe's ingredients. Only recipes with ingredient nutrition data will get values.</p>
+                <h4 className="settings-section__title">🔄 Recalculate Nutrition</h4>
+                <p className="settings-section__hint">Clears all pre-populated calories/protein/fiber and recalculates from each recipe's ingredients. Run this once to clear old data — only recipes whose ingredients have nutrition info will get values.</p>
                 <button
                   className="btn btn--primary btn--sm"
+                  style={{ marginTop: 10 }}
                   disabled={recalcRunning}
                   onClick={async () => {
                     if (!window.confirm('This will clear ALL existing calories/protein/fiber from every recipe and recalculate from ingredients. Continue?')) return;
@@ -3143,6 +3276,13 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                 >{recalcRunning ? 'Running…' : 'Recalculate All Nutrition'}</button>
                 {recalcResult && <p style={{ marginTop: 10, fontSize: '0.85rem', color: recalcResult.startsWith('✓') ? 'var(--sage)' : 'var(--terracotta)' }}>{recalcResult}</p>}
               </div>
+
+              <div className="settings-section">
+                <h4 className="settings-section__title">🥦 Fill Ingredient Nutrition</h4>
+                <p className="settings-section__hint">Select an ingredient and fill in its calories, protein, and fiber per 100g. Once saved, any recipe using it will reflect the correct nutrition when recalculated.</p>
+                <IngredientNutritionFiller authFetch={authFetch} />
+              </div>
+
             </div>
           )}
         </section>
@@ -3728,13 +3868,6 @@ const CookingNotesTab = ({ notes, setNotes, authFetch, isAdmin }) => {
         </div>
         <p className="cn-tab__subtitle">Rules, ratios, and theory — the things that make cooking click.</p>
         <input className="editor-input cn-tab__search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes…" />
-        <div className="cn-tab__cats">
-          {categories.map(cat => (
-            <button key={cat} className={`chip ${activeCategory === cat ? 'chip--selected' : ''}`} onClick={() => setActiveCategory(cat)}>
-              {activeCategory === cat && <span className="chip__check">✓</span>}{cat}
-            </button>
-          ))}
-        </div>
       </div>
 
       {notes.length === 0 ? (
@@ -4787,6 +4920,66 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
   const [linkScraping, setLinkScraping] = useState(false);
   const [linkError, setLinkError] = useState(null);
 
+  // ── Text import state ──
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [pastedText, setPastedText] = useState('');
+  const [textParsing, setTextParsing] = useState(false);
+  const [textError, setTextError] = useState(null);
+
+  const openTextModal = () => { setPastedText(''); setTextError(null); setShowTextModal(true); };
+  const closeTextModal = () => { setShowTextModal(false); setTextParsing(false); };
+
+  const parseTextAndOpen = async () => {
+    if (!pastedText.trim()) { setTextError('Please paste some recipe text'); return; }
+    setTextParsing(true); setTextError(null);
+    try {
+      const res = await apiFetch(`${API}/api/parse-recipe-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: pastedText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Parse failed');
+
+      setDetails({
+        name: data.name || '',
+        cuisine: normaliseCuisine(data.cuisine),
+        time: data.time || '',
+        servings: data.servings || '',
+        cover_image_url: data.image || '',
+        cookbook: '', reference: '', status: 'to try', tags: [],
+      });
+      setIngs(
+        data.ingredients?.length
+          ? data.ingredients.map((i, idx) => ({
+              _id: `ing-txt-${idx}-${Date.now()}`,
+              name: i.name || '', amount: i.amount || '', unit: i.unit || '',
+              prep_note: '', optional: false, group_label: '',
+            }))
+          : [{ _id: `ing-new-${Date.now()}`, name: '', amount: '', unit: '', prep_note: '', optional: false, group_label: '' }]
+      );
+      setSteps(
+        data.steps?.length
+          ? data.steps.map((s, idx) => ({
+              _id: `step-txt-${idx}-${Date.now()}`,
+              step_number: idx + 1, body_text: s, timer_seconds: null,
+            }))
+          : [{ _id: `step-${Date.now()}`, step_number: 1, body_text: '' }]
+      );
+      setNotesList(
+        data.description ? [{ _id: `note-txt-${Date.now()}`, text: data.description }] : []
+      );
+      setImgPreviewError(false);
+      setSaveError(null);
+      setShowTextModal(false);
+      setShowModal(true);
+    } catch (e) {
+      setTextError(e.message);
+    } finally {
+      setTextParsing(false);
+    }
+  };
+
   const emptyForm = () => ({
     name: '', cuisine: '', time: '', servings: '',
     cover_image_url: '', cookbook: '', reference: '', status: '', tags: [],
@@ -4966,14 +5159,56 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
           <span className="add-tab__card-cta">Get started →</span>
         </button>
 
-        {/* From link card */}
-        <button className="add-tab__card" onClick={openLinkModal}>
-          <span className="add-tab__card-icon">🔗</span>
-          <h3 className="add-tab__card-title">Add from Link</h3>
-          <p className="add-tab__card-desc">Paste any recipe URL and we'll pull in the name, ingredients, and steps automatically</p>
-          <span className="add-tab__card-cta">Import →</span>
+        {/* From text card */}
+        <button className="add-tab__card" onClick={openTextModal}>
+          <span className="add-tab__card-icon">📋</span>
+          <h3 className="add-tab__card-title">Add from Text</h3>
+          <p className="add-tab__card-desc">Paste copied text from Instagram, TikTok, a website, or anywhere — we'll parse it automatically</p>
+          <span className="add-tab__card-cta">Paste &amp; import →</span>
         </button>
       </div>
+
+      {/* ── Text Import Modal ── */}
+      {showTextModal && (
+        <div className="create-modal-overlay" onClick={closeTextModal}>
+          <div className="create-modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className="create-modal__header">
+              <h2 className="create-modal__title">📋 Import from Text</h2>
+              <button className="ing-modal__close" onClick={closeTextModal}>✕</button>
+            </div>
+            <div className="create-modal__body" style={{ gap: 14 }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--warm-gray)', margin: 0 }}>
+                Copy any recipe text — from an Instagram caption, TikTok description, website, screenshot OCR, or anywhere — and paste it below. We'll extract the title, ingredients, and steps.
+              </p>
+              <div className="create-modal__field">
+                <label className="create-modal__field-label">Paste recipe text</label>
+                <textarea
+                  className="editor-textarea"
+                  value={pastedText}
+                  onChange={e => { setPastedText(e.target.value); setTextError(null); }}
+                  placeholder={"e.g.\nCreamy Tuscan Chicken\n\nIngredients:\n- 4 chicken breasts\n- 1 cup heavy cream\n...\n\nInstructions:\n1. Season the chicken...\n2. Heat oil in a pan..."}
+                  rows={12}
+                  style={{ resize: 'vertical', fontFamily: 'var(--font-body)', fontSize: '0.88rem' }}
+                  autoFocus
+                />
+              </div>
+              {textError && <p className="editor-error">⚠️ {textError}</p>}
+              {textParsing && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--warm-gray)', fontSize: '0.88rem' }}>
+                  <span className="link-import__spinner" />
+                  Parsing recipe…
+                </div>
+              )}
+            </div>
+            <div className="create-modal__footer">
+              <button className="btn btn--ghost" onClick={closeTextModal}>Cancel</button>
+              <button className="btn btn--primary" onClick={parseTextAndOpen} disabled={textParsing || !pastedText.trim()}>
+                {textParsing ? 'Parsing…' : 'Next →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Link Import Modal ── */}
       {showLinkModal && (
