@@ -57,6 +57,11 @@ import {
   useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import {
+  CheckCircle2, Flame, Clock, Heart, ChefHat, BookOpen,
+  ShoppingCart, Utensils, Shuffle, Package, ArrowRight,
+  Sun, BookMarked,
+} from 'lucide-react';
 import './App.css';
 
 // ─── Error Boundary ────────────────────────────────────────────────────────
@@ -1363,7 +1368,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             onClick={() => setStayAwake(s => !s)}
             title={stayAwake ? 'Screen will stay on — click to disable' : 'Keep screen awake while cooking'}
           >
-            {stayAwake ? '☀️ Awake' : '☀️'}
+            {stayAwake ? <><Sun size={14} strokeWidth={2} /> Awake</> : <Sun size={14} strokeWidth={2} />}
           </button>
           {isAdmin && <button className="rp2__title-delete-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe">🗑</button>}
         </div>
@@ -5952,13 +5957,13 @@ function AppInner() {
                   onClick={() => { setActiveProgresses(['__readytocook']); setView('recipes'); }}>
                   <span className="insight-item__number">{matches.filter(m => m.canMake).length}</span>
                   <span className="insight-item__label">Ready to cook</span>
-                  <span className="insight-item__icon">✅</span>
+                  <span className="insight-item__icon"><CheckCircle2 color="var(--insight-green-ic)" /></span>
                 </button>
                 <button className="insight-item insight-item--amber insight-item--btn"
                   onClick={() => { setActiveProgresses(['__almostready']); setView('recipes'); }}>
                   <span className="insight-item__number">{matches.filter(m => m.matchScore >= 0.7 && !m.canMake).length}</span>
                   <span className="insight-item__label">Almost ready</span>
-                  <span className="insight-item__icon">🔥</span>
+                  <span className="insight-item__icon"><Flame color="var(--insight-amber-ic)" /></span>
                 </button>
                 <button className="insight-item insight-item--purple insight-item--btn"
                   onClick={() => { setMaxMinutes(30); setView('recipes'); }}>
@@ -5966,13 +5971,13 @@ function AppInner() {
                     {recipes.filter(r => { const t = (r.time || '').toLowerCase(); const m = t.match(/(\d+)/); return m && parseInt(m[1]) <= 30; }).length}
                   </span>
                   <span className="insight-item__label">Under 30 min</span>
-                  <span className="insight-item__icon">⏱</span>
+                  <span className="insight-item__icon"><Clock color="var(--insight-rust-ic)" /></span>
                 </button>
                 <button className="insight-item insight-item--orange insight-item--btn"
                   onClick={() => { setActiveProgresses(['__favorite']); setView('recipes'); }}>
                   <span className="insight-item__number">{heartedIds.filter(id => recipes.some(r => r.id === id)).length}</span>
                   <span className="insight-item__label">Favorites</span>
-                  <span className="insight-item__icon">♥</span>
+                  <span className="insight-item__icon"><Heart color="var(--insight-gold-ic)" /></span>
                 </button>
                 <button className="insight-item insight-item--sage insight-item--btn" style={{ cursor: 'default' }}>
                   <span className="insight-item__number">
@@ -5982,13 +5987,13 @@ function AppInner() {
                     })()}
                   </span>
                   <span className="insight-item__label">Cooked this week</span>
-                  <span className="insight-item__icon">🍳</span>
+                  <span className="insight-item__icon"><ChefHat color="var(--insight-sage-ic)" /></span>
                 </button>
                 <button className="insight-item insight-item--blue insight-item--btn"
                   onClick={() => { clearAllFilters(); setView('recipes'); }}>
                   <span className="insight-item__number">{recipes.length}</span>
                   <span className="insight-item__label">Total recipes</span>
-                  <span className="insight-item__icon">📚</span>
+                  <span className="insight-item__icon"><BookMarked color="var(--insight-brown-ic)" /></span>
                 </button>
               </div>
             </div>
@@ -5997,37 +6002,37 @@ function AppInner() {
               <h3 className="insights-title">Quick Actions</h3>
               <div className="quick-actions-list">
                 <button className="quick-action" onClick={() => setView('recipes')}>
-                  <span className="quick-action__icon">📖</span>
+                  <span className="quick-action__icon"><BookOpen size={18} strokeWidth={1.75} /></span>
                   <div className="quick-action__text">
                     <span className="quick-action__label">Browse all recipes</span>
                     <span className="quick-action__sub">{recipes.length} in your library</span>
                   </div>
-                  <span className="quick-action__arrow">→</span>
+                  <span className="quick-action__arrow"><ArrowRight size={14} strokeWidth={1.75} /></span>
                 </button>
                 <button className="quick-action" onClick={() => setView('kitchen')}>
-                  <span className="quick-action__icon">🫙</span>
+                  <span className="quick-action__icon"><Package size={18} strokeWidth={1.75} /></span>
                   <div className="quick-action__text">
                     <span className="quick-action__label">Update my kitchen</span>
                     <span className="quick-action__sub">{fridgeIngredients.length + pantryStaples.length} ingredients tracked</span>
                   </div>
-                  <span className="quick-action__arrow">→</span>
+                  <span className="quick-action__arrow"><ArrowRight size={14} strokeWidth={1.75} /></span>
                 </button>
                 <button className="quick-action" onClick={() => setView('grocery')}>
-                  <span className="quick-action__icon">🛒</span>
+                  <span className="quick-action__icon"><ShoppingCart size={18} strokeWidth={1.75} /></span>
                   <div className="quick-action__text">
                     <span className="quick-action__label">Build grocery list</span>
                     <span className="quick-action__sub">Plan your weekly shop</span>
                   </div>
-                  <span className="quick-action__arrow">→</span>
+                  <span className="quick-action__arrow"><ArrowRight size={14} strokeWidth={1.75} /></span>
                 </button>
                 {matches.filter(m => m.canMake).length > 0 && (
                   <button className="quick-action quick-action--highlight" onClick={() => { setActiveTag(null); setActiveCuisine(''); setLibrarySearch(''); setView('recipes'); }}>
-                    <span className="quick-action__icon">🎯</span>
+                    <span className="quick-action__icon"><Utensils size={18} strokeWidth={1.75} /></span>
                     <div className="quick-action__text">
                       <span className="quick-action__label">Cook something now</span>
                       <span className="quick-action__sub">{matches.filter(m => m.canMake).length} recipes you can make</span>
                     </div>
-                    <span className="quick-action__arrow">→</span>
+                    <span className="quick-action__arrow"><ArrowRight size={14} strokeWidth={1.75} /></span>
                   </button>
                 )}
                 <button className="quick-action quick-action--surprise" onClick={() => {
@@ -6035,12 +6040,12 @@ function AppInner() {
                   const r = recipes[Math.floor(Math.random() * recipes.length)];
                   openRecipe(r);
                 }}>
-                  <span className="quick-action__icon">🎲</span>
+                  <span className="quick-action__icon"><Shuffle size={18} strokeWidth={1.75} /></span>
                   <div className="quick-action__text">
                     <span className="quick-action__label">Surprise me!</span>
                     <span className="quick-action__sub">Open a random recipe</span>
                   </div>
-                  <span className="quick-action__arrow">→</span>
+                  <span className="quick-action__arrow"><ArrowRight size={14} strokeWidth={1.75} /></span>
                 </button>
               </div>
             </div>
