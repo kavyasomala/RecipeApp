@@ -2,23 +2,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  /* Warm kitchen palette */
-  --cream: #FDF6EC;
-  --warm-white: #FBF3E8;
-  --parchment: #F2E6D0;
-  --tan: #EDE3D2;          /* muted beige — header/footer */
-  --tan-dark: #DDD0BA;     /* slightly darker tan for borders on tan bg */
-  --terracotta: #B85C38;
-  --terracotta-dark: #9A4A2C;
-  --terracotta-light: #D4714A;
-  --ember: #D4714A;
-  --ash: #C9AD8A;
-  --sage: #6B9170;
-  --sage-light: #9BBD9F;
-  --charcoal: #3B2F22;     /* warm dark brown — NOT black */
-  --warm-gray: #7A6653;    /* warm medium brown */
-  --light-gray: #E5D5BD;
-  --border: #DDD0BA;
+  /* Sage & Stone palette */
+  --cream: #F6F4F0;
+  --warm-white: #F0EDEA;
+  --parchment: #E8E3DC;
+  --tan: #E2DDD7;          /* muted stone — header/footer */
+  --tan-dark: #CFC9C0;     /* slightly darker for borders on tan bg */
+  --terracotta: #C16B47;
+  --terracotta-dark: #A5572E;
+  --terracotta-light: #D4845F;
+  --ember: #D4845F;
+  --ash: #B5A898;
+  --sage: #5C8C6B;
+  --sage-light: #8CB89A;
+  --charcoal: #2C2A27;     /* warm near-black */
+  --warm-gray: #6B6258;    /* warm stone gray */
+  --light-gray: #D8D2C8;
+  --border: #CFC9C0;
 
   /* Insight card warm palette */
   --insight-green-bg: #EAF3E8;   --insight-green-bd: #A8CDAA;   --insight-green-ic: #4E8A56;
@@ -278,7 +278,7 @@ body {
   user-select: none;
   min-height: 36px;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent;  white-space: nowrap;
 }
 .chip:hover { border-color: var(--terracotta-light); background: #fdf0eb; }
 .chip:active { transform: scale(0.97); }
@@ -702,7 +702,8 @@ body {
 .grocery-progress { height: 3px; background: var(--light-gray); }
 .grocery-progress__bar { height: 100%; background: var(--sage); transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
 .grocery-category { padding: 12px 20px 4px; }
-.grocery-category__title { font-size: 11px; font-weight: 700; color: var(--warm-gray); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.grocery-category__title { font-size: 11px; font-weight: 700; color: var(--warm-gray); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border);  display: flex; align-items: center; gap: 6px;
+}
 .grocery-items { display: flex; flex-direction: column; }
 .grocery-item {
   display: flex; align-items: center; gap: 12px; padding: 11px 0;
@@ -1256,15 +1257,17 @@ body {
 .rp2__ing-group { margin-bottom: 16px; }
 .rp2__ing-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--warm-gray); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 .rp2__ing-list { list-style: none; display: flex; flex-direction: column; gap: 2px; padding: 0; margin: 0; }
-.rp2__ing-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: background var(--transition); user-select: none; }
+.rp2__ing-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: background var(--transition); user-select: none; }
 .rp2__ing-item:hover { background: var(--parchment); }
 .rp2__ing-item--checked { opacity: 0.5; }
 .rp2__ing-item--checked .rp2__ing-name { text-decoration: line-through; }
-.rp2__ing-check { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; transition: all var(--transition); }
+.rp2__ing-check { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; transition: all var(--transition); margin-top: 2px; }
 .rp2__ing-check--done { background: var(--sage); border-color: var(--sage); color: white; }
-.rp2__ing-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; font-size: 14px; }
+.rp2__ing-text { display: flex; flex-direction: column; gap: 2px; font-size: 14px; flex: 1; min-width: 0; }
+.rp2__ing-name-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
+.rp2__ing-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 1px; }
 .rp2__ing-amount { font-weight: 600; color: var(--charcoal); }
-.rp2__ing-name { color: var(--charcoal); }
+.rp2__ing-name { color: var(--charcoal); word-break: break-word; }
 .rp2__ing-prep { font-size: 12px; color: var(--warm-gray); font-style: italic; }
 .rp2__ing-optional { font-size: 11px; background: var(--parchment); border-radius: 999px; padding: 1px 6px; color: var(--warm-gray); }
 
@@ -1290,12 +1293,14 @@ body {
 
 /* Notes */
 .rp2__notes-list { list-style: none; display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0; }
+.rp2__notes-list { list-style: none; display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0; }
 .rp2__notes-item {
   display: flex; gap: 10px; font-size: 14px; line-height: 1.55; color: var(--charcoal);
-  padding: 8px 12px; border-left: 3px solid var(--terracotta-light);
-  background: #fef8f5; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 14px; background: var(--cream);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  border-left: 3px solid var(--sage);
 }
-.rp2__notes-item::before { content: '·'; color: var(--terracotta); font-weight: 700; flex-shrink: 0; }
+.rp2__notes-item::before { content: ''; display: none; }
 
 @media (max-width: 700px) {
   .rp2__body { grid-template-columns: 1fr; }
@@ -1512,7 +1517,8 @@ body {
   border: 1px solid var(--border); white-space: nowrap; margin-top: 2px;
   align-self: flex-start;
 }
-.recipe-card__progress { font-size: 13px; line-height: 1; }
+.recipe-card__progress { font-size: 13px; line-height: 1;  display: inline-flex; align-items: center;
+}
 
 /* ─── Recipe total count ─────────────────────────────────────────────────── */
 .recipes-total-count {
@@ -1894,6 +1900,7 @@ body {
 
 /* ─── Cuisine icon filter chips ─────────────────────────────────────────── */
 .filter-panel__cuisine-icons { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.filter-panel__cuisine-icons .chip { white-space: nowrap; padding-left: 14px; padding-right: 14px; }
 .cuisine-icon-btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   width: 84px; padding: 10px 8px 8px; border-radius: 12px;
@@ -1924,10 +1931,11 @@ body {
 }
 .filter-panel__dir-btn:hover { border-color: var(--terracotta-light); }
 .filter-panel__dir-btn--active { background: var(--charcoal); border-color: var(--charcoal); color: white; }
-.filter-panel__slider-wrap { display: flex; align-items: center; gap: 10px; width: 100%; }
+.filter-panel__slider-wrap { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
 .filter-panel__slider-edge {
   font-size: 11px; color: var(--warm-gray); font-weight: 600;
   flex-shrink: 0; white-space: nowrap; min-width: 30px; text-align: center;
+  padding-bottom: 6px;
 }
 .filter-panel__slider-track { position: relative; flex: 1; padding-top: 28px; }
 .filter-panel__slider-bubble {
@@ -2078,7 +2086,7 @@ body {
   font-size: 0.78rem; padding: 5px 11px; border-radius: 999px;
   border: 1.5px solid var(--sage); background: transparent;
   color: var(--sage); font-weight: 600; cursor: pointer;
-  transition: all 0.15s ease; white-space: nowrap;
+  transition: all 0.15s ease; white-space: nowrap;  display: inline-flex; align-items: center; gap: 5px;
 }
 .ing-fetch-btn:hover:not(:disabled) { background: var(--sage); color: #fff; }
 .ing-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -2275,7 +2283,7 @@ body {
   font-weight: 600;
   color: var(--warm-gray);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.04em;  display: flex; align-items: center; gap: 5px;
 }
 .create-modal__required { color: var(--terracotta); }
 .create-modal__field-hint {
@@ -2333,7 +2341,8 @@ body {
   box-shadow: var(--shadow-lg);
   animation: scaleIn 0.2s cubic-bezier(0.22,1,0.36,1);
 }
-.delete-confirm-modal__icon { font-size: 2.6rem; margin-bottom: 12px; }
+.delete-confirm-modal__icon { font-size: 2.6rem; margin-bottom: 12px;  display: flex; align-items: center; justify-content: center;
+}
 .delete-confirm-modal__title {
   font-family: var(--font-display);
   font-size: 1.3rem;
@@ -3245,6 +3254,19 @@ body {
 .grocery-header__actions {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
+/* Grocery copy button — matches stay-awake button style */
+.grocery-copy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--cream); color: var(--warm-gray);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  white-space: nowrap;
+}
+.grocery-copy-btn:hover { border-color: var(--sage); color: var(--sage); background: var(--warm-white); }
+.grocery-copy-btn:active { transform: scale(0.97); }
+
 .grocery-toggle {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 600; color: var(--warm-gray); cursor: pointer;
@@ -3895,7 +3917,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--warm-gray);
-  margin-bottom: 8px;
+  margin-bottom: 8px;  display: flex; align-items: center; gap: 6px;
 }
 .cooked-cleanup__items {
   display: flex;
@@ -4202,23 +4224,8 @@ body {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
-.cook-calendar__month-label {
-  font-weight: 700;
-  font-size: 15px;
-}
-.cook-calendar__nav-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 32px;
-  height: 32px;
-  font-size: 18px;
-  cursor: pointer;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.cook-calendar__month-label { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--charcoal); }
+.cook-calendar__nav-btn { background: var(--sage); color: white; border: none; border-radius: var(--radius-sm); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
 .cook-calendar__nav-btn:hover { background: var(--bg); }
 .cook-calendar__grid {
   display: grid;
@@ -4400,17 +4407,7 @@ body {
   grid-template-columns: repeat(7, 1fr);
   border-top: 1px solid var(--border);
 }
-.cook-calendar__gcal-day-header {
-  padding: 8px 4px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--warm-gray);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  background: var(--surface, #faf9f7);
-  border-bottom: 1px solid var(--border);
-}
+.cook-calendar__gcal-day-header { font-size: 11px; font-weight: 600; color: var(--warm-gray); text-align: center; padding: 4px 0; text-transform: uppercase; letter-spacing: 0.05em; }
 .cook-calendar__gcal-cell {
   min-height: 80px;
   padding: 6px 6px 4px;
@@ -4423,8 +4420,8 @@ body {
 .cook-calendar__gcal-cell:nth-child(7n) { border-right: none; }
 .cook-calendar__gcal-cell { background: var(--warm-white); }
 .cook-calendar__gcal-cell--empty { background: var(--cream); }
-.cook-calendar__gcal-cell--cooked { background: #fdf5ea; }
-.cook-calendar__gcal-cell--today { background: #fdf0eb; }
+.cook-calendar__gcal-cell--cooked { background: var(--parchment); border-radius: var(--radius-sm); }
+.cook-calendar__gcal-cell--today { background: var(--sage); border-radius: var(--radius-sm); }
 .cook-calendar__gcal-date {
   display: inline-flex;
   align-items: center;
@@ -4437,22 +4434,8 @@ body {
   border-radius: 50%;
   margin-bottom: 2px;
 }
-.cook-calendar__gcal-date--today {
-  background: var(--terracotta);
-  color: #fff;
-  font-weight: 700;
-}
-.cook-calendar__gcal-event {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  background: #fdf0eb;
-  border-left: 3px solid var(--terracotta);
-  border-radius: 4px;
-  padding: 2px 5px;
-  margin-top: 3px;
-  overflow: hidden;
-}
+.cook-calendar__gcal-date--today { color: white; font-weight: 700; }
+.cook-calendar__gcal-event { display: flex; align-items: center; gap: 3px; font-size: 10px; color: var(--sage); font-weight: 500; }
 .cook-calendar__gcal-event-name {
   font-size: 11px;
   font-weight: 500;
@@ -5029,10 +5012,172 @@ button, [role="button"] { cursor: pointer; }
 
 /* Notes items — warmer */
 .rp2__notes-item {
-  display: flex; gap: 10px; font-size: 14px; line-height: 1.6; color: var(--charcoal);
-  padding: 10px 14px; border-left: 3px solid var(--terracotta-light);
-  background: linear-gradient(90deg, #fef9f5, transparent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--cream);
+  border-left-color: var(--sage);
 }
 
 /* Library/grocery header typography */
 .grocery-title { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   Additional UI improvements — Sage & Stone refresh
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Cuisine chips in filter panel — ensure full text visible ── */
+.filter-panel__cuisine-icons .chip { white-space: nowrap; min-width: max-content; }
+
+/* ── Progress filter chips — no icon gap ── */
+.filter-panel__chips .chip { gap: 5px; }
+
+/* ── Notes & Tips — themed, rounded card style ── */
+.rp2__notes-list { list-style: none; display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0; }
+.rp2__notes-item {
+  display: flex; gap: 8px; font-size: 14px; line-height: 1.55; color: var(--charcoal);
+  padding: 10px 14px;
+  background: var(--warm-white);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sage);
+  border-radius: var(--radius);
+}
+.rp2__notes-item::before { display: none !important; }
+
+/* ── Ingredient list — checkbox top-aligned, text wraps ── */
+.rp2__ing-item { align-items: flex-start !important; }
+.rp2__ing-check { margin-top: 2px; }
+.rp2__ing-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rp2__ing-name-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; }
+.rp2__ing-name { word-break: break-word; overflow-wrap: anywhere; }
+.rp2__ing-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+/* ── Modal title — icon left of text ── */
+.create-modal__title { display: flex !important; align-items: center; gap: 8px; }
+.create-modal__field-label { display: flex; align-items: center; gap: 5px; }
+
+/* ── Ing fetch button — icon left ── */
+.ing-fetch-btn { display: inline-flex !important; align-items: center; gap: 5px; }
+
+/* ── Grocery category header ── */
+.grocery-category__title { display: flex !important; align-items: center; gap: 6px; }
+
+/* ── Cooked cleanup group label ── */
+.cooked-cleanup__group-label { display: flex !important; align-items: center; gap: 6px; }
+
+/* ── Recipe card progress chip with icons ── */
+.recipe-card__progress { display: inline-flex !important; align-items: center; gap: 3px; }
+
+/* ── Delete modal icon ── */
+.delete-confirm-modal__icon { display: flex !important; align-items: center; justify-content: center; }
+
+/* ── Grocery copy button ── */
+.grocery-copy-btn.rp2__cooking-mode-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ── Slider edge numbers aligned with slider bar ── */
+.filter-panel__slider-wrap { align-items: flex-end !important; }
+.filter-panel__slider-edge { padding-bottom: 6px !important; }
+
+/* ── Calendar theme (Sage & Stone) ── */
+.cook-calendar__nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cook-calendar__nav-btn {
+  background: var(--sage); color: white;
+  border: none; border-radius: var(--radius-sm);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; line-height: 1;
+  transition: background var(--transition);
+}
+.cook-calendar__nav-btn:hover { background: var(--sage-light); }
+.cook-calendar__month-label {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--charcoal);
+}
+.cook-calendar__gcal-day-header {
+  font-size: 11px; font-weight: 600; color: var(--warm-gray);
+  text-align: center; padding: 4px 0;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.cook-calendar__gcal-cell { min-height: 52px; border-radius: var(--radius-sm); }
+.cook-calendar__gcal-cell--today { background: rgba(92,140,107,0.12) !important; border: 1.5px solid var(--sage) !important; }
+.cook-calendar__gcal-date--today {
+  color: var(--sage) !important; font-weight: 700;
+  background: var(--sage); color: white !important;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cook-calendar__gcal-cell--cooked { background: var(--warm-white) !important; border: 1px solid var(--border) !important; }
+.cook-calendar__gcal-event { color: var(--sage); }
+.cook-calendar__gcal-event-dot { color: var(--sage); display: flex; align-items: center; }
+
+/* ── Mobile improvements ── */
+@media (max-width: 640px) {
+  /* More touch-friendly spacing */
+  .rp2__ing-item { padding: 10px 8px; }
+  .grocery-item { padding: 12px 8px; }
+
+  /* Recipe card grid — single column on small screens */
+  .recipe-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Filter panel — chips wrap properly */
+  .filter-panel__cuisine-icons { gap: 6px; }
+  .filter-panel__chips { gap: 6px; }
+
+  /* Modal full-width on mobile */
+  .create-modal { margin: 8px; max-width: calc(100vw - 16px) !important; }
+  .create-modal__body { padding: 16px; }
+  .create-modal__footer { padding: 12px 16px; }
+
+  /* Stay awake + trash btn row wraps */
+  .rp2__title-row-actions { gap: 6px; flex-wrap: wrap; }
+
+  /* Notes section */
+  .rp2__notes-item { font-size: 13px; padding: 9px 12px; }
+
+  /* Grocery copy btn */
+  .grocery-copy-btn { padding: 6px 10px; font-size: 11px; }
+
+  /* Cookbook cards */
+  .cookbooks-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Home section */
+  .home-section__title { font-size: 17px; }
+}
+
+@media (max-width: 400px) {
+  .recipe-grid { grid-template-columns: 1fr; }
+  .cookbooks-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Stay awake + delete trash btn ── */
+.rp2__title-delete-btn.rp2__cooking-mode-btn {
+  color: var(--warm-gray);
+}
+.rp2__title-delete-btn.rp2__cooking-mode-btn:hover {
+  color: var(--terracotta);
+  border-color: var(--terracotta);
+  background: rgba(193,107,71,0.06);
+}
+
+/* ── Heart button — filled when active ── */
+.recipe-card__heart--on svg, .rp2__hero-heart--on svg { fill: var(--terracotta); }
+.recipe-card__heart svg, .rp2__hero-heart svg { transition: fill var(--transition); }
+
+/* ── Cookbook section title — icon left of text ── */
+.rp2__cookbook-title { display: flex !important; align-items: center; gap: 6px; }
+
+/* ── Cookbook text entry — icon left of book name ── */
+.rp2__cookbook-text__book { display: flex !important; align-items: center; gap: 6px; }
+
+/* ── Error messages with icon ── */
+.editor-error { display: flex; align-items: center; gap: 6px; }
+.ing-fetch-msg { display: flex; align-items: center; gap: 5px; }
+
+/* ── Chip icon display ── */
+.chip svg { flex-shrink: 0; }
+
+/* ── Section pencil buttons ── */
+.section-pencil { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ── Recipe stats "can make" icon ── */
+.recipe-card__can-make { display: inline-flex !important; align-items: center; gap: 3px; }

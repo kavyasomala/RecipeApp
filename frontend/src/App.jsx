@@ -309,7 +309,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
   const matchScore = match?.matchScore ?? null;
   const canMakeNow = Boolean(match?.canMake);
   const tags = recipe.tags || [];
-  const progress = recipe.status === 'incomplete' ? '🚧' : recipe.status === 'needs tweaking' ? '🔧' : recipe.status === 'complete' ? '✅' : recipe.status === 'to try' ? '🔖' : null;
+  const progress = recipe.status === 'incomplete' ? <Icon name="alertTriangle" size={12} strokeWidth={2} /> : recipe.status === 'needs tweaking' ? <Icon name="tool" size={12} strokeWidth={2} /> : recipe.status === 'complete' ? <Icon name="checkCircle" size={12} strokeWidth={2} /> : recipe.status === 'to try' ? <Icon name="bookMarked" size={12} strokeWidth={2} /> : null;
   const isCookbookRef = Boolean(recipe.cookbook && (!recipe.ingredients || recipe.ingredients.length === 0));
 
   return (
@@ -319,7 +319,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
           ? <img src={coverImage} alt={name} loading="lazy" />
           : <div className="recipe-card__image-placeholder">No photo</div>}
         {isCookbookRef && (
-          <div className="recipe-card__book-corner">📖</div>
+          <div className="recipe-card__book-corner"><Icon name="bookOpen" size={12} strokeWidth={1.75} color="white" /></div>
         )}
         {showScore && matchScore !== null && (
           <div className={`recipe-card__score ${canMakeNow ? 'recipe-card__score--ready' : ''}`}>
@@ -331,7 +331,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
             className={`recipe-card__heart ${isHearted ? 'recipe-card__heart--on' : ''}`}
             onClick={e => { e.stopPropagation(); onToggleHeart(); }}
             title={isHearted ? 'Remove from Favorites' : 'Add to Favorites'}
-          >{isHearted ? '♥' : '♡'}</button>
+          ><Icon name="heart" size={14} strokeWidth={2} /></button>
         )}
         <button
           className={`recipe-card__soon ${isMakeSoon ? 'recipe-card__soon--on' : ''}`}
@@ -343,7 +343,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
             className="recipe-card__cooked-btn"
             onClick={e => { e.stopPropagation(); onMarkCooked(recipe); }}
             title="Mark as Cooked"
-          >🍳</button>
+          ><Icon name="chefHat" size={14} strokeWidth={2} /></button>
         )}
       </div>
       <div className="recipe-card__body">
@@ -355,7 +355,7 @@ const RecipeCard = ({ recipe, match, onClick, isHearted, onToggleHeart, isMakeSo
           {time && <span className="recipe-card__stat"><span className="recipe-card__stat-icon"><Icon name="clock" size={12} strokeWidth={2} /></span>{time}</span>}
           {calories !== null && <span className="recipe-card__stat"><span className="recipe-card__stat-icon"><Icon name="zap" size={12} strokeWidth={2} /></span>{Math.round(calories)} kcal</span>}
           {protein !== null && <span className="recipe-card__stat"><span className="recipe-card__stat-icon"><Icon name="dumbbell" size={12} strokeWidth={2} /></span>{Math.round(protein)}g</span>}
-          {canMakeNow && <span className="recipe-card__can-make">✓ Ready</span>}
+          {canMakeNow && <span className="recipe-card__can-make"><Icon name="checkCircle" size={11} strokeWidth={2} /> Ready</span>}
           {progress && <span className="recipe-card__progress">{progress}</span>}
         </div>
       </div>
@@ -572,7 +572,7 @@ const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpda
                 placeholder="e.g. Added more garlic, served with salad, would do again…" rows={3} />
             </div>
 
-            {error && <p className="editor-error">⚠️ {error}</p>}
+            {error && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {error}</p>}
           </div>
           <div className="create-modal__footer">
             <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
@@ -584,7 +584,7 @@ const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpda
 
         {step === 2 && (<>
           <div className="create-modal__header">
-            <h2 className="create-modal__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="package" size={18} strokeWidth={2} /> Update Your Kitchen</h2>
+            <h2 className="create-modal__title"><Icon name="package" size={18} strokeWidth={2} /> Update Your Kitchen</h2>
           </div>
           <div className="create-modal__body cooked-modal__body">
             <p className="cooked-modal__cleanup-intro">
@@ -593,7 +593,7 @@ const MarkCookedModal = ({ recipe, bodyIngredients = [], onSave, onClose, onUpda
             {Object.entries(grouped).map(([cat, items]) => (
               <div key={cat} className="cooked-cleanup__group">
                 <div className="cooked-cleanup__group-label">
-                  {CAT_ICON[cat] && <Icon name={CAT_ICON[cat]} size={14} strokeWidth={2} />} {CAT_LABEL[cat]}
+                  <Icon name={CAT_ICON[cat] || 'list'} size={14} strokeWidth={2} /> {CAT_LABEL[cat]}
                 </div>
                 <div className="cooked-cleanup__items">
                   {items.map(ing => {
@@ -692,7 +692,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
 
   if (!showModal) return (
     <button className="btn btn--primary rp2__cb-convert-btn" onClick={() => setShowModal(true)}>
-      ✨ Convert to Full Recipe
+      <Icon name="zap" size={14} strokeWidth={2} /> Convert to Full Recipe
     </button>
   );
 
@@ -755,7 +755,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
                 {steps.map((item, idx) => {
                   if (item._isTimer) return (
                     <div key={item._id} className="rp2__ed-timer-row">
-                      <span className="rp2__ed-timer-row__icon">⏱</span>
+                      <span className="rp2__ed-timer-row__icon"><Icon name="timer" size={14} strokeWidth={2} /></span>
                       <div className="rp2__ed-timer-row__inputs">
                         <input className="editor-input editor-input--sm rp2__ed-timer-row__num" type="number" min="0" value={item.h} onChange={e => setSteps(prev => prev.map(s => s._id===item._id?{...s,h:e.target.value}:s))} placeholder="0" />
                         <span className="rp2__ed-timer-row__sep">h</span>
@@ -771,7 +771,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
                   return (
                     <StepSortableItem key={item._id} id={item._id} stepNum={stepNum}>
                       <textarea className="editor-textarea" value={item.body_text} onChange={e => updateStep(item._id, e.target.value)} placeholder="Describe this step…" rows={2} />
-                      <button className="rp2__ed-add-timer-btn" onClick={() => { const i = steps.findIndex(s => s._id===item._id); const t={_id:`timer-${'{'}Date.now(){'}'}`,_isTimer:true,h:'',m:'',s:''}; const n=[...steps]; n.splice(i+1,0,t); setSteps(n); }} title="Add timer">⏱</button>
+                      <button className="rp2__ed-add-timer-btn" onClick={() => { const i = steps.findIndex(s => s._id===item._id); const t={_id:`timer-${'{'}Date.now(){'}'}`,_isTimer:true,h:'',m:'',s:''}; const n=[...steps]; n.splice(i+1,0,t); setSteps(n); }} title="Add timer"><Icon name="timer" size={13} strokeWidth={2} /></button>
                       <button className="editor-remove-btn" onClick={() => removeStep(item._id)}>✕</button>
                     </StepSortableItem>
                   );
@@ -791,7 +791,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
             ))}
             <button className="btn btn--ghost editor-add-btn" onClick={() => setNotesList(prev => [...prev, { _id:`note-${Date.now()}`,text:'' }])}>+ Add Note</button>
           </div>
-          {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+          {saveError && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
         </div>
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={() => setShowModal(false)}>Cancel</button>
@@ -839,7 +839,7 @@ const StepItem = ({ step, done, isCurrent, enlarge, onToggle, matchedNotes = [] 
               playBeep(ctx.currentTime, 880); playBeep(ctx.currentTime + 0.45, 1100); playBeep(ctx.currentTime + 0.9, 1320);
             } catch {}
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('⏱ Timer done!', { body: `Step ${step.step_number}: ${(step.body_text || '').slice(0, 60)}`, icon: '🍳' });
+              new Notification('Timer done!', { body: `Step ${step.step_number}: ${(step.body_text || '').slice(0, 60)}`, icon: '🍳' });
             }
             return 0;
           }
@@ -874,7 +874,7 @@ const StepItem = ({ step, done, isCurrent, enlarge, onToggle, matchedNotes = [] 
                     className={`rp2__step-hint-btn ${activeNote?.id === n.id ? 'rp2__step-hint-btn--active' : ''}`}
                     onClick={e => { e.stopPropagation(); setActiveNote(prev => prev?.id === n.id ? null : n); }}
                     title={n.title}
-                  >💡</button>
+                  ><Icon name="lightbulb" size={13} strokeWidth={2} /></button>
                   {activeNote?.id === n.id && (
                     <div className="rp2__step-hint-popover" onClick={e => e.stopPropagation()}>
                       <div className="rp2__step-hint-popover__title">{n.title}</div>
@@ -1157,19 +1157,19 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
 
   return (
     <main className="view rp2">
-      {saveError && <p className="editor-error" style={{ margin: '8px 20px 0' }}>⚠️ {saveError}</p>}
+      {saveError && <p className="editor-error" style={{ margin: '8px 20px 0' }}><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
 
       {/* ── Delete Confirmation Modal ── */}
       {showDeleteConfirm && (
         <div className="create-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div className="delete-confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="delete-confirm-modal__icon">🗑️</div>
+            <div className="delete-confirm-modal__icon"><Icon name="trash2" size={32} color="var(--terracotta)" strokeWidth={1.5} /></div>
             <h2 className="delete-confirm-modal__title">Delete "{recipe?.name}"?</h2>
             <p className="delete-confirm-modal__body">
               This will permanently delete the recipe along with all its ingredients, instructions, and notes.
               <strong> This cannot be undone.</strong>
             </p>
-            {deleteError && <p className="editor-error" style={{ marginTop: 8 }}>⚠️ {deleteError}</p>}
+            {deleteError && <p className="editor-error" style={{ marginTop: 8 }}><Icon name="alertTriangle" size={14} strokeWidth={2} /> {deleteError}</p>}
             <div className="delete-confirm-modal__actions">
               <button className="btn btn--ghost" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>Cancel</button>
               <button className="btn btn--danger" onClick={async () => {
@@ -1181,7 +1181,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                   if (onDelete) onDelete(recipe.id);
                 } catch (e) { setDeleteError(e.message); setDeleting(false); }
               }} disabled={deleting}>
-                {deleting ? 'Deleting…' : '🗑️ Delete forever'}
+                {deleting ? 'Deleting…' : <><Icon name="trash2" size={14} strokeWidth={2} /> Delete forever</>}
               </button>
             </div>
           </div>
@@ -1203,7 +1203,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
       <div className="rp2__hero">
         {recipe.coverImage
           ? <HeroImage src={recipe.coverImage} alt={recipe.name} />
-          : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
+          : <div className="rp2__hero-placeholder"><Icon name="image" size={40} color="var(--ash)" strokeWidth={1.5} /></div>}
 
         <div className="rp2__hero-overlay">
           {/* ── Top bar ── */}
@@ -1215,14 +1215,14 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                   className="rp2__hero-btn rp2__hero-cooked-btn"
                   onClick={e => { e.stopPropagation(); setShowCookedModal(true); }}
                   title="Mark as Cooked"
-                >🍳 Cooked</button>
+                ><Icon name="chefHat" size={15} strokeWidth={2} /> Cooked</button>
               )}
               {onToggleHeart && (
                 <button
                   className={`rp2__hero-btn rp2__hero-heart ${isHearted ? 'rp2__hero-heart--on' : ''}`}
                   onClick={e => { e.stopPropagation(); onToggleHeart(); }}
                   title={isHearted ? 'Remove from favorites' : 'Save to favorites'}
-                >{isHearted ? '♥' : '♡'}</button>
+                ><Icon name="heart" size={14} strokeWidth={2} /></button>
               )}
               <button
                 className={`rp2__hero-btn rp2__hero-soon ${isMakeSoon ? 'rp2__hero-soon--on' : ''}`}
@@ -1326,13 +1326,13 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 <div className="rp2__hero-tag-wrap">
                   <button className={`rp2__tag rp2__tag--clickable ${recipe.status === 'incomplete' ? 'rp2__tag--warning' : recipe.status === 'needs tweaking' ? 'rp2__tag--warning' : recipe.status === 'complete' ? 'rp2__tag--success' : 'rp2__tag--light'} ${isEdit('meta-progress') ? 'rp2__tag--editing' : ''}`}
                     onClick={e => { e.stopPropagation(); startEdit(isEdit('meta-progress') ? null : 'meta-progress'); }}>
-                    {recipe.status === 'incomplete' ? '🚧 Incomplete' : recipe.status === 'needs tweaking' ? '🔧 Tweaking' : recipe.status === 'complete' ? '✅ Complete' : recipe.status === 'to try' ? '🔖 To Try' : null}
+                    {recipe.status === 'incomplete' ? <><Icon name="alertTriangle" size={12} strokeWidth={2} /> Incomplete</> : recipe.status === 'needs tweaking' ? <><Icon name="tool" size={12} strokeWidth={2} /> Tweaking</> : recipe.status === 'complete' ? <><Icon name="checkCircle" size={12} strokeWidth={2} /> Complete</> : recipe.status === 'to try' ? <><Icon name="bookMarked" size={12} strokeWidth={2} /> To Try</> : null}
                   </button>
                   {isEdit('meta-progress') && (
                     <div className="rp2__hero-dark-popover">
-                      <p className="rp2__dark-pop-label">📋 Progress</p>
+                      <p className="rp2__dark-pop-label"><Icon name="list" size={13} strokeWidth={2} /> Progress</p>
                       <div className="rp2__dark-pop-chips">
-                        {[{key:'',label:'— None'},{key:'complete',label:'✅ Complete'},{key:'needs tweaking',label:'🔧 Needs Tweaking'},{key:'to try',label:'🔖 To Try'},{key:'incomplete',label:'🚧 Incomplete'}].map(({key,label}) => (
+                        {[{key:'',label:'— None'},{key:'complete',label:'Complete'},{key:'needs tweaking',label:'Needs Tweaking'},{key:'to try',label:'To Try'},{key:'incomplete',label:'Incomplete'}].map(({key,label}) => (
                           <button key={key} className={`rp2__dark-chip ${draftMeta.status === key ? 'rp2__dark-chip--on' : ''}`}
                             onClick={() => setDraftMeta(p => ({...p, status: key}))}>{label}</button>
                         ))}
@@ -1588,12 +1588,18 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                       const amountStr = [ing.amount, ing.unit].filter(Boolean).join(' ');
                       return (
                         <li key={key} className={`rp2__ing-item ${isChecked ? 'rp2__ing-item--checked' : ''}`} onClick={() => toggleIngredient(key)}>
-                          <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && '✓'}</div>
+                          <div className={`rp2__ing-check ${isChecked ? 'rp2__ing-check--done' : ''}`}>{isChecked && <Icon name="check" size={10} strokeWidth={3} />}</div>
                           <div className="rp2__ing-text">
-                            {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
-                            <span className="rp2__ing-name">{pluralizeIng(ing.name, ing.amount)}</span>
-                            {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
-                            {ing.optional && <span className="rp2__ing-optional">optional</span>}
+                            <span className="rp2__ing-name-row">
+                              {amountStr && <span className="rp2__ing-amount">{amountStr}</span>}
+                              <span className="rp2__ing-name">{pluralizeIng(ing.name, ing.amount)}</span>
+                            </span>
+                            {(ing.prep_note || ing.optional) && (
+                              <span className="rp2__ing-meta">
+                                {ing.prep_note && <span className="rp2__ing-prep">{ing.prep_note}</span>}
+                                {ing.optional && <span className="rp2__ing-optional">optional</span>}
+                              </span>
+                            )}
                           </div>
                         </li>
                       );
@@ -1629,7 +1635,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                     if (item._isTimer) {
                       return (
                         <div key={item._id} className="rp2__ed-timer-row">
-                          <span className="rp2__ed-timer-row__icon">⏱</span>
+                          <span className="rp2__ed-timer-row__icon"><Icon name="timer" size={14} strokeWidth={2} /></span>
                           <div className="rp2__ed-timer-row__inputs">
                             <input className="editor-input editor-input--sm rp2__ed-timer-row__num" type="number" min="0" value={item.h} onChange={e => setDraftSteps(prev => prev.map(s => s._id === item._id ? {...s, h: e.target.value} : s))} placeholder="0" />
                             <span className="rp2__ed-timer-row__sep">h</span>
@@ -1655,7 +1661,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                     return (
                       <StepSortableItem key={item._id} id={item._id} stepNum={stepNum}>
                         <textarea className="editor-textarea" value={item.body_text} onChange={e => updateDraftStep(item._id, e.target.value)} placeholder="Describe this step…" rows={2} />
-                        <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer after this step">⏱</button>
+                        <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer after this step"><Icon name="timer" size={13} strokeWidth={2} /></button>
                         <button className="editor-remove-btn" onClick={() => removeDraftStep(item._id)}>✕</button>
                       </StepSortableItem>
                     );
@@ -1966,8 +1972,8 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
   return (
     <main className="view editor-page rp2">
       <div className="rp2__hero ed-hero">
-        {details.cover_image_url ? <img className="rp2__hero-img" src={details.cover_image_url} alt={details.name} /> : <div className="rp2__hero-placeholder"><span>🍽</span></div>}
-        <button className="ed-hero__img-btn" onClick={() => setShowImageInput(v => !v)} title="Change cover image">{details.cover_image_url ? '🖼 Change' : '➕ Add Photo'}</button>
+        {details.cover_image_url ? <img className="rp2__hero-img" src={details.cover_image_url} alt={details.name} /> : <div className="rp2__hero-placeholder"><Icon name="image" size={40} color="var(--ash)" strokeWidth={1.5} /></div>}
+        <button className="ed-hero__img-btn" onClick={() => setShowImageInput(v => !v)} title="Change cover image">{details.cover_image_url ? <><Icon name="image" size={13} strokeWidth={2} /> Change</> : <><Icon name="image" size={13} strokeWidth={2} /> Add Photo</>}</button>
         {showImageInput && (
           <div className="ed-hero__img-popover">
             <p className="ed-hero__img-popover-label">Cover image URL</p>
@@ -1992,7 +1998,7 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
         </div>
       </div>
 
-      {saveError && <p className="editor-error" style={{margin:'8px 24px 0'}}>⚠️ {saveError}</p>}
+      {saveError && <p className="editor-error" style={{margin:'8px 24px 0'}}><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
       {saveSuccess && <p className="editor-success" style={{margin:'8px 24px 0'}}>✓ Saved successfully</p>}
 
       <div className="rp2__header ed-name-row">
@@ -2058,7 +2064,7 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
               if (item._isTimer) {
                 return (
                   <div key={item._id} className="rp2__ed-timer-row">
-                    <span className="rp2__ed-timer-row__icon">⏱</span>
+                    <span className="rp2__ed-timer-row__icon"><Icon name="timer" size={14} strokeWidth={2} /></span>
                     <div className="rp2__ed-timer-row__inputs">
                       <input className="editor-input editor-input--sm rp2__ed-timer-row__num" type="number" min="0" value={item.h} onChange={e => setSteps(prev => prev.map(s => s._id === item._id ? {...s, h: e.target.value} : s))} placeholder="0" />
                       <span className="rp2__ed-timer-row__sep">h</span>
@@ -2075,7 +2081,7 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
               return (
                 <StepSortableItem key={item._id} id={item._id} stepNum={stepNum}>
                   <textarea className="editor-textarea" value={item.body_text} onChange={e => updateStep(item._id, e.target.value)} placeholder="Describe this step…" rows={2} />
-                  <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer">⏱</button>
+                  <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer"><Icon name="timer" size={13} strokeWidth={2} /></button>
                   <button className="editor-remove-btn" onClick={() => removeStep(item._id)}>✕</button>
                 </StepSortableItem>
               );
@@ -2097,7 +2103,7 @@ const RecipeEditor = ({ recipe, bodyIngredients, instructions, notes, allIngredi
       </section>
 
       <div className="editor-save-bar">
-        {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+        {saveError && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
         {saveSuccess && <p className="editor-success">✓ Saved successfully</p>}
         <button className="btn btn--primary btn--large" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
       </div>
@@ -2132,7 +2138,7 @@ const CuisineDropdown = ({ cuisines, value, onChange, onCreateNew }) => {
   return (
     <div className="cuisine-dd" ref={wrapRef}>
       <button className={`cuisine-dd__trigger ${value ? 'cuisine-dd__trigger--active' : ''}`} onClick={() => setOpen(o => !o)}>
-        <span className="cuisine-dd__globe">🌍</span>
+        <span className="cuisine-dd__globe"><Icon name="globe" size={14} strokeWidth={2} /></span>
         <span className="cuisine-dd__label">{value || 'Cuisine'}</span>
         {value ? <span className="cuisine-dd__x" onMouseDown={clear}>✕</span> : <span className={`cuisine-dd__arrow ${open ? 'cuisine-dd__arrow--open' : ''}`}>▾</span>}
       </button>
@@ -2199,7 +2205,7 @@ const CookbookAutocomplete = ({ value, onChange, cookbooks = [] }) => {
             const idx = t.toLowerCase().indexOf(q);
             return (
               <li key={t} className={`ing-ac-option ${i === highlighted ? 'ing-ac-option--active' : ''}`} onMouseDown={() => select(t)} onMouseEnter={() => setHighlighted(i)}>
-                📚 {idx >= 0 && q ? (<>{t.slice(0, idx)}<strong>{t.slice(idx, idx + q.length)}</strong>{t.slice(idx + q.length)}</>) : t}
+                {idx >= 0 && q ? (<>{t.slice(0, idx)}<strong>{t.slice(idx, idx + q.length)}</strong>{t.slice(idx + q.length)}</>) : t}
               </li>
             );
           })}
@@ -2354,7 +2360,7 @@ const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
               Used when a recipe says "3 eggs" or "2 cloves" — no weight unit. Leave blank for ingredients always measured by weight or volume.
             </p>
           </div>
-          {error && <p className="editor-error">⚠️ {error}</p>}
+          {error && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {error}</p>}
         </div>
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
@@ -2548,7 +2554,7 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
       {deleteTarget && (
         <div className="create-modal-overlay" onClick={() => setDeleteTarget(null)}>
           <div className="delete-confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="delete-confirm-modal__icon">🗑️</div>
+            <div className="delete-confirm-modal__icon"><Icon name="trash2" size={32} color="var(--terracotta)" strokeWidth={1.5} /></div>
             <h2 className="delete-confirm-modal__title">Remove "{deleteTarget.name}"?</h2>
             <p className="delete-confirm-modal__body">This will remove the ingredient from the database. <strong>This cannot be undone.</strong></p>
             <div className="delete-confirm-modal__actions">
@@ -2997,7 +3003,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                               {recipe?.coverImage ? (
                                 <img className="cook-timeline__thumb" src={recipe.coverImage} alt={recipeName} />
                               ) : (
-                                <div className="cook-timeline__thumb cook-timeline__thumb--placeholder">🍳</div>
+                                <div className="cook-timeline__thumb cook-timeline__thumb--placeholder"><Icon name="chefHat" size={18} color="var(--ash)" strokeWidth={1.5} /></div>
                               )}
                               <div className="cook-timeline__info">
                                 <p className="cook-timeline__recipe-name">{recipeName}</p>
@@ -3039,7 +3045,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                         <span className={`cook-calendar__gcal-date ${isToday ? 'cook-calendar__gcal-date--today' : ''}`}>{day}</span>
                         {cooked && cooked.map((name, j) => (
                           <div key={j} className="cook-calendar__gcal-event" title={name}>
-                            <span className="cook-calendar__gcal-event-dot">🍳</span>
+                            <span className="cook-calendar__gcal-event-dot"><Icon name="chefHat" size={11} strokeWidth={1.75} color="var(--sage)" /></span>
                             <span className="cook-calendar__gcal-event-name">{name}</span>
                           </div>
                         ))}
@@ -3110,7 +3116,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                     onClick={() => { setAddFriendSuccess(''); setShowAddFriend(true); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 999, background: 'var(--terracotta)', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}
                   >
-                    ➕ Add Friend
+                    <Icon name="userCircle" size={14} strokeWidth={2} /> Add Friend
                   </button>
                 </div>
                 {addFriendSuccess && (
@@ -3484,7 +3490,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
               <span className="grocery-toggle__switch" />
               <span className="grocery-toggle__label">Hide in kitchen</span>
             </label>
-            <button className="grocery-copy-btn" onClick={copyList} title="Copy list to clipboard"><Icon name="fileText" size={16} strokeWidth={2} /></button>
+            <button className="grocery-copy-btn rp2__cooking-mode-btn" onClick={copyList} title="Copy list to clipboard"><Icon name="fileText" size={14} strokeWidth={2} /> Copy list</button>
           </div>
         )}
       </div>
@@ -3497,7 +3503,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
         </div>
       )}
 
-      {error && <p className="grocery-error">⚠️ {error}</p>}
+      {error && <p className="grocery-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {error}</p>}
       {loading && <div className="grocery-loading"><div className="loading-spinner" /><p>Building your list…</p></div>}
 
       {!loading && consolidatedCategories.length > 0 && (
@@ -3677,7 +3683,7 @@ const NoteFormModal = ({ note, onSave, onClose, authFetch }) => {
             <label className="create-modal__field-label">Image URL <span style={{opacity:0.6, fontWeight:400}}>optional</span></label>
             <input className="editor-input" value={form.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://…" />
           </div>
-          {error && <p className="editor-error">⚠️ {error}</p>}
+          {error && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {error}</p>}
         </div>
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
@@ -3886,7 +3892,7 @@ const SiteFooter = ({ onNav }) => {
 
       {/* Bottom bar */}
       <div className="site-footer__bottom">
-        <span className="site-footer__credit">Built by Kavya ♥</span>
+        <span className="site-footer__credit">Built by Kavya <Icon name="heart" size={13} color="var(--terracotta)" strokeWidth={2} /></span>
         <span className="site-footer__updated">
           {lastUpdated ? `Last updated ${fmt(lastUpdated)}` : 'Last updated —'}
         </span>
@@ -4024,10 +4030,10 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authF
             <label className="create-modal__field-label">Progress</label>
             <div className="picker__chips" style={{ marginTop:6 }}>
               {[
-                { key: 'to try',        label: '🔖 To Try' },
-                { key: 'complete',      label: '✅ Complete' },
-                { key: 'needs tweaking',label: '🔧 Needs Tweaking' },
-                { key: 'incomplete',     label: '🚧 Incomplete' },
+                { key: 'to try',        label: 'To Try' },
+                { key: 'complete',      label: 'Complete' },
+                { key: 'needs tweaking',label: 'Needs Tweaking' },
+                { key: 'incomplete',     label: 'Incomplete' },
               ].map(({ key, label }) => (
                 <button key={key} className={`chip ${status === key ? 'chip--selected' : ''}`} onClick={() => setStatus(p => p === key ? '' : key)} type="button">
                   {status === key && <span className="chip__check">✓</span>}{label}
@@ -4048,7 +4054,7 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authF
             </div>
           </div>
 
-          {saveError && <p className="editor-error">⚠️ {saveError}</p>}
+          {saveError && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
         </div>
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
@@ -4209,7 +4215,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
             <div className="create-modal__img-preview">
               {details.cover_image_url && !imgPreviewError
                 ? <img src={details.cover_image_url} alt="preview" onError={() => setImgPreviewError(true)} />
-                : <span className="create-modal__img-placeholder">🍽</span>}
+                : <span className="create-modal__img-placeholder"><Icon name="image" size={28} color="var(--ash)" strokeWidth={1.5} /></span>}
             </div>
             <div className="create-modal__img-input-wrap">
               <label className="create-modal__field-label">Cover image URL</label>
@@ -4246,7 +4252,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
               {ALL_CUISINES.map(c => (
                 <button key={c} className={`chip ${details.cuisine === c ? 'chip--selected' : ''}`}
                   onClick={() => setDetail('cuisine', details.cuisine === c ? '' : c)} type="button">
-                  {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
+                  {details.cuisine === c && <span className="chip__check">✓</span>}{c}
                 </button>
               ))}
             </div>
@@ -4269,9 +4275,9 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
             <label className="create-modal__field-label"><Icon name="list" size={13} strokeWidth={2} /> Progress</label>
             <div className="picker__chips" style={{ marginTop: 6 }}>
               {[
-                { key: 'to try', label: '🔖 To Try' },
-                { key: 'complete', label: '✅ Complete' },
-                { key: 'needs tweaking', label: '🔧 Needs Tweaking' },
+                { key: 'to try', label: 'To Try' },
+                { key: 'complete', label: 'Complete' },
+                { key: 'needs tweaking', label: 'Needs Tweaking' },
               ].map(({ key, label }) => (
                 <button key={key} className={`chip ${details.status === key ? 'chip--selected' : ''}`}
                   onClick={() => setDetail('status', details.status === key ? '' : key)} type="button">
@@ -4332,7 +4338,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
                 {steps.map((item, idx) => {
                   if (item._isTimer) return (
                     <div key={item._id} className="rp2__ed-timer-row">
-                      <span className="rp2__ed-timer-row__icon">⏱</span>
+                      <span className="rp2__ed-timer-row__icon"><Icon name="timer" size={14} strokeWidth={2} /></span>
                       <div className="rp2__ed-timer-row__inputs">
                         <input className="editor-input editor-input--sm rp2__ed-timer-row__num" type="number" min="0" value={item.h} onChange={e => setSteps(prev => prev.map(s => s._id === item._id ? {...s, h: e.target.value} : s))} placeholder="0" />
                         <span className="rp2__ed-timer-row__sep">h</span>
@@ -4348,7 +4354,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
                   return (
                     <StepSortableItem key={item._id} id={item._id} stepNum={stepNum}>
                       <textarea className="editor-textarea" value={item.body_text} onChange={e => updateStep(item._id, e.target.value)} placeholder="Describe this step…" rows={2} />
-                      <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer">⏱</button>
+                      <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer"><Icon name="timer" size={13} strokeWidth={2} /></button>
                       <button className="editor-remove-btn" onClick={() => removeStep(item._id)}>✕</button>
                     </StepSortableItem>
                   );
@@ -4382,13 +4388,13 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
             </div>
           </div>
 
-          {saveError && <p className="editor-error" style={{ marginTop: 8 }}>⚠️ {saveError}</p>}
+          {saveError && <p className="editor-error" style={{ marginTop: 8 }}><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
         </div>
 
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn--primary" onClick={save} disabled={saving}>
-            {saving ? 'Creating…' : '✨ Create Recipe'}
+            {saving ? 'Creating…' : <><Icon name="zap" size={13} strokeWidth={2} /> Create Recipe</>}
           </button>
         </div>
       </div>
@@ -4414,7 +4420,7 @@ const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
         <div className="create-modal__body" style={{ gap:16 }}>
           <div className="create-modal__img-row">
             <div className="create-modal__img-preview cookbook-edit__cover-preview">
-              {form.coverImage && !imgError ? <img src={form.coverImage} alt="cover" onError={() => setImgError(true)} /> : <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100%',fontSize:32 }}>📖</div>}
+              {form.coverImage && !imgError ? <img src={form.coverImage} alt="cover" onError={() => setImgError(true)} /> : <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100%' }}><Icon name="bookOpen" size={32} color="var(--ash)" strokeWidth={1.5} /></div>}
             </div>
             <div className="create-modal__img-input-wrap">
               <label className="create-modal__field-label">Cover image URL</label>
@@ -4468,7 +4474,7 @@ const CbEntry = ({ entry, linked, entryTags, idx, onOpenRecipe, onMarkCooked, on
       <div className="cbentry__thumb-wrap">
         {(entry.image || linked?.coverImage)
           ? <img className="cbentry__thumb" src={entry.image || linked?.coverImage} alt={entry.name} />
-          : <div className="cbentry__thumb cbentry__thumb--empty">📖</div>}
+          : <div className="cbentry__thumb cbentry__thumb--empty"><Icon name="bookOpen" size={16} color="var(--ash)" strokeWidth={1.5} /></div>}
       </div>
 
       {/* Name col — plain text, never a link */}
@@ -4491,7 +4497,7 @@ const CbEntry = ({ entry, linked, entryTags, idx, onOpenRecipe, onMarkCooked, on
       <div className="cbentry__actions">
         {/* Cook button — always visible */}
         <button className="cbentry__action cbentry__action--cook" title="Mark as Cooked" onClick={onMarkCooked}>
-          🍳
+          <Icon name="chefHat" size={14} strokeWidth={2} />
         </button>
 
         {/* View button — for linked recipes */}
@@ -4514,13 +4520,13 @@ const CbEntry = ({ entry, linked, entryTags, idx, onOpenRecipe, onMarkCooked, on
             {menuOpen && (
               <div className="cbentry__menu-dropdown">
                 <button className="cbentry__menu-item" onClick={() => { onConvert(); setMenuOpen(false); }}>
-                  ✨ Convert
+                  <Icon name="zap" size={12} strokeWidth={2} /> Convert
                 </button>
                 <button className="cbentry__menu-item" onClick={() => { onEdit(); setMenuOpen(false); }}>
-                  ✎ Edit
+                  <Icon name="pencil" size={12} strokeWidth={2} /> Edit
                 </button>
                 <button className="cbentry__menu-item cbentry__menu-item--danger" onClick={() => { onRemove(); setMenuOpen(false); }}>
-                  ✕ Remove
+                  <Icon name="trash2" size={12} strokeWidth={2} /> Remove
                 </button>
               </div>
             )}
@@ -4591,12 +4597,12 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
       {showDeleteConfirm && (
         <div className="create-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div className="delete-confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="delete-confirm-modal__icon">🗑️</div>
+            <div className="delete-confirm-modal__icon"><Icon name="trash2" size={32} color="var(--terracotta)" strokeWidth={1.5} /></div>
             <h2 className="delete-confirm-modal__title">Remove "{cookbook.title}"?</h2>
             <p className="delete-confirm-modal__body">This removes it from your shelf but won't delete any saved recipes.</p>
             <div className="delete-confirm-modal__actions">
               <button className="btn btn--ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-              <button className="btn btn--danger" onClick={onDelete}>🗑️ Remove</button>
+              <button className="btn btn--danger" onClick={onDelete}><Icon name="trash2" size={14} strokeWidth={2} /> Remove</button>
             </div>
           </div>
         </div>
@@ -4606,7 +4612,7 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
         <button className="btn btn--ghost btn--sm" onClick={onBack}>← Cookbooks</button>
         <div className="cookbook-detail__actions">
           <button className="btn btn--ghost btn--sm" onClick={onEdit}>✎ Edit</button>
-          <button className="btn btn--ghost btn--sm" style={{ color:'var(--terracotta)' }} onClick={() => setShowDeleteConfirm(true)}>🗑 Remove</button>
+          <button className="btn btn--ghost btn--sm" style={{ color:'var(--terracotta)' }} onClick={() => setShowDeleteConfirm(true)}><Icon name="trash2" size={14} strokeWidth={2} /> Remove</button>
         </div>
       </div>
 
@@ -4638,7 +4644,7 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
             <div className="cookbook-sort-tabs">
               {COOKBOOK_SORTS.map(o => <button key={o.key} className={`cookbook-sort-tab ${sortKey===o.key?'cookbook-sort-tab--active':''}`} onClick={() => setSortKey(o.key)}>{o.label}</button>)}
             </div>
-            <button className="btn btn--ghost btn--sm" onClick={() => setShowQuickAdd(true)}>⚡ Quick Add</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => setShowQuickAdd(true)}><Icon name="zap" size={13} strokeWidth={2} /> Quick Add</button>
             <button className="btn btn--primary btn--sm" onClick={() => setShowAddRef(true)}>+ Add Reference</button>
           </div>
         </div>
@@ -5136,7 +5142,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                   autoFocus
                 />
               </div>
-              {textError && <p className="editor-error">⚠️ {textError}</p>}
+              {textError && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {textError}</p>}
               {textParsing && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--warm-gray)', fontSize: '0.88rem' }}>
                   <span className="link-import__spinner" />
@@ -5177,7 +5183,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                   autoFocus
                 />
               </div>
-              {linkError && <p className="editor-error">⚠️ {linkError}</p>}
+              {linkError && <p className="editor-error"><Icon name="alertTriangle" size={14} strokeWidth={2} /> {linkError}</p>}
               {linkScraping && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--warm-gray)', fontSize: '0.88rem' }}>
                   <span className="link-import__spinner" />
@@ -5216,7 +5222,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                 <div className="create-modal__img-preview">
                   {details.cover_image_url && !imgPreviewError
                     ? <img src={details.cover_image_url} alt="preview" onError={() => setImgPreviewError(true)} />
-                    : <span className="create-modal__img-placeholder">🍽</span>}
+                    : <span className="create-modal__img-placeholder"><Icon name="image" size={28} color="var(--ash)" strokeWidth={1.5} /></span>}
                 </div>
                 <div className="create-modal__img-input-wrap">
                   <label className="create-modal__field-label">Cover image URL</label>
@@ -5253,7 +5259,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                   {ALL_CUISINES.map(c => (
                     <button key={c} className={`chip ${details.cuisine === c ? 'chip--selected' : ''}`}
                       onClick={() => setDetail('cuisine', details.cuisine === c ? '' : c)} type="button">
-                      {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
+                      {details.cuisine === c && <span className="chip__check">✓</span>}{c}
                     </button>
                   ))}
                 </div>
@@ -5277,10 +5283,10 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                 <div className="picker__chips" style={{ marginTop: 6 }}>
                   {[
                     { key: '', label: '— None' },
-                    { key: 'complete', label: '✅ Complete' },
-                    { key: 'needs tweaking', label: '🔧 Needs Tweaking' },
-                    { key: 'to try', label: '🔖 To Try' },
-                    { key: 'incomplete', label: '🚧 Incomplete' },
+                    { key: 'complete', label: 'Complete' },
+                    { key: 'needs tweaking', label: 'Needs Tweaking' },
+                    { key: 'to try', label: 'To Try' },
+                    { key: 'incomplete', label: 'Incomplete' },
                   ].map(({ key, label }) => (
                     <button key={key}
                       className={`chip ${details.status === key ? 'chip--selected' : ''}`}
@@ -5357,7 +5363,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                     {steps.map((item, idx) => {
                       if (item._isTimer) return (
                         <div key={item._id} className="rp2__ed-timer-row">
-                          <span className="rp2__ed-timer-row__icon">⏱</span>
+                          <span className="rp2__ed-timer-row__icon"><Icon name="timer" size={14} strokeWidth={2} /></span>
                           <div className="rp2__ed-timer-row__inputs">
                             <input className="editor-input editor-input--sm rp2__ed-timer-row__num" type="number" min="0" value={item.h} onChange={e => setSteps(prev => prev.map(s => s._id === item._id ? {...s, h: e.target.value} : s))} placeholder="0" />
                             <span className="rp2__ed-timer-row__sep">h</span>
@@ -5373,7 +5379,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                       return (
                         <StepSortableItem key={item._id} id={item._id} stepNum={stepNum}>
                           <textarea className="editor-textarea" value={item.body_text} onChange={e => updateStep(item._id, e.target.value)} placeholder="Describe this step…" rows={2} />
-                          <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer">⏱</button>
+                          <button className="rp2__ed-add-timer-btn" onClick={() => addTimerAfterStep(item._id)} title="Add timer"><Icon name="timer" size={13} strokeWidth={2} /></button>
                           <button className="editor-remove-btn" onClick={() => removeStep(item._id)}>✕</button>
                         </StepSortableItem>
                       );
@@ -5407,7 +5413,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                 </div>
               </div>
 
-              {saveError && <p className="editor-error" style={{ marginTop: 8 }}>⚠️ {saveError}</p>}
+              {saveError && <p className="editor-error" style={{ marginTop: 8 }}><Icon name="alertTriangle" size={14} strokeWidth={2} /> {saveError}</p>}
             </div>
 
             {/* Modal footer */}
@@ -5588,7 +5594,20 @@ function AppInner() {
   const [showAllMatch] = useState(true);
   const [showAllFav] = useState(true);
 
-  useEffect(() => { document.title = 'Hearth'; }, []);
+  useEffect(() => {
+    document.title = 'Hearth';
+    // Set favicon to match the flame icon used in the header
+    const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="#5C8C6B"/>
+      <path d="M16 6C16 6 10 12 10 18a6 6 0 0 0 12 0c0-2-1-4-2-5 0 0 0 3-2 4-1 1-3 0-3-2 0-3 1-5 1-5S16 6 16 6Z" fill="white" stroke="white" stroke-width="0.5"/>
+    </svg>`;
+    const blob = new Blob([svgFavicon], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+    link.href = url;
+    return () => URL.revokeObjectURL(url);
+  }, []);
   const [allIngredients, setAllIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [fridgeIngredients, setFridgeIngredients] = useState(() => LS.get('fridgeIngredients', []));
@@ -5824,13 +5843,13 @@ function AppInner() {
         {mobileNavOpen && (
           <nav className="mobile-nav-drawer">
             {[
-              { key: 'home',      label: '🏠 Home'        },
-              { key: 'recipes',   label: '📖 Recipes'     },
-              { key: 'kitchen',   label: '🧑‍🍳 Kitchen'    },
-              { key: 'grocery',   label: '🛒 Grocery'     },
+              { key: 'home',      label: 'Home'           },
+              { key: 'recipes',   label: 'Recipes'        },
+              { key: 'kitchen',   label: 'Kitchen'        },
+              { key: 'grocery',   label: 'Grocery'        },
               { key: 'cookbooks', label: 'Cookbooks'   },
-              { key: 'notes',     label: '💡 Notes'       },
-              ...(isAdmin ? [{ key: 'add', label: '➕ Add' }] : []),
+              { key: 'notes',     label: 'Notes'          },
+              ...(isAdmin ? [{ key: 'add', label: 'Add' }] : []),
             ].map(({ key, label }) => (
               <button key={key}
                 className={`mobile-nav-item ${view === key ? 'mobile-nav-item--active' : ''}`}
@@ -5853,7 +5872,7 @@ function AppInner() {
             )}
             {authUser && (
               <button className="mobile-nav-item mobile-nav-item--signout" onClick={() => { handleLogout(); setMobileNavOpen(false); }}>
-                🚪 Sign out
+                <Icon name="arrowRight" size={15} strokeWidth={2} /> Sign out
               </button>
             )}
           </nav>
@@ -6340,14 +6359,14 @@ function AppInner() {
                         const protein  = toNum(r.protein);
                         const match = matchById.get(r.id);
                         const canMakeNow = Boolean(match?.canMake);
-                        const progress = r.recipe_incomplete ? '🚧' : r.status === 'needs tweaking' ? '🔧' : r.status === 'complete' ? '✅' : r.status === 'to try' ? '🔖' : null;
+                        const progress = r.recipe_incomplete ? <Icon name="alertTriangle" size={12} strokeWidth={2} /> : r.status === 'needs tweaking' ? <Icon name="tool" size={12} strokeWidth={2} /> : r.status === 'complete' ? <Icon name="checkCircle" size={12} strokeWidth={2} /> : r.status === 'to try' ? <Icon name="bookMarked" size={12} strokeWidth={2} /> : null;
                         const tags = r.tags || [];
                         return (
                           <div key={r.id} className={`recipe-list-table__row${makeSoonIds.includes(r.id) ? ' recipe-list-table__row--make-soon' : ''}`} onClick={() => openRecipe(r)}>
                             <span className="rlt__col rlt__col--name">
                               {r.coverImage
                                 ? <img className="rlt__thumb" src={r.coverImage} alt="" loading="lazy" />
-                                : <span className="rlt__thumb rlt__thumb--placeholder">🍽</span>}
+                                : <span className="rlt__thumb rlt__thumb--placeholder"><Icon name="image" size={20} color="var(--ash)" strokeWidth={1.5} /></span>}
                               <span className="rlt__name">{r.name}</span>
                               {canMakeNow && <span className="rlt__ready">✓</span>}
                             </span>
@@ -6370,7 +6389,7 @@ function AppInner() {
                                 className={`rlt__heart ${heartedIds.includes(r.id) ? 'rlt__heart--on' : ''}`}
                                 onClick={() => toggleHeart(r.id)}
                                 title={heartedIds.includes(r.id) ? 'Remove from favorites' : 'Add to favorites'}
-                              >{heartedIds.includes(r.id) ? '♥' : '♡'}</button>
+                              ><Icon name="heart" size={14} strokeWidth={2} /></button>
                               <button
                                 className={`rlt__soon ${makeSoonIds.includes(r.id) ? 'rlt__soon--on' : ''}`}
                                 onClick={() => toggleMakeSoon(r.id)}
