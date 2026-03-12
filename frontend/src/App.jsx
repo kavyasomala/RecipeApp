@@ -27,6 +27,8 @@ const ICONS = {
   // filters
   tag:         ['M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z', 'M7 7h.01'],
   sliders:     ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M1 14h6', 'M9 8h6', 'M17 16h6'],
+  grid:        ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z'],
+  coffee:      ['M18 8h1a4 4 0 0 1 0 8h-1', 'M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z', 'M6 1v3', 'M10 1v3', 'M14 1v3'],
   folder:      ['M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'],
   // cooking notes
   lightbulb:   ['M9 18h6', 'M10 22h4', 'M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8a6 6 0 0 0-6-6 6 6 0 0 0-6 6 4.65 4.65 0 0 0 1.5 3.5c.76.76 1.23 1.52 1.41 2.5'],
@@ -164,30 +166,30 @@ const COMMON_UNITS = [
 
 // ── Tag filters — match against recipe's tags array only (not cuisine column)
 const TAG_FILTERS = [
-  { key: 'Meals',      label: '🍽 Meals'      },
-  { key: 'Desserts',   label: '🍰 Desserts'   },
-  { key: 'Drinks',     label: '🍹 Drinks'     },
-  { key: 'Pasta',      label: '🍝 Pasta'      },
-  { key: 'Soup',       label: '🍲 Soup'       },
-  { key: 'Marinade',   label: '🫙 Marinade'   },
-  { key: 'Party',      label: '🎉 Party'      },
-  { key: 'Breakfast',  label: '🍳 Breakfast'  },
-  { key: 'Snack',      label: '🥨 Snack'      },
-  { key: 'Salad',      label: '🥗 Salad'      },
-  { key: 'Bread',      label: '🍞 Bread'      },
-  { key: 'Sauce',      label: '🥫 Sauce'      },
-  { key: 'Sides',      label: '🥦 Sides'      },
+  { key: 'Meals',      label: 'Meals'      },
+  { key: 'Desserts',   label: 'Desserts'   },
+  { key: 'Drinks',     label: 'Drinks'     },
+  { key: 'Pasta',      label: 'Pasta'      },
+  { key: 'Soup',       label: 'Soup'       },
+  { key: 'Marinade',   label: 'Marinade'   },
+  { key: 'Party',      label: 'Party'      },
+  { key: 'Breakfast',  label: 'Breakfast'  },
+  { key: 'Snack',      label: 'Snack'      },
+  { key: 'Salad',      label: 'Salad'      },
+  { key: 'Bread',      label: 'Bread'      },
+  { key: 'Sauce',      label: 'Sauce'      },
+  { key: 'Sides',      label: 'Sides'      },
 ];
 
 // ── Progress filters — based on DB columns (recipe_incomplete, status)
 const PROGRESS_FILTERS = [
-  { key: '__readytocook',   label: '✅ Ready to Cook'    },
-  { key: '__almostready',   label: '🔥 Almost Ready'      },
-  { key: '__favorite',      label: '♥ Favorites'          },
-  { key: '__incomplete',    label: '🚧 Incomplete'         },
-  { key: '__needstweaking', label: '🔧 Needs Tweaking'    },
-  { key: '__complete',      label: '✅ Complete'           },
-  { key: '__totry',         label: '🔖 To Try'             },
+  { key: '__readytocook',   label: 'Ready to Cook',   icon: 'checkCircle' },
+  { key: '__almostready',   label: 'Almost Ready',    icon: 'flame'       },
+  { key: '__favorite',      label: 'Favorites',       icon: 'heart'       },
+  { key: '__incomplete',    label: 'Incomplete',      icon: 'note'        },
+  { key: '__needstweaking', label: 'Needs Tweaking',  icon: 'tool'        },
+  { key: '__complete',      label: 'Complete',        icon: 'checkCircle' },
+  { key: '__totry',         label: 'To Try',          icon: 'bookMarked'  },
 ];
 
 const QUICK_CHIP_KEYS = new Set(TAG_FILTERS.map(f => f.key));
@@ -196,9 +198,9 @@ const GEO_CUISINES = [
   'Asian', 'Indian', 'Italian', 'Mediterranean', 'Mexican', 'Middle Eastern', 'Thai',
 ].sort();
 
-const CUISINE_EMOJI = {
-  'Asian': '🥢', 'Indian': '🍛', 'Italian': '🍝', 'Mediterranean': '🫒',
-  'Mexican': '🌮', 'Middle Eastern': '🥙', 'Thai': '🍜',
+const CUISINE_ICON = {
+  'Asian': 'utensils', 'Indian': 'flame', 'Italian': 'chefHat', 'Mediterranean': 'leaf',
+  'Mexican': 'zap', 'Middle Eastern': 'mapPin', 'Thai': 'coffee',
 };
 
 const ALL_CUISINES = [...GEO_CUISINES].sort();
@@ -714,7 +716,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
           <div className="create-modal__field">
             <label className="create-modal__field-label"><Icon name="mapPin" size={13} strokeWidth={2} /> Cuisine</label>
             <div className="picker__chips" style={{ marginTop:6 }}>
-              {ALL_CUISINES.map(c => <button key={c} className={`chip ${details.cuisine===c?'chip--selected':''}`} onClick={() => setDetail('cuisine', details.cuisine===c?'':c)} type="button">{details.cuisine===c&&<span className="chip__check">✓</span>}{CUISINE_EMOJI[c]||''} {c}</button>)}
+              {ALL_CUISINES.map(c => <button key={c} className={`chip ${details.cuisine===c?'chip--selected':''}`} onClick={() => setDetail('cuisine', details.cuisine===c?'':c)} type="button">{details.cuisine===c&&<span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}</button>)}
             </div>
           </div>
           {/* Tags */}
@@ -724,7 +726,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
               {TAG_FILTERS.map(({ key, label }) => <button key={key} className={`chip ${details.tags.includes(key)?'chip--selected':''}`} onClick={() => toggleTag(key)} type="button">{details.tags.includes(key)&&<span className="chip__check">✓</span>}{label}</button>)}
             </div>
           </div>
-          <p className="create-modal__field-hint">💡 Calories, protein &amp; fiber auto-calculated from ingredients</p>
+          <p className="create-modal__field-hint">Calories, protein &amp; fiber auto-calculated from ingredients</p>
           {/* Ingredients */}
           <div className="create-modal__field">
             <label className="create-modal__field-label">Ingredients</label>
@@ -2206,13 +2208,13 @@ const CookbookAutocomplete = ({ value, onChange, cookbooks = [] }) => {
 // ─── Fridge Tab ─────────────────────────────────────────────────────────────
 const ALL_TYPES = ['produce', 'meat', 'dairy', 'sauce', 'spice', 'alcohol', 'staple'];
 const TYPE_META = {
-  produce:  { label: 'Produce',     emoji: '🥦', group: 'fridge'  },
-  meat:     { label: 'Meat & Fish', emoji: '🥩', group: 'fridge'  },
-  dairy:    { label: 'Dairy',       emoji: '🥛', group: 'fridge'  },
-  sauce:    { label: 'Sauces',      emoji: '🫙', group: 'fridge'  },
-  spice:    { label: 'Spices',      emoji: '🧂', group: 'pantry'  },
-  alcohol:  { label: 'Alcohol',     emoji: '🍷', group: 'pantry'  },
-  staple:   { label: 'Staples',     emoji: '🌾', group: 'pantry'  },
+  produce:  { label: 'Produce',     icon: 'leaf',     group: 'fridge'  },
+  meat:     { label: 'Meat & Fish', icon: 'utensils', group: 'fridge'  },
+  dairy:    { label: 'Dairy',       icon: 'coffee',   group: 'fridge'  },
+  sauce:    { label: 'Sauces',      icon: 'package',  group: 'fridge'  },
+  spice:    { label: 'Spices',      icon: 'zap',      group: 'pantry'  },
+  alcohol:  { label: 'Alcohol',     icon: 'shuffle',  group: 'pantry'  },
+  staple:   { label: 'Staples',     icon: 'list',     group: 'pantry'  },
 };
 
 const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
@@ -2304,7 +2306,7 @@ const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
             <div className="picker__chips" style={{ marginTop: 4 }}>
               {ALL_TYPES.map(t => (
                 <button key={t} className={`chip ${form.type === t ? 'chip--selected' : ''}`} onClick={() => set('type', t)}>
-                  {form.type === t && <span className="chip__check">✓</span>}{TYPE_META[t].emoji} {TYPE_META[t].label}
+                  {form.type === t && <span className="chip__check">✓</span>}{TYPE_META[t].icon && <Icon name={TYPE_META[t].icon} size={12} strokeWidth={2} />} {TYPE_META[t].label}
                 </button>
               ))}
             </div>
@@ -2313,7 +2315,7 @@ const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span className="create-modal__field-label" style={{ margin: 0 }}>Nutrition <span style={{opacity:0.6,fontWeight:400}}>/ 100g</span></span>
               <button className="ing-fetch-btn" onClick={fetchNutrition} disabled={fetching}>
-                {fetching ? '⏳ Fetching…' : '🔍 Fetch Nutrition'}
+                {fetching ? <><Icon name="repeat" size={13} strokeWidth={2} /> Fetching…</> : <><Icon name="search" size={13} strokeWidth={2} /> Fetch Nutrition</>}
               </button>
             </div>
             {fetchMsg && <p className={`ing-fetch-msg ing-fetch-msg--${fetchMsg.type}`}>{fetchMsg.text}</p>}
@@ -2334,7 +2336,7 @@ const IngredientEditModal = ({ ing, onSave, onClose, authFetch }) => {
           </div>
           <div className="create-modal__field">
             <label className="create-modal__field-label">
-              ⚖️ Grams per unit
+              <Icon name="dumbbell" size={13} strokeWidth={2} /> Grams per unit
               <span style={{ fontWeight: 400, opacity: 0.6, marginLeft: 6 }}>optional</span>
             </label>
             <input
@@ -2483,7 +2485,7 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
         <div className={`fridge-group__header ${!isAlwaysOpen ? 'fridge-group__header--collapsible' : ''}`}
           onClick={() => !isAlwaysOpen && toggleSection(type)}>
           <h3 className="fridge-group__title">
-            {TYPE_META[type]?.emoji ?? '?'} {TYPE_META[type]?.label ?? type}
+            {TYPE_META[type]?.icon && <Icon name={TYPE_META[type].icon} size={14} strokeWidth={2} />} {TYPE_META[type]?.label ?? type}
             {side === 'missing' && <span className="fridge-group__count">{ings.length}</span>}
             {side === 'have' && <span className="fridge-group__count">{ings.length}</span>}
           </h3>
@@ -2581,7 +2583,7 @@ const FridgeTab = ({ allIngredients, setAllIngredients, fridgeIngredients, setFr
           <div className="kitchen-quickadd-dropdown">
             {quickAddSuggestions.map(ing => (
               <button key={ing.name} className="kitchen-quickadd-option" onMouseDown={() => handleQuickAdd(ing)}>
-                <span className="kitchen-quickadd-option__emoji">{TYPE_META[ing.type]?.emoji ?? '🥗'}</span>
+                <span className="kitchen-quickadd-option__emoji">{TYPE_META[ing.type]?.icon ? <Icon name={TYPE_META[ing.type].icon} size={13} strokeWidth={2} /> : '·'}</span>
                 {ing.name}
               </button>
             ))}
@@ -3196,7 +3198,7 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                 <p className="settings-section__hint">Clears all pre-populated calories/protein/fiber and recalculates from each recipe's ingredients. Run this once to clear old data — only recipes whose ingredients have nutrition info will get values.</p>
                 <button
                   className="btn btn--primary btn--sm"
-                  style={{ marginTop: 10 }}
+                  style={{ marginTop: 10, marginBottom: 16 }}
                   disabled={recalcRunning}
                   onClick={async () => {
                     if (!window.confirm('This will clear ALL existing calories/protein/fiber from every recipe and recalculate from ingredients. Continue?')) return;
@@ -3516,7 +3518,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
               if (!visibleItems.length) return null;
               return (
                 <div key={cat.name} className="grocery-category">
-                  <h3 className="grocery-category__title">{cat.emoji} {cat.name}</h3>
+                  <h3 className="grocery-category__title"><Icon name={({Produce:'leaf',Meat:'utensils','Meat & Fish':'utensils',Dairy:'coffee',Sauces:'package',Spices:'zap',Staples:'list',Alcohol:'shuffle'})[cat.name] || 'list'} size={14} strokeWidth={2} /> {cat.name}</h3>
                   <div className="grocery-items">
                     {visibleItems.map(item => {
                       const key = `${cat.name}-${item.name}`;
@@ -3663,7 +3665,7 @@ const NoteFormModal = ({ note, onSave, onClose, authFetch }) => {
             <textarea className="editor-textarea" value={form.body} onChange={e => handleBodyChange(e.target.value)} placeholder="Describe the rule, technique, or tip…" rows={4} style={{ resize: 'vertical' }} />
           </div>
           <div className="create-modal__field">
-            <label className="create-modal__field-label">💡 Tooltip keywords <span style={{opacity:0.6, fontWeight:400}}>auto-generated · edit freely</span></label>
+            <label className="create-modal__field-label">Tooltip keywords <span style={{opacity:0.6, fontWeight:400}}>auto-generated · edit freely</span></label>
             <input className="editor-input" value={form.keywords} onChange={e => set('keywords', e.target.value)} placeholder="e.g. pasta, salt, water, boil" />
             <p className="create-modal__field-hint" style={{ marginTop: 4 }}>These words trigger this note as a tooltip on recipe steps.</p>
           </div>
@@ -3791,7 +3793,7 @@ const CookingNotesTab = ({ notes, setNotes, authFetch, isAdmin }) => {
 
       <div className="cn-tab__header">
         <div className="cn-tab__title-row">
-          <h1 className="cn-tab__title"><Icon name="lightbulb" size={22} strokeWidth={2} /> Cooking Notes</h1>
+          <h1 className="cn-tab__title">Cooking Notes</h1>
           {isAdmin && (
             <button className="btn btn--primary btn--sm" onClick={() => setEditingNote(false)}>+ Add Note</button>
           )}
@@ -4007,7 +4009,7 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authF
             <div className="picker__chips" style={{ marginTop:6 }}>
               {ALL_CUISINES.map(c => (
                 <button key={c} className={`chip ${cuisine === c ? 'chip--selected' : ''}`} onClick={() => setCuisine(p => p === c ? '' : c)} type="button">
-                  {cuisine === c && <span className="chip__check">✓</span>}{CUISINE_EMOJI[c] || '🌍'} {c}
+                  {cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
                 </button>
               ))}
             </div>
@@ -4047,7 +4049,7 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authF
         <div className="create-modal__footer">
           <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn--primary" onClick={save} disabled={!name.trim() || saving}>
-            {saving ? 'Adding…' : '+ Add Reference'}
+            {saving ? 'Adding…' : 'Add Reference'}
           </button>
         </div>
       </div>
@@ -4240,7 +4242,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
               {ALL_CUISINES.map(c => (
                 <button key={c} className={`chip ${details.cuisine === c ? 'chip--selected' : ''}`}
                   onClick={() => setDetail('cuisine', details.cuisine === c ? '' : c)} type="button">
-                  {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_EMOJI[c] || ''} {c}
+                  {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
                 </button>
               ))}
             </div>
@@ -4275,7 +4277,7 @@ const ConvertRecipeModal = ({ entry, cookbookTitle, allIngredients = [], onConve
             </div>
           </div>
 
-          <p className="create-modal__field-hint">💡 Calories, protein &amp; fiber will be auto-calculated from your ingredients</p>
+          <p className="create-modal__field-hint">Calories, protein &amp; fiber will be auto-calculated from your ingredients</p>
 
           {/* Ingredients — group style */}
           <div className="create-modal__field">
@@ -4402,7 +4404,7 @@ const CookbookEditModal = ({ cookbook, onSave, onClose }) => {
     <div className="create-modal-overlay" onClick={onClose}>
       <div className="create-modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
         <div className="create-modal__header">
-          <h2 className="create-modal__title">{isNew ? '📚 Add Cookbook' : `Edit "${cookbook.title}"`}</h2>
+          <h2 className="create-modal__title">{isNew ? <><Icon name="bookOpen" size={18} strokeWidth={2} /> Add Cookbook</> : `Edit "${cookbook.title}"`}</h2>
           <button className="ing-modal__close" onClick={onClose}>✕</button>
         </div>
         <div className="create-modal__body" style={{ gap:16 }}>
@@ -4606,7 +4608,7 @@ const CookbookDetail = ({ cookbook, onBack, onEdit, onDelete, onOpenRecipe, reci
 
       <div className="cookbook-detail__hero">
         <div className="cookbook-detail__cover">
-          {cookbook.coverImage ? <img src={cookbook.coverImage} alt={cookbook.title} /> : <div className="cookbook-detail__cover-placeholder" style={{ background:cookbook.spineColor||'#C65D3B' }}><span>📖</span></div>}
+          {cookbook.coverImage ? <img src={cookbook.coverImage} alt={cookbook.title} /> : <div className="cookbook-detail__cover-placeholder" style={{ background:cookbook.spineColor||'#C65D3B' }}><Icon name="bookOpen" size={32} color="#fff" strokeWidth={1.5} /></div>}
         </div>
         <div className="cookbook-detail__meta">
           <h1 className="cookbook-detail__title">{cookbook.title}</h1>
@@ -4795,7 +4797,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
 
       {!globalSearch.trim() && (cookbooks.length === 0 ? (
         <div className="cookbooks-empty">
-          <div className="cookbooks-empty__icon">📚</div>
+          <div className="cookbooks-empty__icon"><Icon name="bookOpen" size={40} color="var(--ash)" strokeWidth={1.5} /></div>
           <h3 className="cookbooks-empty__title">Start your cookbook shelf</h3>
           <p className="cookbooks-empty__sub">Add your physical cookbooks and track which recipes you've saved in Hearth</p>
           {isAdmin && <button className="btn btn--primary" onClick={() => setShowAddModal(true)}>+ Add your first cookbook</button>}
@@ -4809,7 +4811,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
               <button key={cb.id} className="cookbook-card" onClick={() => setSelectedCookbook(cb)}>
                 <div className="cookbook-card__spine" style={{ background:cb.spineColor||'#C65D3B' }} />
                 <div className="cookbook-card__cover">
-                  {cb.coverImage ? <img src={cb.coverImage} alt={cb.title} className="cookbook-card__img" /> : <div className="cookbook-card__placeholder"><span className="cookbook-card__placeholder-icon">📖</span></div>}
+                  {cb.coverImage ? <img src={cb.coverImage} alt={cb.title} className="cookbook-card__img" /> : <div className="cookbook-card__placeholder"><Icon name="bookOpen" size={28} color="var(--ash)" strokeWidth={1.5} /></div>}
                 </div>
                 <div className="cookbook-card__info">
                   <h3 className="cookbook-card__title">{cb.title}</h3>
@@ -4829,7 +4831,7 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
             );
           })}
           {isAdmin && <button className="cookbook-card cookbook-card--add" onClick={() => setShowAddModal(true)}>
-            <div className="cookbook-card__add-icon">+</div>
+            <div className="cookbook-card__add-icon"><Icon name="bookMarked" size={24} color="var(--terracotta)" strokeWidth={2} /></div>
             <p className="cookbook-card__add-label">Add cookbook</p>
           </button>}
         </div>
@@ -5247,7 +5249,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
                   {ALL_CUISINES.map(c => (
                     <button key={c} className={`chip ${details.cuisine === c ? 'chip--selected' : ''}`}
                       onClick={() => setDetail('cuisine', details.cuisine === c ? '' : c)} type="button">
-                      {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_EMOJI[c] || ''} {c}
+                      {details.cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
                     </button>
                   ))}
                 </div>
@@ -5287,7 +5289,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
 
               {/* Nutrition note */}
               <p className="create-modal__field-hint" style={{ marginTop: -4 }}>
-                💡 Calories, protein &amp; fiber will be auto-calculated from your ingredients
+                Calories, protein &amp; fiber will be auto-calculated from your ingredients
               </p>
 
               {/* Ingredients — group-style like edit modal */}
@@ -5822,7 +5824,7 @@ function AppInner() {
               { key: 'recipes',   label: '📖 Recipes'     },
               { key: 'kitchen',   label: '🧑‍🍳 Kitchen'    },
               { key: 'grocery',   label: '🛒 Grocery'     },
-              { key: 'cookbooks', label: '📚 Cookbooks'   },
+              { key: 'cookbooks', label: 'Cookbooks'   },
               { key: 'notes',     label: '💡 Notes'       },
               ...(isAdmin ? [{ key: 'add', label: '➕ Add' }] : []),
             ].map(({ key, label }) => (
@@ -6160,7 +6162,7 @@ function AppInner() {
                 onClick={() => { setLibraryLayout(l => l === 'grid' ? 'list' : 'grid'); setLibraryPage(1); }}
                 title={libraryLayout === 'grid' ? 'Switch to list view' : 'Switch to gallery view'}
               >
-                {libraryLayout === 'grid' ? '☰ List' : '⊞ Gallery'}
+                {libraryLayout === 'grid' ? <Icon name="list" size={16} strokeWidth={2} /> : <Icon name="grid" size={16} strokeWidth={2} />}
               </button>
             </div>
 
@@ -6175,7 +6177,7 @@ function AppInner() {
                     {allCuisinesPool.map(c => (
                       <button key={c} className={`cuisine-icon-btn ${activeCuisines.includes(c) ? 'cuisine-icon-btn--active' : ''}`}
                         onClick={() => toggleCuisine(c)}>
-                        <span className="cuisine-icon-btn__emoji">{CUISINE_EMOJI[c] || '🍽'}</span>
+                        <span className="cuisine-icon-btn__emoji"><Icon name={CUISINE_ICON[c] || 'mapPin'} size={18} strokeWidth={1.75} /></span>
                         <span className="cuisine-icon-btn__label">{c}</span>
                       </button>
                     ))}
@@ -6198,10 +6200,10 @@ function AppInner() {
                 <div className="filter-panel__group">
                   <span className="filter-panel__label">Progress</span>
                   <div className="filter-panel__chips">
-                    {PROGRESS_FILTERS.map(({ key, label }) => (
+                    {PROGRESS_FILTERS.map(({ key, label, icon }) => (
                       <button key={key}
                         className={`filter-bar__chip ${activeProgresses.includes(key) ? 'filter-bar__chip--active' : ''}`}
-                        onClick={() => toggleProgress(key)}>{label}</button>
+                        onClick={() => toggleProgress(key)}>{icon && <Icon name={icon} size={12} strokeWidth={2} />} {label}</button>
                     ))}
                   </div>
                 </div>
@@ -6213,12 +6215,12 @@ function AppInner() {
                     <button
                       className={`filter-bar__chip ${activeCookbooks.includes('__uncategorized') ? 'filter-bar__chip--active' : ''}`}
                       onClick={() => toggleCookbook('__uncategorized')}
-                    ><Icon name="folder" size={13} strokeWidth={2} /> No cookbook</button>
+                    >No cookbook</button>
                     {cookbooks.map(cb => (
                       <button key={cb.title}
                         className={`filter-bar__chip ${activeCookbooks.includes(cb.title) ? 'filter-bar__chip--active' : ''}`}
                         onClick={() => toggleCookbook(cb.title)}
-                      ><Icon name="bookMarked" size={13} strokeWidth={2} /> {cb.title}</button>
+                      >{cb.title}</button>
                     ))}
                   </div>
                 </div>
@@ -6286,10 +6288,10 @@ function AppInner() {
             {/* Active filter pills */}
             {hasActiveFilters && (
               <div className="active-filter-pills">
-                {activeCuisines.map(c => <span key={c} className="active-filter-pill">{CUISINE_EMOJI[c] || '🌍'} {c} <button onClick={() => toggleCuisine(c)}>✕</button></span>)}
+                {activeCuisines.map(c => <span key={c} className="active-filter-pill">{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c} <button onClick={() => toggleCuisine(c)}>✕</button></span>)}
                 {activeTags.map(k => <span key={k} className="active-filter-pill">{TAG_FILTERS.find(f => f.key === k)?.label} <button onClick={() => toggleTag(k)}>✕</button></span>)}
                 {activeProgresses.map(k => <span key={k} className="active-filter-pill">{PROGRESS_FILTERS.find(f => f.key === k)?.label} <button onClick={() => toggleProgress(k)}>✕</button></span>)}
-                {activeCookbooks.map(k => <span key={k} className="active-filter-pill">{k === '__uncategorized' ? '📂 No cookbook' : `📖 ${k}`} <button onClick={() => toggleCookbook(k)}>✕</button></span>)}
+                {activeCookbooks.map(k => <span key={k} className="active-filter-pill">{k === '__uncategorized' ? 'No cookbook' : k} <button onClick={() => toggleCookbook(k)}>✕</button></span>)}
                 {maxCalories !== null && <span className="active-filter-pill">{calDir} {maxCalories} kcal <button onClick={() => setMaxCalories(null)}>✕</button></span>}
                 {maxMinutes !== null && <span className="active-filter-pill">under {maxMinutes} min <button onClick={() => setMaxMinutes(null)}>✕</button></span>}
               </div>

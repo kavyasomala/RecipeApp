@@ -573,7 +573,7 @@ body {
 /* ─── Settings View ──────────────────────────────────────────────────────── */
 .settings-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-bottom: 16px; }
 .settings-section { border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--warm-white); padding: 14px 16px 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
-.settings-section__title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.settings-section__title { font-size: 15px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 7px; }
 .settings-section__hint { font-size: 13px; color: var(--warm-gray); margin-bottom: 10px; }
 .settings-toggle-row { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--cream); border: 1.5px solid var(--border); gap: 4px; }
 .settings-toggle {
@@ -3415,6 +3415,7 @@ body {
 .profile-settings-toggle:hover { background: var(--parchment); }
 .profile-settings-toggle__title {
   font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--charcoal);
+  display: flex; align-items: center; gap: 8px;
 }
 .profile-settings-toggle__right {
   display: flex; align-items: center; gap: 10px;
