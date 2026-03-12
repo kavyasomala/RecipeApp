@@ -718,7 +718,7 @@ const ConvertRefButton = ({ recipe, allIngredients, cookbooks, onConverted, auth
           <div className="create-modal__field">
             <label className="create-modal__field-label"><Icon name="mapPin" size={13} strokeWidth={2} /> Cuisine</label>
             <div className="picker__chips" style={{ marginTop:6 }}>
-              {ALL_CUISINES.map(c => <button key={c} className={`chip ${details.cuisine===c?'chip--selected':''}`} onClick={() => setDetail('cuisine', details.cuisine===c?'':c)} type="button">{details.cuisine===c&&<span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}</button>)}
+              {ALL_CUISINES.map(c => <button key={c} className={`chip ${details.cuisine===c?'chip--selected':''}`} onClick={() => setDetail('cuisine', details.cuisine===c?'':c)} type="button">{details.cuisine===c&&<span className="chip__check">✓</span>}{c}</button>)}
             </div>
           </div>
           {/* Tags */}
@@ -2770,7 +2770,7 @@ const AddFriendModal = ({ onClose, onCreated, authFetch }) => {
   );
 };
 
-const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnits, totalRecipes, hideIncompatible, setHideIncompatible, authFetch, authUser, onLogout, onAuthUserUpdate }) => {
+const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnits, totalRecipes, hideIncompatible, setHideIncompatible, authFetch, authUser, onLogout, onAuthUserUpdate, darkMode = false, setDarkMode }) => {
   const apiFetch = authFetch || fetch;
   const isAdmin = authUser?.role === 'admin';
   const [cookHistory, setCookHistory] = useState([]);
@@ -3239,6 +3239,25 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
 
         {settingsOpen && (
           <div className="profile-settings-body">
+
+            <div className="settings-section">
+              <h4 className="settings-section__title"><Icon name="moon" size={15} strokeWidth={2} /> Appearance</h4>
+              <p className="settings-section__hint">Switch between light and dark mode</p>
+              <div className="dark-mode-toggle-row">
+                <span className="dark-mode-toggle__label"><Icon name="sun" size={14} strokeWidth={2} /> Light</span>
+                <button
+                  className={`dark-mode-toggle__btn ${darkMode ? 'dark-mode-toggle__btn--on' : ''}`}
+                  onClick={() => setDarkMode && setDarkMode(!darkMode)}
+                  title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                  type="button"
+                >
+                  <span className="dark-mode-toggle__track">
+                    <span className="dark-mode-toggle__thumb" />
+                  </span>
+                </button>
+                <span className="dark-mode-toggle__label"><Icon name="moon" size={14} strokeWidth={2} /> Dark</span>
+              </div>
+            </div>
 
             <div className="settings-section">
               <h4 className="settings-section__title"><Icon name="leaf" size={15} strokeWidth={2} /> Dietary Restrictions</h4>
@@ -4019,7 +4038,7 @@ const AddReferenceModal = ({ onSave, onClose, allTags, cookbookTitle = '', authF
             <div className="picker__chips" style={{ marginTop:6 }}>
               {ALL_CUISINES.map(c => (
                 <button key={c} className={`chip ${cuisine === c ? 'chip--selected' : ''}`} onClick={() => setCuisine(p => p === c ? '' : c)} type="button">
-                  {cuisine === c && <span className="chip__check">✓</span>}{CUISINE_ICON[c] && <Icon name={CUISINE_ICON[c]} size={12} strokeWidth={2} />} {c}
+                  {cuisine === c && <span className="chip__check">✓</span>}{c}
                 </button>
               ))}
             </div>
@@ -5598,7 +5617,7 @@ function AppInner() {
     document.title = 'Hearth';
     // Set favicon to match the flame icon used in the header
     const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-      <rect width="32" height="32" rx="8" fill="#5C8C6B"/>
+      <rect width="32" height="32" rx="8" fill="#B8522A"/>
       <path d="M16 6C16 6 10 12 10 18a6 6 0 0 0 12 0c0-2-1-4-2-5 0 0 0 3-2 4-1 1-3 0-3-2 0-3 1-5 1-5S16 6 16 6Z" fill="white" stroke="white" stroke-width="0.5"/>
     </svg>`;
     const blob = new Blob([svgFavicon], { type: 'image/svg+xml' });
@@ -5654,6 +5673,14 @@ function AppInner() {
       return next;
     });
   }, [authToken, authFetch]);
+
+  const [darkMode, setDarkModeRaw] = useState(() => LS.get('darkMode', false));
+  const setDarkMode = (v) => { setDarkModeRaw(v); LS.set('darkMode', v); };
+
+  // Apply dark mode to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   const [units, setUnitsRaw] = useState(() => LS.get('units', 'metric'));
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
@@ -6196,12 +6223,12 @@ function AppInner() {
                 {/* Cuisine — rounded icon chips */}
                 <div className="filter-panel__group">
                   <span className="filter-panel__label">Cuisine</span>
-                  <div className="filter-panel__cuisine-icons">
+                  <div className="filter-panel__chips">
                     {allCuisinesPool.map(c => (
-                      <button key={c} className={`cuisine-icon-btn ${activeCuisines.includes(c) ? 'cuisine-icon-btn--active' : ''}`}
+                      <button key={c}
+                        className={`filter-bar__chip ${activeCuisines.includes(c) ? 'filter-bar__chip--active' : ''}`}
                         onClick={() => toggleCuisine(c)}>
-                        <span className="cuisine-icon-btn__emoji"><Icon name={CUISINE_ICON[c] || 'mapPin'} size={18} strokeWidth={1.75} /></span>
-                        <span className="cuisine-icon-btn__label">{c}</span>
+                        {c}
                       </button>
                     ))}
                   </div>
@@ -6223,10 +6250,10 @@ function AppInner() {
                 <div className="filter-panel__group">
                   <span className="filter-panel__label">Progress</span>
                   <div className="filter-panel__chips">
-                    {PROGRESS_FILTERS.map(({ key, label, icon }) => (
+                    {PROGRESS_FILTERS.map(({ key, label }) => (
                       <button key={key}
                         className={`filter-bar__chip ${activeProgresses.includes(key) ? 'filter-bar__chip--active' : ''}`}
-                        onClick={() => toggleProgress(key)}>{icon && <Icon name={icon} size={12} strokeWidth={2} />} {label}</button>
+                        onClick={() => toggleProgress(key)}>{label}</button>
                     ))}
                   </div>
                 </div>
@@ -6469,6 +6496,8 @@ function AppInner() {
           authUser={authUser}
           onLogout={handleLogout}
           onAuthUserUpdate={(updatedUser) => { setAuthUser(updatedUser); LS.set('authUser', updatedUser); }}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
         />
       )}
 

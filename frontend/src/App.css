@@ -2,23 +2,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  /* Sage & Stone palette */
-  --cream: #F6F4F0;
-  --warm-white: #F0EDEA;
-  --parchment: #E8E3DC;
-  --tan: #E2DDD7;          /* muted stone — header/footer */
-  --tan-dark: #CFC9C0;     /* slightly darker for borders on tan bg */
-  --terracotta: #C16B47;
-  --terracotta-dark: #A5572E;
-  --terracotta-light: #D4845F;
-  --ember: #D4845F;
-  --ash: #B5A898;
-  --sage: #5C8C6B;
-  --sage-light: #8CB89A;
-  --charcoal: #2C2A27;     /* warm near-black */
-  --warm-gray: #6B6258;    /* warm stone gray */
-  --light-gray: #D8D2C8;
-  --border: #CFC9C0;
+  /* Earthy & Warm — deeper terracotta, olive green, beeswax */
+  --cream: #FBF5E8;
+  --warm-white: #F7EDDB;
+  --parchment: #EDE0C8;
+  --tan: #E4D7BF;          /* beeswax — header/footer */
+  --tan-dark: #D4C6AA;     /* deeper beeswax for borders on tan bg */
+  --terracotta: #B84A28;
+  --terracotta-dark: #943C18;
+  --terracotta-light: #CC5E38;
+  --ember: #CC5E38;
+  --ash: #C2A47C;
+  --sage: #5E7A3C;
+  --sage-light: #88AA5C;
+  --charcoal: #2A2010;     /* deep warm brown-black */
+  --warm-gray: #78603E;    /* olive-brown */
+  --light-gray: #D8C8A8;
+  --border: #D4C4A4;
 
   /* Insight card warm palette */
   --insight-green-bg: #EAF3E8;   --insight-green-bd: #A8CDAA;   --insight-green-ic: #4E8A56;
@@ -1901,17 +1901,7 @@ body {
 /* ─── Cuisine icon filter chips ─────────────────────────────────────────── */
 .filter-panel__cuisine-icons { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
 .filter-panel__cuisine-icons .chip { white-space: nowrap; padding-left: 14px; padding-right: 14px; }
-.cuisine-icon-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  width: 84px; padding: 10px 8px 8px; border-radius: 12px;
-  border: 1.5px solid var(--border); background: var(--cream);
-  cursor: pointer; transition: all 0.15s ease; font-family: var(--font-body);
-}
-.cuisine-icon-btn:hover { border-color: var(--terracotta-light); background: var(--parchment); }
-.cuisine-icon-btn--active { border-color: var(--terracotta); background: #fdf0eb; }
-.cuisine-icon-btn__emoji { font-size: 24px; line-height: 1; }
-.cuisine-icon-btn__label { font-size: 10px; font-weight: 600; color: var(--warm-gray); text-align: center; line-height: 1.2; white-space: normal; overflow: visible; text-overflow: unset; max-width: 80px; word-break: break-word; }
-.cuisine-icon-btn--active .cuisine-icon-btn__label { color: var(--terracotta); }
+/* cuisine-icon-btn removed — cuisine now uses filter-bar__chip */
 
 /* ─── Filter sliders ─────────────────────────────────────────────────────── */
 .filter-panel__slider-header {
@@ -1935,7 +1925,9 @@ body {
 .filter-panel__slider-edge {
   font-size: 11px; color: var(--warm-gray); font-weight: 600;
   flex-shrink: 0; white-space: nowrap; min-width: 30px; text-align: center;
-  padding-bottom: 6px;
+  /* Thumb is 28px, bar line centered in thumb → center of bar = 14px from bottom of input.
+     Using align-items:flex-end, pad the label up to match. */
+  padding-bottom: 11px;
 }
 .filter-panel__slider-track { position: relative; flex: 1; padding-top: 28px; }
 .filter-panel__slider-bubble {
@@ -2393,18 +2385,16 @@ body {
 /* ─── Title row delete button ────────────────────────────────────────────── */
 .rp2__title-delete-btn {
   flex-shrink: 0;
-  background: none;
-  border: none;
-  font-size: 16px;
   cursor: pointer;
-  opacity: 0.12;
-  transition: opacity 0.2s ease, color 0.2s ease;
-  padding: 4px 6px;
-  border-radius: 6px;
-  color: var(--charcoal);
   line-height: 1;
+  color: var(--warm-gray);
+  opacity: 1;
 }
-.rp2__title-delete-btn:hover { opacity: 1; color: #c0392b; }
+.rp2__title-delete-btn:hover {
+  color: var(--terracotta);
+  border-color: var(--terracotta);
+  background: rgba(184,82,42,0.06);
+}
 
 /* ─── Cooking Mode Button ───────────────────────────────────────────────── */
 .rp2__cooking-mode-btn {
@@ -5077,7 +5067,7 @@ button, [role="button"] { cursor: pointer; }
 
 /* ── Slider edge numbers aligned with slider bar ── */
 .filter-panel__slider-wrap { align-items: flex-end !important; }
-.filter-panel__slider-edge { padding-bottom: 6px !important; }
+.filter-panel__slider-edge { padding-bottom: 11px !important; }
 
 /* ── Calendar theme (Sage & Stone) ── */
 .cook-calendar__nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -5181,3 +5171,221 @@ button, [role="button"] { cursor: pointer; }
 
 /* ── Recipe stats "can make" icon ── */
 .recipe-card__can-make { display: inline-flex !important; align-items: center; gap: 3px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK MODE — Midnight Kitchen
+   Applied via [data-theme="dark"] on <html> element
+   ══════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] {
+  /* Midnight Kitchen palette */
+  --cream:            #161411;
+  --warm-white:       #1D1A16;
+  --parchment:        #242019;
+  --tan:              #1A1714;
+  --tan-dark:         #28241E;
+  --terracotta:       #D47848;
+  --terracotta-dark:  #B85C30;
+  --terracotta-light: #E8966A;
+  --ember:            #E8966A;
+  --ash:              #6E6050;
+  --sage:             #7AAA7E;
+  --sage-light:       #9CC49F;
+  --charcoal:         #EDE8DE;   /* inverted for text */
+  --warm-gray:        #9A8C78;
+  --light-gray:       #332E26;
+  --border:           #332E26;
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.5);
+  --shadow:    0 2px 8px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.65), 0 4px 12px rgba(0,0,0,0.4);
+  --focus-ring: 0 0 0 3px rgba(212,120,72,0.4);
+  color-scheme: dark;
+}
+
+/* Surfaces */
+[data-theme="dark"] body                    { background: var(--tan); }
+[data-theme="dark"] .app-header             { background: rgba(22,20,17,0.96); border-bottom-color: var(--border); }
+[data-theme="dark"] .view                   { background: var(--cream); }
+[data-theme="dark"] .home-view              { background: var(--cream); }
+[data-theme="dark"] .site-footer            { background: var(--warm-white); border-top-color: var(--border); }
+
+/* Nav */
+[data-theme="dark"] .nav-tab                { color: var(--warm-gray); }
+[data-theme="dark"] .nav-tab:hover          { background: rgba(237,232,222,0.06); color: var(--charcoal); }
+[data-theme="dark"] .nav-tab--active        { background: rgba(237,232,222,0.10); color: var(--charcoal); }
+[data-theme="dark"] .mobile-nav-drawer      { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .mobile-nav-item        { color: var(--warm-gray); }
+[data-theme="dark"] .mobile-nav-item:hover,
+[data-theme="dark"] .mobile-nav-item--active { background: var(--parchment); color: var(--charcoal); }
+[data-theme="dark"] .mobile-nav-divider     { background: var(--border); }
+
+/* Cards */
+[data-theme="dark"] .recipe-card            { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .recipe-card:hover      { border-color: var(--terracotta); box-shadow: var(--shadow-md); }
+[data-theme="dark"] .stat-card              { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .cookbook-card          { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .cookbook-card:hover    { border-color: var(--terracotta-light); }
+[data-theme="dark"] .cn-card               { border-color: var(--border) !important; background: var(--warm-white); }
+[data-theme="dark"] .about-card            { background: var(--warm-white); border-color: var(--border); }
+
+/* Inputs & Buttons */
+[data-theme="dark"] .editor-input          { background: var(--parchment); border-color: var(--border); color: var(--charcoal); }
+[data-theme="dark"] .editor-input:focus    { border-color: var(--terracotta); background: var(--warm-white); }
+[data-theme="dark"] .editor-textarea       { background: var(--parchment); border-color: var(--border); color: var(--charcoal); }
+[data-theme="dark"] .editor-textarea:focus { border-color: var(--terracotta); background: var(--warm-white); }
+[data-theme="dark"] .btn--ghost            { border-color: var(--border); color: var(--warm-gray); background: transparent; }
+[data-theme="dark"] .btn--ghost:hover      { border-color: var(--ash); color: var(--charcoal); background: var(--parchment); }
+[data-theme="dark"] .btn--primary          { background: var(--terracotta); }
+[data-theme="dark"] .btn--primary:hover    { background: var(--terracotta-dark); }
+[data-theme="dark"] .chip                  { background: var(--parchment); border-color: var(--border); color: var(--charcoal); }
+[data-theme="dark"] .chip:hover            { border-color: var(--terracotta-light); background: rgba(212,120,72,0.12); }
+[data-theme="dark"] .chip--selected        { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+[data-theme="dark"] .filter-bar__chip      { color: var(--warm-gray); }
+[data-theme="dark"] .filter-bar__chip:hover { background: var(--parchment); color: var(--charcoal); }
+[data-theme="dark"] .filter-bar__chip--active { background: var(--charcoal); color: var(--warm-white); }
+
+/* Modals & Overlays */
+[data-theme="dark"] .create-modal-overlay  { background: rgba(0,0,0,0.72); }
+[data-theme="dark"] .create-modal          { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .create-modal__header  { background: var(--parchment); border-bottom-color: var(--border); }
+[data-theme="dark"] .create-modal__footer  { background: var(--parchment); border-top-color: var(--border); }
+[data-theme="dark"] .delete-confirm-modal  { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .ing-modal             { background: var(--warm-white); }
+[data-theme="dark"] .ing-modal-overlay     { background: rgba(0,0,0,0.65); }
+[data-theme="dark"] .ing-ac-dropdown       { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .ing-ac-option:hover,
+[data-theme="dark"] .ing-ac-option--active { background: var(--parchment); }
+[data-theme="dark"] .login-modal           { background: var(--warm-white); }
+
+/* Recipe page */
+[data-theme="dark"] .rp2                   { background: var(--cream); }
+[data-theme="dark"] .rp2__body             { background: var(--cream); }
+[data-theme="dark"] .rp2__ingredients      { border-right-color: var(--border); }
+[data-theme="dark"] .rp2__ing-item:hover   { background: var(--parchment); }
+[data-theme="dark"] .rp2__ing-check        { border-color: var(--border); }
+[data-theme="dark"] .rp2__notes-item       { background: var(--warm-white); border-color: var(--border); border-left-color: var(--sage); }
+[data-theme="dark"] .rp2__step             { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .rp2__step--current    { background: var(--parchment); border-left-color: var(--terracotta); }
+[data-theme="dark"] .rp2__step--done       { background: var(--cream); border-color: transparent; }
+[data-theme="dark"] .rp2__section-title    { color: var(--warm-gray); border-bottom-color: var(--border); }
+[data-theme="dark"] .rp2__cooking-mode-btn { background: var(--parchment); border-color: var(--border); color: var(--warm-gray); }
+[data-theme="dark"] .rp2__cooking-mode-btn:hover { border-color: var(--ash); color: var(--charcoal); background: var(--tan-dark); }
+[data-theme="dark"] .rp2__cooking-mode-btn--on { background: var(--parchment); border-color: var(--ash); color: var(--charcoal); }
+[data-theme="dark"] .rp2__hero-overlay     { background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, transparent 65%, rgba(0,0,0,0.8) 100%); }
+[data-theme="dark"] .rp2__hero-btn         { background: rgba(22,20,17,0.7); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); }
+
+/* Filter panel */
+[data-theme="dark"] .filter-panel          { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .filter-panel__slider  { background: var(--border); }
+[data-theme="dark"] .filter-panel__slider-bubble { background: var(--charcoal); color: var(--cream); }
+[data-theme="dark"] .filter-panel__dir-btn { background: var(--parchment); border-color: var(--border); color: var(--warm-gray); }
+[data-theme="dark"] .filter-panel__dir-btn--active { background: var(--charcoal); border-color: var(--charcoal); color: var(--cream); }
+
+/* Grocery */
+[data-theme="dark"] .grocery-header        { background: var(--cream); }
+[data-theme="dark"] .grocery-category      { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .grocery-item          { border-bottom-color: var(--border); }
+[data-theme="dark"] .grocery-item:hover    { background: var(--parchment); }
+[data-theme="dark"] .grocery-toggle__switch { background: var(--border); }
+[data-theme="dark"] .grocery-copy-btn      { background: var(--warm-white); border-color: var(--border); color: var(--warm-gray); }
+[data-theme="dark"] .grocery-copy-btn:hover { border-color: var(--sage); color: var(--sage); background: var(--parchment); }
+[data-theme="dark"] .grocery-progress-bar  { background: var(--border); }
+
+/* Kitchen / Fridge */
+[data-theme="dark"] .fridge-group          { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .fridge-group__header  { background: var(--parchment); border-bottom-color: var(--border); }
+[data-theme="dark"] .kitchen-quick-add     { background: var(--warm-white); border-color: var(--border); }
+
+/* Profile */
+[data-theme="dark"] .profile-section       { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .profile-settings-toggle { color: var(--charcoal); border-bottom-color: var(--border); }
+[data-theme="dark"] .profile-settings-toggle:hover { background: var(--parchment); }
+[data-theme="dark"] .profile-settings-body { background: var(--cream); border-color: var(--border); }
+[data-theme="dark"] .settings-section      { border-bottom-color: var(--border); }
+[data-theme="dark"] .settings-section__hint { color: var(--warm-gray); }
+[data-theme="dark"] .about-stack__badge    { background: var(--parchment); color: var(--warm-gray); }
+
+/* Cookbook detail */
+[data-theme="dark"] .cookbook-detail__hero        { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .cbentry                      { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .cbentry:hover                { background: var(--parchment); }
+[data-theme="dark"] .cbentry__menu-dropdown       { background: var(--warm-white); border-color: var(--border); box-shadow: var(--shadow-md); }
+[data-theme="dark"] .cbentry__menu-item           { color: var(--charcoal); }
+[data-theme="dark"] .cbentry__menu-item:hover     { background: var(--parchment); }
+
+/* Cooking notes */
+[data-theme="dark"] .cn-card__header:hover        { background: var(--parchment); }
+[data-theme="dark"] .cn-card__body                { background: var(--parchment); border-top-color: var(--border); }
+
+/* Cook history / timeline */
+[data-theme="dark"] .cook-timeline__card           { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .attempts-row                  { background: var(--warm-white); border-color: var(--border); }
+[data-theme="dark"] .cook-calendar__gcal-cell      { border-color: var(--border); }
+[data-theme="dark"] .cook-calendar__gcal-cell--today { background: rgba(122,170,126,0.12) !important; border-color: var(--sage) !important; }
+[data-theme="dark"] .cook-calendar__gcal-date--today { color: var(--sage) !important; font-weight: 700; }
+[data-theme="dark"] .cook-calendar__nav-btn        { background: var(--parchment); border-color: var(--border); color: var(--charcoal); }
+[data-theme="dark"] .cook-calendar__nav-btn:hover  { background: var(--tan-dark); }
+
+/* Dark mode toggle component */
+.dark-mode-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.dark-mode-toggle__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--warm-gray);
+  user-select: none;
+}
+.dark-mode-toggle__btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  transition: outline var(--transition);
+  outline: 2px solid transparent;
+}
+.dark-mode-toggle__btn:focus-visible {
+  outline: var(--focus-ring);
+}
+.dark-mode-toggle__track {
+  display: block;
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.25s ease;
+  position: relative;
+}
+.dark-mode-toggle__btn--on .dark-mode-toggle__track {
+  background: var(--charcoal);
+}
+[data-theme="dark"] .dark-mode-toggle__btn--on .dark-mode-toggle__track {
+  background: var(--terracotta);
+}
+.dark-mode-toggle__thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.dark-mode-toggle__btn--on .dark-mode-toggle__thumb {
+  transform: translateX(22px);
+}
+[data-theme="dark"] .dark-mode-toggle__thumb {
+  background: #f0ece4;
+}
