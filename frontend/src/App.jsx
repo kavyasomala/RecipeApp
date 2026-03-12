@@ -1437,7 +1437,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             >
               {stayAwake ? <><Icon name="sun" size={14} strokeWidth={2} /> Awake</> : <Icon name="sun" size={14} strokeWidth={2} />}
             </button>
-            {isAdmin && <button className="rp2__title-delete-btn rp2__cooking-mode-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe"><Icon name="trash2" size={14} strokeWidth={2} /></button>}
+            {isAdmin && <button className="rp2__title-delete-btn rp2__cooking-mode-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe"><Icon name="trash2" size={14} strokeWidth={2} color="currentColor" /></button>}
           </div>
         </div>
 
@@ -2922,9 +2922,6 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
       )}
       {/* ── User header ── */}
       <div className="profile-header">
-        <div className="profile-header__avatar" style={{ background: 'var(--terracotta)', color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', width: 52, height: 52, fontWeight: 700, flexShrink: 0 }}>
-          {(authUser?.display_name || authUser?.username)?.[0]?.toUpperCase() || '?'}
-        </div>
         <div style={{ flex: 1 }}>
           {editingDisplayName ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -5853,9 +5850,9 @@ function AppInner() {
               </button>
             ))}
           </nav>
-          {/* User avatar */}
+          {/* User avatar — desktop only */}
           {authUser && (
-            <button className="header-user-btn" onClick={() => setView('profile')} title="Go to profile">
+            <button className="header-user-btn header-user-btn--desktop-only" onClick={() => setView('profile')} title="Go to profile">
               <span className="header-user-btn__name">{authUser.display_name || authUser.username}</span>
             </button>
           )}
@@ -5893,8 +5890,7 @@ function AppInner() {
                 className={`mobile-nav-item ${view === 'profile' ? 'mobile-nav-item--active' : ''}`}
                 onClick={() => { setView('profile'); setMobileNavOpen(false); }}
               >
-                <span className="mobile-nav-avatar">{(authUser.display_name || authUser.username)?.[0]?.toUpperCase()}</span>
-                {authUser.display_name || authUser.username}
+                <Icon name="user" size={15} strokeWidth={2} /> Profile
               </button>
             )}
             {authUser && (
@@ -6170,7 +6166,7 @@ function AppInner() {
 
       {view === 'recipes' && (() => {
         const allCuisinesPool = GEO_CUISINES; // strictly geo only — DB cuisine values are not shown as filters
-        const PAGE_SIZE = 25;
+        const PAGE_SIZE = window.innerWidth <= 640 ? 12 : 24;
         const totalPages = Math.max(1, Math.ceil(libraryRecipes.length / PAGE_SIZE));
         const safePage = Math.min(libraryPage, totalPages);
         const pageRecipes = libraryRecipes.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -6184,36 +6180,40 @@ function AppInner() {
 
             {/* ── Search + Filter Toggle ── */}
             <div className="recipes-search-row">
-              <div className="filter-bar__search-wrap filter-bar__search-wrap--standalone">
-                <span className="filter-bar__search-icon"><Icon name="search" size={15} strokeWidth={2} /></span>
-                <input
-                  className="filter-bar__search"
-                  type="search"
-                  placeholder="Search recipes…"
-                  value={librarySearch}
-                  onChange={e => setLibrarySearch(e.target.value)}
-                />
-                {librarySearch && (
-                  <button className="filter-bar__clear-x" onClick={() => setLibrarySearch('')}>✕</button>
+              <div className="recipes-search-row__top">
+                <div className="filter-bar__search-wrap filter-bar__search-wrap--standalone">
+                  <span className="filter-bar__search-icon"><Icon name="search" size={15} strokeWidth={2} /></span>
+                  <input
+                    className="filter-bar__search"
+                    type="search"
+                    placeholder="Search recipes…"
+                    value={librarySearch}
+                    onChange={e => setLibrarySearch(e.target.value)}
+                  />
+                  {librarySearch && (
+                    <button className="filter-bar__clear-x" onClick={() => setLibrarySearch('')}>✕</button>
+                  )}
+                </div>
+                <button
+                  className={`layout-toggle-btn ${libraryLayout === 'list' ? 'layout-toggle-btn--active' : ''}`}
+                  onClick={() => { setLibraryLayout(l => l === 'grid' ? 'list' : 'grid'); setLibraryPage(1); }}
+                  title={libraryLayout === 'grid' ? 'Switch to list view' : 'Switch to gallery view'}
+                >
+                  {libraryLayout === 'grid' ? <Icon name="list" size={16} strokeWidth={2} /> : <Icon name="grid" size={16} strokeWidth={2} />}
+                </button>
+              </div>
+              <div className="recipes-search-row__bottom">
+                <button
+                  className={`filters-toggle-btn ${filtersOpen ? 'filters-toggle-btn--open' : ''} ${hasActiveFilters ? 'filters-toggle-btn--active' : ''}`}
+                  onClick={() => setFiltersOpen(o => !o)}
+                >
+                  <><Icon name="sliders" size={14} strokeWidth={2} /> Filters{activeCount > 0 ? ` · ${activeCount}` : ''}</>
+                  <span className="filters-toggle-btn__arrow">{filtersOpen ? '▴' : '▾'}</span>
+                </button>
+                {hasActiveFilters && (
+                  <button className="filter-bar__reset" onClick={clearAllFilters}>✕ Clear</button>
                 )}
               </div>
-              <button
-                className={`filters-toggle-btn ${filtersOpen ? 'filters-toggle-btn--open' : ''} ${hasActiveFilters ? 'filters-toggle-btn--active' : ''}`}
-                onClick={() => setFiltersOpen(o => !o)}
-              >
-                <><Icon name="sliders" size={14} strokeWidth={2} /> Filters{activeCount > 0 ? ` · ${activeCount}` : ''}</>
-                <span className="filters-toggle-btn__arrow">{filtersOpen ? '▴' : '▾'}</span>
-              </button>
-              {hasActiveFilters && (
-                <button className="filter-bar__reset" onClick={clearAllFilters}>✕ Clear</button>
-              )}
-              <button
-                className={`layout-toggle-btn ${libraryLayout === 'list' ? 'layout-toggle-btn--active' : ''}`}
-                onClick={() => { setLibraryLayout(l => l === 'grid' ? 'list' : 'grid'); setLibraryPage(1); }}
-                title={libraryLayout === 'grid' ? 'Switch to list view' : 'Switch to gallery view'}
-              >
-                {libraryLayout === 'grid' ? <Icon name="list" size={16} strokeWidth={2} /> : <Icon name="grid" size={16} strokeWidth={2} />}
-              </button>
             </div>
 
             {/* ── Filter Panel ── */}
