@@ -1493,6 +1493,31 @@ app.put('/api/cookbooks/:id', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
+// PUT /api/cookbooks/:id/entries — update just the recipes/entries array (admin only)
+app.put('/api/cookbooks/:id/entries', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { recipes } = req.body;
+  if (!Array.isArray(recipes)) return res.status(400).json({ error: 'recipes must be an array' });
+  try {
+    const { rows } = await query(
+      `UPDATE cookbooks SET recipes = $1::jsonb, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, title, author, cover_image, spine_color, notes, recipes`,
+      [JSON.stringify(recipes), id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Cookbook not found' });
+    const r = rows[0];
+    res.json({ cookbook: {
+      id: r.id, title: r.title, author: r.author||'',
+      coverImage: r.cover_image||'', spineColor: r.spine_color||'#C65D3B',
+      notes: r.notes||'', recipes: r.recipes||[],
+    }});
+  } catch (e) {
+    console.error('PUT /api/cookbooks/:id/entries error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // DELETE /api/cookbooks/:id (admin only)
 app.delete('/api/cookbooks/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {

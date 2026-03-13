@@ -6305,8 +6305,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   color: white !important;
 }
 
-/* ── Remove old topbar styles (no longer used) ── */
-.rp2__hero-topbar { display: none !important; }
+/* topbar visibility now controlled by .rp2__hero-desktop-layout (see v6) */
 
 /* ── Tags popover: wider version ── */
 .rp2__hero-dark-popover--wide {
@@ -6393,13 +6392,142 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   display: flex !important;
 }
 /* More specific: only hide topbar inside the view (non-editor) hero */
-.rp2__hero-topbar { display: none; }
-/* Re-show for editor context via its own class */
-.rp2__hero-overlay .rp2__hero-topbar { display: none; }
+/* (legacy rule removed — topbar visibility handled by v6 desktop-layout wrapper) */
 
-/* ── Editor page: restore topbar (editor has its own overlay with topbar) ── */
+/* editor-page topbar is inside .rp2__hero-desktop-layout and always shows */
+
+/* ══════════════════════════════════════════════════════════════════
+   UI POLISH — v6
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── HERO: desktop shows topbar, mobile shows corners ── */
+.rp2__hero-desktop-layout { display: block; }
+.rp2__hero-mobile-only    { display: none !important; }
+.rp2__hero-desktop-layout .rp2__hero-topbar {
+  display: flex !important;   /* override the hide rule from v5 */
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 640px) {
+  .rp2__hero-desktop-layout { display: none !important; }
+  .rp2__hero-mobile-only    { display: flex !important; }
+  /* Also hide the desktop bottom row on mobile */
+  .rp2__hero-bottom--desktop-only { display: none !important; }
+}
+
+/* ── HERO overlay: must be pointer-events none by default, children opt-in ── */
+.rp2__hero-overlay {
+  pointer-events: none !important;
+}
+.rp2__hero-overlay > * {
+  pointer-events: auto;
+}
+
+/* ── iOS-style swipe: make sure the page slides cleanly ── */
+.app-root { overflow: hidden; } /* prevent horizontal scroll during swipe */
+
+/* ── FOOTER: tagline right-aligned on mobile ── */
+@media (max-width: 640px) {
+  .site-footer__brand {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .site-footer__tagline {
+    text-align: right !important;
+    flex: 1 !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+  }
+  .site-footer__logo { margin-bottom: 0 !important; }
+}
+
+/* ── DARK MODE: remove light bar above footer ── */
+[data-theme="dark"] body {
+  background: var(--cream) !important;  /* match view bg so no gap shows */
+}
+[data-theme="dark"] .app-shell,
+[data-theme="dark"] .app-root {
+  background: var(--cream) !important;
+}
+[data-theme="dark"] .site-footer {
+  border-top-color: var(--border) !important;
+  margin-top: 0 !important;
+}
+/* Kill any gap between last view and footer */
+[data-theme="dark"] .view {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── KITCHEN: ingredient remove button — visible on mobile ── */
+.fridge-chip-remove-mobile {
+  display: none;
+}
+@media (max-width: 640px) {
+  .fridge-chip-remove-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--warm-gray);
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.55;
+    padding: 0;
+    line-height: 1;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .fridge-chip-remove-mobile:active {
+    opacity: 1;
+    background: #fde8e0;
+    color: var(--terracotta);
+  }
+  /* Hide hover-only actions on mobile since we have the always-visible button */
+  .fridge-chip-actions {
+    display: none !important;
+  }
+}
+
+/* ── GROCERY: reduce gap between header and list title ── */
+.grocery-header {
+  margin-bottom: 0 !important;
+  padding-bottom: 12px !important;
+}
+.grocery-list {
+  margin-top: 0 !important;
+}
+
+/* ── GROCERY SYNC note: fridge toggle larger on mobile ── */
+@media (max-width: 640px) {
+  .grocery-toggle__label { display: none !important; }
+}
+
+
+/* ── Editor: its own overlay topbar always shows (not inside desktop-layout wrapper) ── */
 .editor-page .rp2__hero-overlay .rp2__hero-topbar {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
+}
+
+/* ── Dark mode: unify all backgrounds so no light strip appears ── */
+[data-theme="dark"] .app {
+  background: var(--cream) !important;
+}
+[data-theme="dark"] body {
+  background: var(--cream) !important;
+}
+/* Remove padding-bottom gap that can expose body color */
+@media (max-width: 640px) {
+  [data-theme="dark"] .view {
+    padding-bottom: 80px !important;
+  }
 }
