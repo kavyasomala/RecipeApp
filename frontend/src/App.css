@@ -6232,3 +6232,174 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
   .pager::-webkit-scrollbar { display: none !important; }
 }
 
+
+/* ══════════════════════════════════════════════════════════════════
+   UI POLISH — v5
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── FOOTER same color as page background ── */
+.site-footer {
+  background: var(--parchment) !important;
+  border-top-color: var(--tan-dark) !important;
+}
+[data-theme="dark"] .site-footer {
+  background: var(--cream) !important;
+  border-top-color: var(--border) !important;
+}
+
+/* ── FOOTER column headers darker ── */
+.site-footer__col-title {
+  color: var(--charcoal) !important;
+  opacity: 0.7;
+}
+
+/* ── FOOTER mobile: tagline right of logo ── */
+@media (max-width: 640px) {
+  .site-footer__brand {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 14px !important;
+    flex-wrap: nowrap !important;
+  }
+  .site-footer__tagline {
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+    flex: 1 !important;
+  }
+}
+
+/* ── HERO overlay: four-corner layout ── */
+.rp2__hero-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+}
+.rp2__hero-corner {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.rp2__hero-corner--tl { top: 14px; left: 14px; }
+.rp2__hero-corner--tr { top: 14px; right: 14px; }
+.rp2__hero-corner--bl { bottom: 14px; left: 14px; }
+.rp2__hero-corner--br { bottom: 14px; right: 14px; }
+
+/* Desktop: keep tags/pills row visible */
+.rp2__hero-bottom--desktop-only { display: flex; }
+@media (max-width: 640px) {
+  .rp2__hero-bottom--desktop-only { display: none !important; }
+}
+
+/* ── Timer button: dark background variant ── */
+.rp2__hero-soon--dark {
+  background: rgba(0,0,0,0.5) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+.rp2__hero-soon--dark.rp2__hero-soon--on {
+  background: rgba(184,74,40,0.8) !important;
+  color: white !important;
+}
+
+/* ── Remove old topbar styles (no longer used) ── */
+.rp2__hero-topbar { display: none !important; }
+
+/* ── Tags popover: wider version ── */
+.rp2__hero-dark-popover--wide {
+  min-width: 260px !important;
+  max-width: 320px !important;
+}
+
+/* ── ADD TAB icons: use terracotta not browser default blue ── */
+.add-tab__card-icon svg {
+  stroke: var(--terracotta) !important;
+}
+.add-tab__card-icon {
+  color: var(--terracotta) !important;
+}
+
+/* ── DARK MODE: Recipe insights ── */
+[data-theme="dark"] {
+  --insight-green-bg: #1A2E1C;   --insight-green-bd: #2E5032;   --insight-green-ic: #7AAA7E;
+  --insight-amber-bg: #2A2010;   --insight-amber-bd: #4A3A18;   --insight-amber-ic: #D4A848;
+  --insight-rust-bg:  #2A1810;   --insight-rust-bd:  #4A2818;   --insight-rust-ic:  #D47848;
+  --insight-gold-bg:  #251E0E;   --insight-gold-bd:  #3E3010;   --insight-gold-ic:  #C0943A;
+  --insight-sage-bg:  #182218;   --insight-sage-bd:  #2A3E2A;   --insight-sage-ic:  #7AAA7E;
+  --insight-brown-bg: #201A12;   --insight-brown-bd: #3A2E20;   --insight-brown-ic: #9A7850;
+}
+[data-theme="dark"] .insight-item__number { color: var(--charcoal); }
+[data-theme="dark"] .insight-item__label  { color: var(--warm-gray); }
+[data-theme="dark"] .insights-card, [data-theme="dark"] .quick-actions-card {
+  background: var(--warm-white) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── GROCERY header: stay at top, toggle+copy inline, no label ── */
+@media (max-width: 640px) {
+  .grocery-header {
+    position: sticky !important;
+    top: 60px !important;   /* below app header */
+    z-index: 10 !important;
+    background: var(--parchment) !important;
+    padding: 12px 16px !important;
+    margin: 0 -16px !important;
+    width: calc(100% + 32px) !important;
+    border-bottom: 1px solid var(--border) !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+  .grocery-header__actions {
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    gap: 8px !important;
+  }
+  /* Larger toggle switch, no label */
+  .grocery-toggle {
+    gap: 0 !important;
+  }
+  .grocery-toggle__switch {
+    width: 44px !important;
+    height: 24px !important;
+  }
+  .grocery-toggle__switch::after,
+  .grocery-toggle__switch::before {
+    width: 18px !important;
+    height: 18px !important;
+    top: 3px !important;
+    left: 3px !important;
+  }
+  .grocery-toggle input:checked + .grocery-toggle__switch::after,
+  .grocery-toggle input:checked ~ .grocery-toggle__switch::after {
+    transform: translateX(20px) !important;
+  }
+}
+
+/* ── Ensure view has top padding so sticky header doesn't cover content ── */
+@media (max-width: 640px) {
+  .view.grocery-tab > *:not(.grocery-header):not(.grocery-empty) {
+    margin-top: 0;
+  }
+}
+
+
+/* ── Editor hero still uses topbar — keep visible ── */
+.rp2__editor .rp2__hero-topbar,
+.recipe-editor .rp2__hero-topbar {
+  display: flex !important;
+}
+/* More specific: only hide topbar inside the view (non-editor) hero */
+.rp2__hero-topbar { display: none; }
+/* Re-show for editor context via its own class */
+.rp2__hero-overlay .rp2__hero-topbar { display: none; }
+
+/* ── Editor page: restore topbar (editor has its own overlay with topbar) ── */
+.editor-page .rp2__hero-overlay .rp2__hero-topbar {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+}

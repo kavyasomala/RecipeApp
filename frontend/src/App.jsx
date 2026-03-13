@@ -1215,17 +1215,37 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
           : <div className="rp2__hero-placeholder"><Icon name="image" size={40} color="var(--ash)" strokeWidth={1.5} /></div>}
 
         <div className="rp2__hero-overlay">
-          {/* ── Top bar ── */}
-          <div className="rp2__hero-topbar">
+          {/* ── Top-left: Back ── */}
+          <div className="rp2__hero-corner rp2__hero-corner--tl">
             <button className="rp2__hero-btn" onClick={e => { e.stopPropagation(); onBack(); }}>← Back</button>
-            <div className="rp2__hero-topbar-right">
-              {isMakeSoon && onMarkCooked && (
-                <button
-                  className="rp2__hero-btn rp2__hero-cooked-btn"
-                  onClick={e => { e.stopPropagation(); setShowCookedModal(true); }}
-                  title="Mark as Cooked"
-                ><Icon name="chefHat" size={15} strokeWidth={2} /> Cooked</button>
+          </div>
+          {/* ── Top-right: Photo edit (admin only) ── */}
+          <div className="rp2__hero-corner rp2__hero-corner--tr">
+            {isAdmin && <div className="rp2__photo-btn-wrap">
+              <button className="rp2__hero-btn rp2__hero-soon rp2__hero-btn--photo" onClick={e => { e.stopPropagation(); startEdit(isEdit('image') ? null : 'image'); }} title="Change photo link">
+                ✎
+              </button>
+              {isEdit('image') && (
+                <div className="rp2__img-popover-down">
+                  <p className="rp2__dark-pop-label">Cover image URL</p>
+                  <input
+                    className="editor-input"
+                    autoFocus
+                    value={draftImageInput}
+                    onChange={e => setDraftImageInput(e.target.value)}
+                    placeholder="https://…"
+                    onKeyDown={e => { if (e.key === 'Enter') saveSection('image'); if (e.key === 'Escape') cancelEdit(); }}
+                  />
+                  <div className="rp2__dark-pop-actions">
+                    <button className="rp2__dark-save" onClick={() => saveSection('image')} disabled={saving}>{saving ? '…' : '✓ Save'}</button>
+                    <button className="rp2__dark-cancel" onClick={cancelEdit}>✕ Cancel</button>
+                  </div>
+                </div>
               )}
+            </div>}
+          </div>
+          {/* ── Bottom-left: Heart + Timer ── */}
+          <div className="rp2__hero-corner rp2__hero-corner--bl">
               {onToggleHeart && (
                 <button
                   className={`rp2__hero-btn rp2__hero-heart ${isHearted ? 'rp2__hero-heart--on' : ''}`}
@@ -1234,38 +1254,23 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 ><Icon name="heart" size={14} strokeWidth={2} /></button>
               )}
               <button
-                className={`rp2__hero-btn rp2__hero-soon ${isMakeSoon ? 'rp2__hero-soon--on' : ''}`}
+                className={`rp2__hero-btn rp2__hero-soon rp2__hero-soon--dark ${isMakeSoon ? 'rp2__hero-soon--on' : ''}`}
                 onClick={e => { e.stopPropagation(); onToggleMakeSoon && onToggleMakeSoon(); }}
                 title={isMakeSoon ? 'Remove from Make Soon' : 'Add to Make Soon'}
               ><Icon name="timer" size={16} strokeWidth={2} /></button>
-              {/* Change photo — admin only */}
-              {isAdmin && <div className="rp2__photo-btn-wrap">
-                <button className="rp2__hero-btn rp2__hero-soon rp2__hero-btn--photo" onClick={e => { e.stopPropagation(); startEdit(isEdit('image') ? null : 'image'); }} title="Change photo link">
-                  ✎
-                </button>
-                {isEdit('image') && (
-                  <div className="rp2__img-popover-down">
-                    <p className="rp2__dark-pop-label">Cover image URL</p>
-                    <input
-                      className="editor-input"
-                      autoFocus
-                      value={draftImageInput}
-                      onChange={e => setDraftImageInput(e.target.value)}
-                      placeholder="https://…"
-                      onKeyDown={e => { if (e.key === 'Enter') saveSection('image'); if (e.key === 'Escape') cancelEdit(); }}
-                    />
-                    <div className="rp2__dark-pop-actions">
-                      <button className="rp2__dark-save" onClick={() => saveSection('image')} disabled={saving}>{saving ? '…' : '✓ Save'}</button>
-                      <button className="rp2__dark-cancel" onClick={cancelEdit}>✕ Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </div>}
-
-            </div>
+          </div>
+          {/* Bottom-right: Cooked */}
+          <div className="rp2__hero-corner rp2__hero-corner--br">
+              {isMakeSoon && onMarkCooked && (
+                <button
+                  className="rp2__hero-btn rp2__hero-cooked-btn"
+                  onClick={e => { e.stopPropagation(); setShowCookedModal(true); }}
+                  title="Mark as Cooked"
+                ><Icon name="chefHat" size={15} strokeWidth={2} /> Cooked</button>
+              )}
           </div>
 
-          {/* ── Bottom: tags (left) + pills (right) — hidden on mobile ── */}
+          {/* ── Desktop-only tags+pills row at bottom ── */}
           <div className="rp2__hero-bottom rp2__hero-bottom--desktop-only">
 
             {/* Tags area — only show fields that have values; add button for adding more */}
@@ -1314,12 +1319,19 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
               {/* Tags popover — rendered once, attached to last chip or add button */}
               {isEdit('meta-tags') && (
                 <div className="rp2__hero-tag-wrap">
-                  <div className="rp2__hero-dark-popover">
+                  <div className="rp2__hero-dark-popover rp2__hero-dark-popover--wide">
                     <p className="rp2__dark-pop-label"><Icon name="tag" size={13} strokeWidth={2} /> Tags</p>
                     <div className="rp2__dark-pop-chips">
                       {TAG_FILTERS.map(({ key, label }) => (
                         <button key={key} className={`rp2__dark-chip ${(draftMeta.tags || []).includes(key) ? 'rp2__dark-chip--on' : ''}`}
                           onClick={() => toggleDraftTag(key)}>{label}</button>
+                      ))}
+                    </div>
+                    <p className="rp2__dark-pop-label" style={{marginTop:10}}><Icon name="list" size={13} strokeWidth={2} /> Progress</p>
+                    <div className="rp2__dark-pop-chips">
+                      {[{key:'',label:'— None'},{key:'complete',label:'Complete'},{key:'needs tweaking',label:'Needs Tweaking'},{key:'to try',label:'To Try'},{key:'incomplete',label:'Incomplete'}].map(({key,label}) => (
+                        <button key={key} className={`rp2__dark-chip ${draftMeta.status === key ? 'rp2__dark-chip--on' : ''}`}
+                          onClick={() => setDraftMeta(p => ({...p, status: key}))}>{label}</button>
                       ))}
                     </div>
                     <div className="rp2__dark-pop-actions">
@@ -3169,11 +3181,11 @@ const ProfileTab = ({ recipes, dietaryFilters, setDietaryFilters, units, setUnit
                             </div>
                           </div>
                           {u.role !== 'admin' && (
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => handleSuspend(u)} style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--warm-white)', cursor: 'pointer', color: u.role === 'suspended' ? 'var(--sage)' : 'var(--warm-gray)', fontWeight: 500 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                              <button onClick={() => handleSuspend(u)} style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--warm-white)', cursor: 'pointer', color: u.role === 'suspended' ? 'var(--sage)' : 'var(--warm-gray)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                                 {u.role === 'suspended' ? 'Restore' : 'Suspend'}
                               </button>
-                              <button onClick={() => handleDelete(u)} style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: 999, border: '1px solid #f5c2b8', background: '#fff0ee', cursor: 'pointer', color: 'var(--terracotta-dark, #b84a2e)', fontWeight: 500 }}>
+                              <button onClick={() => handleDelete(u)} style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: 999, border: '1px solid #f5c2b8', background: '#fff0ee', cursor: 'pointer', color: 'var(--terracotta-dark, #b84a2e)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                                 Remove
                               </button>
                             </div>
@@ -3513,7 +3525,7 @@ const GroceryListTab = ({ recipes, makeSoonIds, allMyIngredients, allIngredients
             <label className="grocery-toggle" title="Hide ingredients you already have in your kitchen">
               <input type="checkbox" checked={hideInKitchen} onChange={e => setHideInKitchen(e.target.checked)} />
               <span className="grocery-toggle__switch" />
-              <span className="grocery-toggle__label">Hide in kitchen</span>
+
             </label>
             <button className="grocery-copy-btn rp2__cooking-mode-btn" onClick={copyList} title="Copy list to clipboard"><Icon name="fileText" size={14} strokeWidth={2} /> Copy list</button>
           </div>
@@ -4724,15 +4736,42 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
   const [editingCookbook,  setEditingCookbook]  = useState(null);
   const [globalSearch,     setGlobalSearch]     = useState('');
 
-  const handleSaveCookbook = (data) => {
-    if (editingCookbook) setCookbooks(prev => prev.map(c => c.id===editingCookbook.id ? {...c,...data} : c));
-    else setCookbooks(prev => [...prev, { id:`cb-${Date.now()}`, recipes:[], ...data }]);
+  const handleSaveCookbook = async (data) => {
+    try {
+      if (editingCookbook) {
+        const res = await authFetch(`${API}/api/cookbooks/${editingCookbook.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setCookbooks(prev => prev.map(c => c.id === editingCookbook.id ? { ...c, ...d.cookbook } : c));
+        }
+      } else {
+        const res = await authFetch(`${API}/api/cookbooks`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, recipes: [] }),
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setCookbooks(prev => [...prev, d.cookbook || { id: `cb-${Date.now()}`, recipes: [], ...data }]);
+        } else {
+          // Fallback to local if endpoint not yet available
+          setCookbooks(prev => [...prev, { id: `cb-${Date.now()}`, recipes: [], ...data }]);
+        }
+      }
+    } catch {
+      // Fallback gracefully
+      if (editingCookbook) setCookbooks(prev => prev.map(c => c.id === editingCookbook.id ? { ...c, ...data } : c));
+      else setCookbooks(prev => [...prev, { id: `cb-${Date.now()}`, recipes: [], ...data }]);
+    }
     setShowAddModal(false); setEditingCookbook(null);
   };
 
-  const handleDeleteCookbook = (id) => {
+  const handleDeleteCookbook = async (id) => {
     setCookbooks(prev => prev.filter(c => c.id !== id));
     if (selectedCookbook?.id === id) setSelectedCookbook(null);
+    try {
+      await authFetch(`${API}/api/cookbooks/${id}`, { method: 'DELETE' });
+    } catch { /* local delete already done */ }
   };
 
   const enrichedCookbooks = useMemo(() => cookbooks.map(cb => {
@@ -4777,7 +4816,14 @@ const CookbooksTab = ({ cookbooks, setCookbooks, recipes, onOpenRecipe, allTags,
       onOpenRecipe={onOpenRecipe}
       recipes={recipes}
       allIngredients={allIngredients}
-      onUpdateRecipes={(newRecipes) => setCookbooks(prev => prev.map(c => c.id===currentCb.id ? {...c, recipes:newRecipes} : c))}
+      onUpdateRecipes={async (newRecipes) => {
+        setCookbooks(prev => prev.map(c => c.id===currentCb.id ? {...c, recipes:newRecipes} : c));
+        try {
+          await authFetch(`${API}/api/cookbooks/${currentCb.id}/entries`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipes: newRecipes }),
+          });
+        } catch { /* local update already applied */ }
+      }}
       allTags={allTags}
       setCookingRecipe={setCookingRecipe}
       cookLog={cookLog}
@@ -5615,16 +5661,26 @@ function AppInner() {
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
 
-  // Swipe-right to go back (mobile) — only active on recipe/detail views
+  // Swipe-right to go back (mobile) with visual feedback
   const swipeTouchStart = useRef(null);
+  const [swipeDx, setSwipeDx] = useState(0);
   const handleSwipeTouchStart = useCallback((e) => {
     swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    setSwipeDx(0);
+  }, []);
+  const handleSwipeTouchMove = useCallback((e) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.touches[0].clientX - swipeTouchStart.current.x;
+    const dy = Math.abs(e.touches[0].clientY - swipeTouchStart.current.y);
+    if (dx > 0 && dy < 80) setSwipeDx(Math.min(dx, 120));
+    else setSwipeDx(0);
   }, []);
   const handleSwipeTouchEnd = useCallback((e) => {
     if (!swipeTouchStart.current) return;
     const dx = e.changedTouches[0].clientX - swipeTouchStart.current.x;
     const dy = Math.abs(e.changedTouches[0].clientY - swipeTouchStart.current.y);
-    if (dx > 60 && dy < 80) { setView(lastView); }
+    if (dx > 60 && dy < 80) { setSwipeDx(0); setView(lastView); }
+    else setSwipeDx(0);
     swipeTouchStart.current = null;
   }, [lastView]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -5705,7 +5761,7 @@ function AppInner() {
   const [dietaryFilters, setDietaryFiltersRaw] = useState(() => LS.get('dietaryFilters', []));
   const [hideIncompatible, setHideIncompatibleRaw] = useState(() => LS.get('hideIncompatible', false));
   const setHideIncompatible = (v) => { setHideIncompatibleRaw(v); LS.set('hideIncompatible', v); };
-  const [cookbooks, setCookbooks] = useState(() => LS.get('cookbooks', []));
+  const [cookbooks, setCookbooks] = useState([]);
   const [cookLog, setCookLog] = useState([]);
   const [cookingNotes, setCookingNotes] = useState([]);
   const setUnits = (v) => { setUnitsRaw(v); LS.set('units', v); };
@@ -5713,19 +5769,20 @@ function AppInner() {
 
   useEffect(() => { LS.set('fridgeIngredients', fridgeIngredients); }, [fridgeIngredients]);
   useEffect(() => { LS.set('pantryStaples', pantryStaples); }, [pantryStaples]);
-  useEffect(() => { LS.set('cookbooks', cookbooks); }, [cookbooks]);
 
   const loadData = useCallback(async () => {
     try {
-      const [ingRes, recipeRes, notesRes] = await Promise.all([
+      const [ingRes, recipeRes, notesRes, cbRes] = await Promise.all([
         fetch(`${API}/api/ingredients`),
         fetch(`${API}/api/recipes`),
         fetch(`${API}/api/cooking-notes`),
+        fetch(`${API}/api/cookbooks`),
       ]);
       if (!ingRes.ok || !recipeRes.ok) throw new Error('Failed to load data');
       const { ingredients } = await ingRes.json();
       const { recipes: recipeData } = await recipeRes.json();
       if (notesRes.ok) { const d = await notesRes.json(); setCookingNotes(d.notes || []); }
+      if (cbRes.ok) { const d = await cbRes.json(); setCookbooks(d.cookbooks || d || []); }
       setAllIngredients(ingredients.sort((a, b) => a.name.localeCompare(b.name)));
       setRecipes(recipeData);
 
@@ -5925,7 +5982,18 @@ function AppInner() {
       </header>
 
       {view === 'recipe' && !editingRecipe && (
-        <div onTouchStart={handleSwipeTouchStart} onTouchEnd={handleSwipeTouchEnd} style={{flex:1,display:'flex',flexDirection:'column'}}>
+        <div
+          onTouchStart={handleSwipeTouchStart}
+          onTouchMove={handleSwipeTouchMove}
+          onTouchEnd={handleSwipeTouchEnd}
+          style={{flex:1,display:'flex',flexDirection:'column',position:'relative',transform: swipeDx > 0 ? `translateX(${swipeDx * 0.18}px)` : 'none',transition: swipeDx === 0 ? 'transform 0.25s ease' : 'none'}}
+        >
+          {swipeDx > 20 && (
+            <div style={{position:'fixed',left:0,top:'50%',transform:'translateY(-50%)',zIndex:999,pointerEvents:'none',display:'flex',alignItems:'center',gap:6,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(8px)',borderRadius:'0 20px 20px 0',padding:'10px 16px 10px 12px',color:'white',fontSize:14,fontWeight:600,opacity: Math.min(swipeDx / 80, 1),transition:'opacity 0.1s'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              Back
+            </div>
+          )}
         <RecipePage
           recipe={selectedRecipe} bodyIngredients={recipeBodyIngredients} instructions={recipeInstructions} notes={recipeNotes} cookingNotes={cookingNotes}
           loading={recipeLoading} onBack={() => setView(lastView)}
