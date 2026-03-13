@@ -106,9 +106,9 @@ body {
 /* ─── Header / Nav Tabs ─────────────────────────────────────────────────── */
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 .app-header {
-  background: rgba(224, 213, 192, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--parchment);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: 1px solid var(--tan-dark);
   position: sticky;
   top: 0;
@@ -5636,7 +5636,7 @@ button, [role="button"] { cursor: pointer; }
 .profile-settings-toggle:hover { background: var(--tan) !important; }
 .profile-settings-body { background: var(--warm-white) !important; }
 .settings-section { background: var(--parchment) !important; }
-.profile-header { background: var(--warm-white); }
+.profile-header { background: transparent; }
 
 /* ── No profile avatar circle on profile page ── */
 .profile-header__avatar { display: none !important; }
@@ -5652,5 +5652,583 @@ button, [role="button"] { cursor: pointer; }
   color: var(--terracotta) !important;
   border-color: var(--terracotta) !important;
   background: rgba(212,120,72,0.1) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   UI POLISH — v4 fixes
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── TRASH BUTTON — definitive fix (icon was null due to missing ICONS entry) ── */
+/* Now that trash2 is in ICONS, just ensure visibility */
+.rp2__title-delete-btn.rp2__cooking-mode-btn {
+  color: var(--warm-gray) !important;
+  opacity: 1 !important;
+}
+.rp2__title-delete-btn.rp2__cooking-mode-btn svg {
+  stroke: var(--warm-gray) !important;
+}
+.rp2__title-delete-btn.rp2__cooking-mode-btn:hover {
+  color: var(--terracotta) !important;
+  border-color: var(--terracotta) !important;
+  background: rgba(184,74,40,0.06) !important;
+}
+.rp2__title-delete-btn.rp2__cooking-mode-btn:hover svg {
+  stroke: var(--terracotta) !important;
+}
+
+/* ── HEADER — match background exactly ── */
+[data-theme="light"] .app-header,
+.app-header {
+  background: var(--parchment) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── PROFILE HEADER — no overlay ── */
+.profile-header {
+  background: transparent !important;
+}
+
+/* ── NOTES SECTION — fix mobile overflow/cut-off ── */
+@media (max-width: 640px) {
+  .rp2__notes-row {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 16px 16px 0 !important;
+    margin: 0 !important;
+    border-top: 1px solid var(--border) !important;
+    overflow: visible !important;
+  }
+  .rp2__notes {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+  .rp2__cookbook {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* ── COOKBOOK section — centered text, no icon ── */
+.rp2__cookbook-title {
+  text-align: center;
+}
+.rp2__cookbook-text {
+  text-align: center;
+}
+.rp2__cookbook-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── HERO BUTTONS — spread to all 4 corners on mobile ── */
+@media (max-width: 640px) {
+  .rp2__hero-topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 12px;
+    pointer-events: none;
+  }
+  .rp2__hero-topbar > * { pointer-events: auto; }
+  .rp2__hero-topbar-right {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 60%;
+  }
+}
+
+/* ── ADD TAB — 3 cards in a row on desktop, stacked on mobile ── */
+@media (min-width: 641px) {
+  .add-tab__cards {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    max-width: 900px !important;
+  }
+  .add-tab__card {
+    min-width: 0 !important;
+  }
+}
+
+/* ── COOKBOOKS HEADER — add button inline on all sizes ── */
+.cookbooks-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 12px !important;
+  margin-bottom: 20px;
+}
+@media (max-width: 640px) {
+  .cookbooks-header .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+  }
+  .cookbooks-title { font-size: 18px !important; }
+}
+
+/* ── GROCERY HEADER — actions inline with title on mobile ── */
+@media (max-width: 640px) {
+  .grocery-header {
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    gap: 10px;
+  }
+  .grocery-header__actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    flex-shrink: 0;
+    gap: 6px !important;
+  }
+  /* Make toggle and copy more subtle */
+  .grocery-toggle__label {
+    font-size: 11px !important;
+    color: var(--warm-gray) !important;
+  }
+  .grocery-copy-btn {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+  }
+  .grocery-toggle {
+    gap: 5px !important;
+  }
+  .grocery-toggle__switch {
+    width: 28px !important;
+    height: 16px !important;
+  }
+  .grocery-toggle__switch::before {
+    width: 12px !important;
+    height: 12px !important;
+    top: 2px !important;
+    left: 2px !important;
+  }
+  input[type="checkbox"]:checked + .grocery-toggle__switch::before {
+    transform: translateX(12px) !important;
+  }
+}
+
+/* ── KITCHEN HEADER — actions inline with title on mobile ── */
+@media (max-width: 640px) {
+  .fridge-header {
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    flex-direction: row !important;
+  }
+  .fridge-header__actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+  }
+  .fridge-header__actions .btn {
+    width: auto !important;
+    font-size: 12px !important;
+    padding: 5px 10px !important;
+    white-space: nowrap !important;
+  }
+  /* Clear all — smaller & subtle */
+  .fridge-header__actions .btn--ghost {
+    font-size: 11px !important;
+    color: var(--warm-gray) !important;
+    border-color: transparent !important;
+    padding: 3px 6px !important;
+    background: transparent !important;
+  }
+  .fridge-header__actions .btn--ghost:hover {
+    color: var(--terracotta) !important;
+    border-color: var(--border) !important;
+    background: var(--parchment) !important;
+  }
+}
+
+/* ── MISSING DROPDOWN — no blue, use app colors ── */
+.kitchen-missing-header,
+.kitchen-missing-section select,
+.fridge-type-chip,
+.kitchen-split__count {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  accent-color: var(--terracotta) !important;
+}
+/* Remove any system blue from the missing collapsible header */
+.kitchen-missing-header {
+  background: transparent !important;
+  color: var(--charcoal) !important;
+  border: none !important;
+}
+/* Native select reset */
+select {
+  accent-color: var(--terracotta);
+}
+/* Focus ring override — remove blue outline */
+*:focus, *:focus-visible {
+  outline-color: var(--terracotta) !important;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
+  box-shadow: 0 0 0 2px var(--terracotta-light) !important;
+  outline: none !important;
+}
+
+/* ── RECIPES SEARCH ROW — full width on mobile ── */
+@media (max-width: 640px) {
+  .recipes-search-row {
+    margin: 10px 0 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+  .recipes-search-row__top {
+    width: 100% !important;
+  }
+  .recipes-search-row__top .filter-bar__search-wrap--standalone {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .recipes-search-row__bottom {
+    width: 100% !important;
+  }
+  .recipes-search-row__bottom .filters-toggle-btn {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+  .layout-toggle-btn {
+    flex-shrink: 0 !important;
+    width: 40px !important;
+    padding: 8px !important;
+    justify-content: center !important;
+  }
+}
+
+/* ── PAGINATION — single line with ellipsis ── */
+.pager {
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+}
+.pager__pages {
+  flex-wrap: nowrap !important;
+  gap: 3px !important;
+}
+.pager__ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  color: var(--warm-gray);
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 640px) {
+  .pager {
+    gap: 3px !important;
+  }
+  .pager__btn {
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+  .pager__num {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    padding: 0 !important;
+  }
+  .pager__ellipsis {
+    width: 20px;
+    font-size: 11px;
+  }
+}
+
+/* ── FOOTER desktop — icon left of Hearth, heart inline ── */
+.site-footer__logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+}
+.site-footer__credit {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+/* ── Dark mode overrides for new rules ── */
+[data-theme="dark"] .app-header {
+  background: var(--cream) !important;
+  border-bottom-color: var(--border) !important;
+}
+[data-theme="dark"] *:focus-visible {
+  box-shadow: 0 0 0 2px var(--terracotta) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   UI POLISH — v4 fixes
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Trash/delete button: fully standalone, clearly visible ── */
+.rp2__delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--warm-white);
+  color: var(--warm-gray);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+  padding: 0;
+}
+.rp2__delete-btn:hover {
+  border-color: var(--terracotta);
+  background: rgba(184,74,40,0.06);
+  color: var(--terracotta);
+}
+.rp2__delete-btn svg { display: block; }
+[data-theme="dark"] .rp2__delete-btn { background: var(--parchment); border-color: var(--border); }
+[data-theme="dark"] .rp2__delete-btn:hover { border-color: var(--terracotta); background: rgba(212,120,72,0.08); }
+
+/* ── Notes & tips + cookbook: ensure they're not clipped on mobile ── */
+@media (max-width: 640px) {
+  .rp2__notes-row {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 16px 16px 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  .rp2__notes {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .rp2__cookbook {
+    width: 100% !important;
+    flex-shrink: unset !important;
+    min-width: 0 !important;
+  }
+  .rp2__inline-editor {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .rp2__ed-note-row {
+    display: flex !important;
+    gap: 6px !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  .rp2__ed-note-row input {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+}
+
+/* ── Cookbook text: center the content ── */
+.rp2__cookbook-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.rp2__cookbook-text__book {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--charcoal);
+}
+.rp2__cookbook-text__page {
+  font-size: 13px;
+  color: var(--warm-gray);
+}
+
+/* ── Header and body same color in light mode ── */
+:root,
+[data-theme="light"] {
+  --page-bg: var(--cream);
+}
+.app-header {
+  background: var(--cream) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Profile header: no overlay/background behind it ── */
+.profile-header {
+  background: transparent !important;
+  border-bottom: 1.5px solid var(--border);
+}
+
+/* ── Add tab: 3 cards in one row on desktop ── */
+.add-tab__cards--three {
+  max-width: 900px !important;
+}
+.add-tab__cards--three .add-tab__card {
+  min-width: 200px !important;
+  max-width: none !important;
+  padding: 28px 20px 22px !important;
+}
+@media (max-width: 640px) {
+  .add-tab__cards--three {
+    flex-direction: column !important;
+    gap: 14px !important;
+  }
+  .add-tab__cards--three .add-tab__card {
+    min-width: unset !important;
+    width: 100% !important;
+    flex-direction: row !important;
+    padding: 16px 18px !important;
+    align-items: center !important;
+    gap: 14px !important;
+    border-radius: 14px !important;
+  }
+  .add-tab__card-icon {
+    flex-shrink: 0 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
+    background: var(--parchment) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .add-tab__cards--three .add-tab__card > div {
+    flex: 1;
+  }
+  .add-tab__card-desc {
+    font-size: 12px !important;
+    opacity: 0.8;
+    margin: 0 !important;
+  }
+  .add-tab__card-cta { display: none !important; }
+}
+
+/* ── Grocery header: hide/copy inline on mobile ── */
+@media (max-width: 640px) {
+  .grocery-header {
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+  }
+  .grocery-header__actions {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  .grocery-toggle {
+    font-size: 11px !important;
+  }
+  .grocery-toggle__label {
+    font-size: 11px !important;
+  }
+  .grocery-copy-btn {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+  }
+}
+
+/* ── Kitchen header: add ingredient + clear all inline on mobile ── */
+@media (max-width: 640px) {
+  .fridge-header {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+  }
+  .fridge-header__actions {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+  /* Make clear all look subtle */
+  .fridge-header__actions .btn--ghost {
+    font-size: 10px !important;
+    padding: 3px 8px !important;
+    opacity: 0.7 !important;
+    border-color: transparent !important;
+  }
+  .fridge-header__actions .btn--ghost:hover { opacity: 1 !important; }
+  /* Add ingredient primary button smaller */
+  .fridge-header__actions .btn--primary {
+    font-size: 12px !important;
+    padding: 5px 10px !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* ── Kitchen missing dropdown: no blue ── */
+.kitchen-missing-header {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background: transparent !important;
+  color: var(--charcoal) !important;
+  border: none !important;
+  border-top: 2px solid var(--border) !important;
+  outline: none !important;
+  padding: 8px 0 10px !important;
+  cursor: pointer !important;
+  width: 100% !important;
+  text-align: left !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 8px !important;
+  -webkit-tap-highlight-color: transparent !important;
+  accent-color: var(--terracotta) !important;
+}
+.kitchen-missing-header:focus { outline: none !important; box-shadow: none !important; }
+
+/* ── Search row + layout toggle: full width on mobile ── */
+@media (max-width: 640px) {
+  .recipes-search-row {
+    padding: 0 !important;
+    margin: 12px 0 0 !important;
+  }
+  .recipes-search-row__top {
+    width: 100% !important;
+  }
+  .recipes-search-row__top .filter-bar__search-wrap--standalone {
+    flex: 1 !important;
+  }
+  .recipes-search-row__bottom {
+    width: 100% !important;
+  }
+  .recipes-search-row__bottom .filters-toggle-btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    border-radius: 999px !important;
+  }
+  /* Filter panel: full width */
+  .filter-panel {
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: var(--radius) !important;
+  }
+}
+
+/* ── Pagination: single line on mobile ── */
+@media (max-width: 640px) {
+  .pager {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding: 16px 0 6px !important;
+    justify-content: center !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .pager::-webkit-scrollbar { display: none !important; }
 }
 

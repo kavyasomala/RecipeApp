@@ -43,7 +43,6 @@ const ICONS = {
   // profile sections
   calendar:    ['M3 4h18v18H3z', 'M16 2v4', 'M8 2v4', 'M3 10h18'],
   repeat:      ['M17 1l4 4-4 4', 'M3 11V9a4 4 0 0 1 4-4h14', 'M7 23l-4-4 4-4', 'M21 13v2a4 4 0 0 1-4 4H3'],
-  share2:      ['M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M6 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M18 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M8.59 13.51l6.83 3.98', 'M15.41 6.51l-6.82 3.98'],
   settings:    ['M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', 'M12 2v2', 'M12 20v2', 'M4.93 4.93l1.41 1.41', 'M17.66 17.66l1.41 1.41', 'M2 12h2', 'M20 12h2', 'M6.34 17.66l-1.41 1.41', 'M19.07 4.93l-1.41 1.41'],
   userCircle:  ['M18.39 14.56C16.71 13.7 14.53 13 12 13s-4.71.7-6.39 1.56A2.97 2.97 0 0 0 4 17v1h16v-1c0-1.16-.62-2.2-1.61-2.44z', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
   tool:        ['M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'],
@@ -57,6 +56,16 @@ const ICONS = {
   campfire:    ['M12 2c0 0-4 4-4 8a4 4 0 0 0 8 0c0-4-4-8-4-8z', 'M8 20h8', 'M12 14v6'],
   // file / document
   fileText:    ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
+  // missing icons
+  trash2:      ['M3 6h18', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2', 'M10 11v6', 'M14 11v6'],
+  user:        ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
+  globe:       ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M2 12h20', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'],
+  alertTriangle: ['M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
+  pencil:      ['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'],
+  check:       ['M20 6 9 17l-5-5'],
+  moon:        ['M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'],
+  image:       ['M21 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2z', 'M8.5 13.5l2.5-3 2 2.5 2.5-3 3 4H6z'],
+  share2:      ['M18 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M6 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M18 16a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M8.59 13.51l6.83 3.98', 'M15.41 6.51l-6.82 3.98'],
 };
 
 const Icon = ({ name, size = 16, color = 'currentColor', strokeWidth = 2 }) => {
@@ -1437,7 +1446,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             >
               {stayAwake ? <><Icon name="sun" size={14} strokeWidth={2} /> Awake</> : <Icon name="sun" size={14} strokeWidth={2} />}
             </button>
-            {isAdmin && <button className="rp2__title-delete-btn rp2__cooking-mode-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe"><Icon name="trash2" size={14} strokeWidth={2} color="currentColor" /></button>}
+            {isAdmin && <button className="rp2__delete-btn" onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }} title="Delete recipe"><Icon name="trash2" size={15} strokeWidth={2} color="var(--warm-gray)" /></button>}
           </div>
         </div>
 
@@ -1730,7 +1739,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
             {/* Cookbook Reference — editable */}
             <div className="rp2__cookbook">
               <div className="rp2__section-title-row">
-                <h2 className="rp2__section-title rp2__cookbook-title"><Icon name="bookMarked" size={16} strokeWidth={2} /> Cookbook</h2>
+                <h2 className="rp2__section-title rp2__cookbook-title">Cookbook</h2>
                 {isAdmin && <SectionPencil isEditing={isEdit('cookbook')} onEdit={() => startEdit('cookbook')} onSave={() => saveSection('cookbook')} onCancel={cancelEdit} saving={saving} />}
               </div>
               {isEdit('cookbook') ? (
@@ -1740,7 +1749,7 @@ const RecipePage = ({ recipe, bodyIngredients, instructions, notes, onBack, onSa
                 </div>
               ) : (recipe.cookbook || recipe.reference) ? (
                 <div className="rp2__cookbook-text">
-                  <span className="rp2__cookbook-text__book"><Icon name="bookOpen" size={14} strokeWidth={1.75} color="var(--terracotta)" style={{marginRight: 6, flexShrink: 0}} /> {recipe.cookbook}</span>
+                  <span className="rp2__cookbook-text__book">{recipe.cookbook}</span>
                   {recipe.reference && <span className="rp2__cookbook-text__page">Page {recipe.reference}</span>}
                 </div>
               ) : (
@@ -5108,7 +5117,7 @@ const AddRecipeTab = ({ allIngredients, onSaved, cookbooks = [], authFetch }) =>
         <p className="add-tab__sub">Grow your collection — add a recipe by hand or from a link</p>
       </div>
 
-      <div className="add-tab__cards">
+      <div className="add-tab__cards add-tab__cards--three">
         {/* Manual card */}
         <button className="add-tab__card" onClick={openModal}>
           <span className="add-tab__card-icon"><Icon name="note" size={28} strokeWidth={1.5} /></span>
@@ -5605,6 +5614,19 @@ function AppInner() {
 
   const [view, setView] = useState('home');
   const [lastView, setLastView] = useState('home');
+
+  // Swipe-right to go back (mobile) — only active on recipe/detail views
+  const swipeTouchStart = useRef(null);
+  const handleSwipeTouchStart = useCallback((e) => {
+    swipeTouchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
+  const handleSwipeTouchEnd = useCallback((e) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.changedTouches[0].clientX - swipeTouchStart.current.x;
+    const dy = Math.abs(e.changedTouches[0].clientY - swipeTouchStart.current.y);
+    if (dx > 60 && dy < 80) { setView(lastView); }
+    swipeTouchStart.current = null;
+  }, [lastView]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showAllSoon] = useState(true);
   const [showAllMatch] = useState(true);
@@ -5903,6 +5925,7 @@ function AppInner() {
       </header>
 
       {view === 'recipe' && !editingRecipe && (
+        <div onTouchStart={handleSwipeTouchStart} onTouchEnd={handleSwipeTouchEnd} style={{flex:1,display:'flex',flexDirection:'column'}}>
         <RecipePage
           recipe={selectedRecipe} bodyIngredients={recipeBodyIngredients} instructions={recipeInstructions} notes={recipeNotes} cookingNotes={cookingNotes}
           loading={recipeLoading} onBack={() => setView(lastView)}
@@ -5948,6 +5971,7 @@ function AppInner() {
             loadData();
           }}
         />
+      </div>
       )}
 
       {view === 'recipe' && editingRecipe && (
@@ -6432,9 +6456,24 @@ function AppInner() {
                     <div className="pager">
                       <button className="pager__btn" onClick={() => setLibraryPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>← Prev</button>
                       <div className="pager__pages">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                          <button key={p} className={`pager__num ${p === safePage ? 'pager__num--active' : ''}`} onClick={() => setLibraryPage(p)}>{p}</button>
-                        ))}
+                        {(() => {
+                          const pages = [];
+                          for (let p = 1; p <= totalPages; p++) {
+                            const isFirst2 = p <= 2;
+                            const isLast2 = p >= totalPages - 1;
+                            const isNearCurrent = Math.abs(p - safePage) <= 1;
+                            const show = totalPages <= 7 || isFirst2 || isLast2 || isNearCurrent;
+                            if (!show) continue;
+                            // Check if gap before this page
+                            const prevWasShown = p === 1 || (() => {
+                              const pp = p - 1;
+                              return totalPages <= 7 || pp <= 2 || pp >= totalPages - 1 || Math.abs(pp - safePage) <= 1;
+                            })();
+                            if (!prevWasShown) pages.push(<span key={`ellipsis-${p}`} className="pager__ellipsis">…</span>);
+                            pages.push(<button key={p} className={`pager__num ${p === safePage ? 'pager__num--active' : ''}`} onClick={() => setLibraryPage(p)}>{p}</button>);
+                          }
+                          return pages;
+                        })()}
                       </div>
                       <button className="pager__btn" onClick={() => setLibraryPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>Next →</button>
                     </div>
